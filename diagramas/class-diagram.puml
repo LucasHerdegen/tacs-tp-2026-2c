@@ -1,0 +1,178 @@
+@startuml class
+left to right direction
+
+class Usuario
+{
+    - id: Long
+    - username: string
+    - password: string
+    - rol: TipoRol
+    - medioContacto: MedioContacto
+}
+
+Usuario --> TipoRol
+Usuario --> MedioContacto
+
+enum TipoRol
+{
+    USER
+    ADMIN
+}
+
+class MedioContacto
+{
+    - valor: string
+    - tipo: string
+}
+
+class Actividad
+{
+    - id: Long
+    - titulo: string
+    - descripcion: string
+    - tipo: TipoActividad
+    - ubicacion: Ubicacion
+    - fechaCreacion: Date
+    - fechaRealizacion: Date
+    - minimoParticipantes: int
+    - maximoParticipantes: int
+    - organizador: Usuario
+    - participantes: List<Usuario>
+    - horasAnticipacion: int
+    - rangoReprogramacion: RangoReprogramacion
+    - cambiosFecha: List<CambioFecha>
+    - estado: EstadoActividad
+    - reglasClima: ReglasClima
+    + cumpleCondiciones(clima: Clima): boolean
+    + agregarParticipante(usuario: Usuario): void
+    + removerParticipante(usuario: Usuario): void
+    + reprogramar(date: Fecha): void
+}
+
+Actividad --> TipoActividad
+Actividad..> Clima : "<<usa>>"
+Actividad --> Ubicacion
+Actividad -->"*" Usuario
+Actividad --> RangoReprogramacion
+Actividad -->"*" CambioFecha
+Actividad --> EstadoActividad
+Actividad --> ReglasClima
+
+enum TipoActividad
+{
+    AIRE_LIBRE
+    TECHADA
+    MIXTA
+}
+
+class ReglasClima
+{
+
+}
+
+interface ProveedorClima
+{
+    + obtenerClima(ubicacion): Clima
+}
+
+ProveedorClima ..> Clima : "<<crea>>"
+
+class Clima
+{
+    - probabilidadLluvia: double
+    - temperatura: double
+    - viento: double
+    - etc
+    + probabilidadLluviaEntre(lower: double, upper: double): boolean
+    + temperaturaEntre(lower: double, upper: double): boolean
+    + vientoEntre(lower: double, upper: double): boolean
+}
+
+class Ubicacion
+{
+    - barrio: string
+    - latitud: double
+    - longitud: double
+}
+
+class RangoReprogramacion
+{
+    - dias: int
+    - horaInicio: int
+    - horaFinal: ints
+}
+
+interface Notificador
+{
+    + enviarNotificacion(string: contenido, destinatario: MedioContacto): void
+}
+
+Notificador ..> MedioContacto : "<<usa>>"
+
+class Telegram implements Notificador
+{
+    + enviarNotificacion(string: contenido, destinatario: Usuario): void
+}
+
+class Votacion
+{
+    - id: Long
+    - fechaApertura: Date
+    - actividad: Actividad
+    - alternativas: List<Alternativa>
+    - votos: List<Voto>
+    - quorumMinimo: int
+    + agregarAlternativa(alternativa: Alternativa): void
+    + eliminarAlternativa(numeroAltenativa: int): void
+    + registrarVoto(voto: Voto)
+    + eliminarVoto(usuario: Usuario): void
+}
+
+Votacion -->"*" Alternativa
+Votacion -->"*" Voto
+Votacion --> Actividad
+
+class Alternativa
+{
+    - fecha: Date
+    - clima: Clima
+    - numeroAltenativa: int
+}
+
+Alternativa--> Clima
+
+class Voto
+{
+    - numeroAltenativa: int
+    - usuario: Usuario
+}
+
+Voto --> Usuario
+
+class CambioFecha
+{
+    - fecha: Date
+    - fechaAntigua: Date
+    - fechaNueva: Date
+}
+
+class EstadoActividad
+{
+    - posiblesEstados: List<EstadoActividad>
+    - tipo: TipoEstadoActividad
+    + cambiarEstado(tipo: TipoEstadoActividad)
+}
+
+EstadoActividad -->"*" EstadoActividad
+EstadoActividad --> TipoEstadoActividad
+
+enum TipoEstadoActividad
+{
+    PROPUESTA
+    CONFIRMADA
+    REPROGRAMADA
+    CANCELADA
+    FINALIZADA
+}
+
+@enduml
