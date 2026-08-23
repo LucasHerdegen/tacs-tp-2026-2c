@@ -1,0 +1,102 @@
+package com.tacs.backend.domain.actividad;
+
+import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.clima.ReglasClima;
+import com.tacs.backend.domain.usuario.Usuario;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+public class Actividad
+{
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  private String titulo;
+  private String descripcion;
+
+  @Enumerated(EnumType.STRING)
+  private TipoActividad tipo;
+
+  @Embedded
+  private Ubicacion ubicacion;
+
+  private LocalDateTime fechaCreacion;
+  private LocalDateTime fechaRealizacion;
+  private int minimoParticipantes;
+  private int maximoParticipantes;
+
+  @ManyToOne
+  private Usuario organizador;
+
+  @ManyToMany
+  @JoinTable(
+      name = "actividad_participantes",
+      joinColumns = @JoinColumn(name = "actividad_id"),
+      inverseJoinColumns = @JoinColumn(name = "usuario_id")
+  )
+  private List<Usuario> participantes = new ArrayList<>();
+
+  private int horasAnticipacion;
+
+  @Embedded
+  private RangoReprogramacion rangoReprogramacion;
+
+  @ElementCollection
+  @CollectionTable(name = "actividad_cambios_fecha", joinColumns = @JoinColumn(name = "actividad_id"))
+  private List<CambioFecha> cambiosFecha = new ArrayList<>();
+
+  @ManyToOne
+  private EstadoActividad estado;
+
+  @Embedded
+  private ReglasClima reglasClima;
+
+  public boolean cumpleCondiciones(Clima clima)
+  {
+    return reglasClima != null && reglasClima.esFavorable(clima);
+  }
+
+  public void agregarParticipante(Usuario usuario)
+  {
+    if (!participantes.contains(usuario))
+      participantes.add(usuario);
+  }
+
+  public void removerParticipante(Usuario usuario)
+  {
+    participantes.remove(usuario);
+  }
+
+  public void reprogramar(LocalDateTime date)
+  {
+    CambioFecha cambio = new CambioFecha(LocalDateTime.now(), this.fechaRealizacion, date);
+    this.cambiosFecha.add(cambio);
+    this.fechaRealizacion = date;
+    // La logica de cambiar el estado a REPROGRAMADA dependera de la máquina de estados
+    if (estado != null)
+      estado.cambiarEstado(this, TipoEstadoActividad.REPROGRAMADA);
+  }
+}

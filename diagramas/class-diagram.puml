@@ -88,7 +88,6 @@ class Clima
     - probabilidadLluvia: double
     - temperatura: double
     - viento: double
-    - etc
     + probabilidadLluviaEntre(lower: double, upper: double): boolean
     + temperaturaEntre(lower: double, upper: double): boolean
     + vientoEntre(lower: double, upper: double): boolean
@@ -105,7 +104,7 @@ class RangoReprogramacion
 {
     - dias: int
     - horaInicio: int
-    - horaFinal: ints
+    - horaFinal: int
 }
 
 interface Notificador
@@ -117,7 +116,7 @@ Notificador ..> MedioContacto : "<<usa>>"
 
 class Telegram implements Notificador
 {
-    + enviarNotificacion(string: contenido, destinatario: Usuario): void
+    + enviarNotificacion(string: contenido, destinatario: MedioContacto): void
 }
 
 class Votacion
