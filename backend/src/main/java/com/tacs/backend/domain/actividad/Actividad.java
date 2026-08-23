@@ -43,6 +43,7 @@ public class Actividad
   @Embedded
   private Ubicacion ubicacion;
 
+  private LocalDateTime fecha;
   private LocalDateTime fechaCreacion;
   private LocalDateTime fechaRealizacion;
   private int minimoParticipantes;
@@ -73,6 +74,22 @@ public class Actividad
 
   @Embedded
   private ReglasClima reglasClima;
+
+  public Actividad(String titulo, String descripcion, TipoActividad tipoActividad, Ubicacion ubicacion,
+                   LocalDateTime fecha,
+                   LocalDateTime fechaCreacion, int minimoParticipantes, int maximoParticipantes, Usuario organizador)
+  {
+    this.titulo = titulo;
+    this.descripcion = descripcion;
+    this.tipo = tipoActividad;
+    this.ubicacion = ubicacion;
+    this.fechaCreacion = fechaCreacion;
+    this.minimoParticipantes = minimoParticipantes;
+    this.maximoParticipantes = maximoParticipantes;
+    this.organizador = organizador;
+    this.fecha = fecha;
+  }
+
 
   public boolean cumpleCondiciones(Clima clima)
   {

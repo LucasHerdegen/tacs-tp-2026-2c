@@ -1,4 +1,4 @@
-package com.tacs.backend.domain.exceptions;
+package com.tacs.backend.exceptions;
 
 public class EstadoInvalidoException extends RuntimeException
 {
