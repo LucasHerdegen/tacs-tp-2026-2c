@@ -67,8 +67,14 @@ enum TipoActividad
 
 class ReglasClima
 {
-
+    - maxProbabilidadLluvia: double
+    - minTemperatura: double
+    - maxTemperatura: double
+    - maxViento: double
+    + esFavorable(clima: Clima): boolean
 }
+
+ReglasClima ..> Clima : "<<usa>>"
 
 interface ProveedorClima
 {
@@ -143,11 +149,12 @@ Alternativa--> Clima
 
 class Voto
 {
-    - numeroAltenativa: int
+    - alternativa: Alternativa
     - usuario: Usuario
 }
 
 Voto --> Usuario
+Voto --> Alternativa
 
 class CambioFecha
 {
@@ -160,7 +167,7 @@ class EstadoActividad
 {
     - posiblesEstados: List<EstadoActividad>
     - tipo: TipoEstadoActividad
-    + cambiarEstado(tipo: TipoEstadoActividad)
+    + cambiarEstado(actividad: Actividad, tipo: TipoEstadoActividad)
 }
 
 EstadoActividad -->"*" EstadoActividad
