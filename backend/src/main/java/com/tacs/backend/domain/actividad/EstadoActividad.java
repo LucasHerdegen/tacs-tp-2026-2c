@@ -1,6 +1,6 @@
 package com.tacs.backend.domain.actividad;
 
-import com.tacs.backend.domain.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
