@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 class ActividadesServiceImplem implements ActividadesService
@@ -45,5 +47,36 @@ class ActividadesServiceImplem implements ActividadesService
     actividad = this.actividadesRepository.save(actividad);
 
     return this.actividadesMapper.actividadToActividadDto(actividad);
+  }
+
+  @Override
+  public List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado) {
+    validarExistenciaUsuario(usuarioId);
+
+    List<Actividad> actividades = estado != null
+            ? actividadesRepository.findByOrganizadorIdAndEstadoTipo(usuarioId, estado)
+            : actividadesRepository.findByOrganizadorId(usuarioId);
+
+    return actividades.stream()
+            .map(actividadesMapper::actividadToActividadDto)
+            .toList();
+  }
+
+  @Override
+  public List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado) {
+    validarExistenciaUsuario(usuarioId);
+
+    List<Actividad> actividades = estado != null
+            ? actividadesRepository.findByParticipantesIdAndEstadoTipo(usuarioId, estado)
+            : actividadesRepository.findByParticipantesId(usuarioId);
+
+    return actividades.stream()
+            .map(actividadesMapper::actividadToActividadDto)
+            .toList();
+  }
+
+  private void validarExistenciaUsuario(Long usuarioId) {
+    if(!usuarioRepository.existsById(usuarioId))
+      throw new UsuarioNotFoundException("El usuario con id: " + usuarioId + " no existe");
   }
 }
