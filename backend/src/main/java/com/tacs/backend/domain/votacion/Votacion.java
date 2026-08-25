@@ -28,6 +28,8 @@ public class Votacion
   private Long id;
 
   private LocalDateTime fechaApertura;
+  private boolean abierta = true;
+
 
   @ManyToOne
   private Actividad actividad;
