@@ -55,3 +55,8 @@ Thumbs.db
 *.properties.local
 application-local.properties
 application-dev.properties
+
+# Claude Code
+CLAUDE.md
+
+.claude/
