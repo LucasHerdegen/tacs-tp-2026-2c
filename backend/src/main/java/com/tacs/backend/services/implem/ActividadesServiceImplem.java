@@ -1,6 +1,7 @@
 package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
+import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
@@ -14,6 +15,9 @@ import com.tacs.backend.services.ActividadesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -45,5 +49,46 @@ class ActividadesServiceImplem implements ActividadesService
     actividad = this.actividadesRepository.save(actividad);
 
     return this.actividadesMapper.actividadToActividadDto(actividad);
+  }
+
+  @Override
+  public List<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha)
+  {
+    return actividadesRepository.findAll().stream()
+        .filter(a -> tipo == null || a.getTipo().equals(tipo))
+        .filter(a -> barrio == null || (a.getUbicacion() != null && a.getUbicacion().getBarrio().equalsIgnoreCase(barrio)))
+        .filter(a -> fecha == null || a.getFecha().toLocalDate().equals(fecha))
+        .map(actividadesMapper::actividadToActividadDto)
+        .toList();
+  }
+
+  @Override
+  @Transactional
+  public void unirseActividad(Long actividadId, Long usuarioId) {
+    var actividad = actividadesRepository.findById(actividadId)
+        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+
+    if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes()) {
+      throw new IllegalStateException("La actividad ya esta al maximo de participantes permitidos.");
+    }
+    var usuario = usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+
+    actividad.agregarParticipante(usuario);
+    actividadesRepository.save(actividad);
+  }
+
+
+  @Override
+  @Transactional
+  public void bajarseActividad(Long actividadId, Long usuarioId) {
+    var actividad = actividadesRepository.findById(actividadId)
+        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+
+    var usuario = usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+
+    actividad.removerParticipante(usuario);
+    actividadesRepository.save(actividad);
   }
 }
