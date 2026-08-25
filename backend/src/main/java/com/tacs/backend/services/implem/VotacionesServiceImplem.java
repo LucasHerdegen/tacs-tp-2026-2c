@@ -10,9 +10,8 @@ import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
@@ -25,8 +24,14 @@ class VotacionesServiceImplem implements VotacionesService {
     public List<VotacionDto> votacionesAbiertas(Long usuarioId) {
         validarExistenciaUsuario(usuarioId);
 
-        //set por si es organizador y participante -> TODO verificar
-        Set<Votacion> votaciones = new LinkedHashSet<>();
+        // TODO: asumo que el organizador no puede ser también participante de la misma
+        // actividad. Si esa regla cambia, revisar duplicados (volver a un Set como antes)
+
+        // Set<Votacion> votaciones = new LinkedHashSet<>();
+        // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
+        // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
+
+        List<Votacion> votaciones = new ArrayList<>();
         votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
         votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
 
