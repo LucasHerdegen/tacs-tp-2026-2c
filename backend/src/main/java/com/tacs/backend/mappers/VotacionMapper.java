@@ -1,7 +1,9 @@
 package com.tacs.backend.mappers;
 
+import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
+import com.tacs.backend.dtos.clima.ClimaDto;
 import com.tacs.backend.dtos.votacion.AlternativaDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import org.springframework.stereotype.Component;
@@ -34,8 +36,13 @@ public class VotacionMapper {
         return new AlternativaDto(
                 alternativa.getId(),
                 alternativa.getFecha(),
-                alternativa.getClima(),
+                climaToClimaDto(alternativa.getClima()),
                 alternativa.getNumeroAltenativa()
         );
+    }
+
+    public ClimaDto climaToClimaDto(Clima clima) {
+        if (clima == null) return null;
+        return new ClimaDto(clima.getProbabilidadLluvia(), clima.getTemperatura(), clima.getViento());
     }
 }

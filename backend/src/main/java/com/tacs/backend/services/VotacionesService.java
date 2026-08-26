@@ -5,5 +5,5 @@ import com.tacs.backend.dtos.votacion.VotacionDto;
 import java.util.List;
 
 public interface VotacionesService {
-    List<VotacionDto> votacionesAbiertas(Long usuarioId);
+    List<VotacionDto> votaciones(Long usuarioId, boolean abierta);
 }
