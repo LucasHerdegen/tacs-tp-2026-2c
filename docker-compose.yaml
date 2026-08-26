@@ -7,3 +7,7 @@ services:
       context: ./backend
     ports:
       - "8080:8080"
+    environment:
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET debe estar definida}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
