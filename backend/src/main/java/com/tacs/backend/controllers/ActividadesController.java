@@ -1,8 +1,11 @@
 package com.tacs.backend.controllers;
 
 import com.tacs.backend.domain.actividad.TipoActividad;
+import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.clima.ClimaDto;
+import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.services.ActividadesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,11 +20,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
 import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
+
 
 @RequiredArgsConstructor
 @RestController
@@ -54,17 +58,36 @@ class ActividadesController
     return ResponseEntity.ok(actividades);
   }
 
-  @PostMapping("/api/{id}/participantes")
+  @PostMapping("/{id}/participantes")
   public ResponseEntity<Void> unirseActividad(@PathVariable Long id, @RequestParam Long usuarioId)
   {
     actividadesService.unirseActividad(id, usuarioId);
     return ResponseEntity.ok().build();
   }
 
-  @DeleteMapping("/api/{id}/participantes")
+  @DeleteMapping("/{id}/participantes")
   public ResponseEntity<Void> bajarseActividad(@PathVariable Long id, @RequestParam Long usuarioId)
   {
     actividadesService.bajarseActividad(id, usuarioId);
     return ResponseEntity.ok().build();
+  }
+
+  @GetMapping("/{id}/clima")
+  public ResponseEntity<PronosticoRespuestaDto> obtenerClimaActividad(@PathVariable Long id, @RequestParam Long usuarioId) {
+    return ResponseEntity.ok(actividadesService.obtenerClimaActividad(id, usuarioId));
+  }
+
+  @GetMapping("/organizador/{usuarioId}")   // TODO definir estructura endpoint? -> path param?
+  public ResponseEntity<List<ActividadDto>> getActividadesOrganizadas(
+          @PathVariable Long usuarioId,
+          @RequestParam(required = false) TipoEstadoActividad estado) {
+    return ResponseEntity.ok(actividadesService.actividadesOrganizadas(usuarioId, estado));
+  }
+
+  @GetMapping("/participante/{usuarioId}")
+  public ResponseEntity<List<ActividadDto>> getActividadesParticipadas(
+          @PathVariable Long usuarioId,
+          @RequestParam(required = false) TipoEstadoActividad estado) {
+    return ResponseEntity.ok(actividadesService.actividadesParticipadas(usuarioId, estado));
   }
 }

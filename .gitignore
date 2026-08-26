@@ -26,6 +26,7 @@ replay_pid*
 # Build systems (Maven & Gradle)
 target/
 build/
+.m2/
 .gradle/
 **/build/
 !**/src/main/resources/**/build/
@@ -55,3 +56,8 @@ Thumbs.db
 *.properties.local
 application-local.properties
 application-dev.properties
+
+# Claude Code
+CLAUDE.md
+
+.claude/

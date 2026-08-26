@@ -123,6 +123,7 @@ class Votacion
 {
     - id: Long
     - fechaApertura: Date
+    - abierta: Boolean
     - actividad: Actividad
     - alternativas: List<Alternativa>
     - votos: List<Voto>

@@ -3,19 +3,20 @@ package com.tacs.backend.services.implem;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.EstadoActividadRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
+import com.tacs.backend.services.ProveedorClima;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.util.List;
 
@@ -27,6 +28,7 @@ class ActividadesServiceImplem implements ActividadesService
   private final UsuarioRepository usuarioRepository;
   private final EstadoActividadRepository estadoActividadRepository;
   private final ActividadesMapper actividadesMapper;
+  private final ProveedorClima proveedorClima;
 
   @Override
   @Transactional
@@ -52,6 +54,37 @@ class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
+  public List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado) {
+    validarExistenciaUsuario(usuarioId);
+
+    List<Actividad> actividades = estado != null
+            ? actividadesRepository.findByOrganizadorIdAndEstadoTipo(usuarioId, estado)
+            : actividadesRepository.findByOrganizadorId(usuarioId);
+
+    return actividades.stream()
+            .map(actividadesMapper::actividadToActividadDto)
+            .toList();
+  }
+
+  @Override
+  public List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado) {
+    validarExistenciaUsuario(usuarioId);
+
+    List<Actividad> actividades = estado != null
+            ? actividadesRepository.findByParticipantesIdAndEstadoTipo(usuarioId, estado)
+            : actividadesRepository.findByParticipantesId(usuarioId);
+
+    return actividades.stream()
+            .map(actividadesMapper::actividadToActividadDto)
+            .toList();
+  }
+
+  private void validarExistenciaUsuario(Long usuarioId) {
+    if(!usuarioRepository.existsById(usuarioId))
+      throw new UsuarioNotFoundException("El usuario con id: " + usuarioId + " no existe");
+  }
+
+  @Override
   public List<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha)
   {
     return actividadesRepository.findAll().stream()
@@ -65,6 +98,8 @@ class ActividadesServiceImplem implements ActividadesService
   @Override
   @Transactional
   public void unirseActividad(Long actividadId, Long usuarioId) {
+    validarExistenciaUsuario(usuarioId);
+
     var actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
 
@@ -82,6 +117,8 @@ class ActividadesServiceImplem implements ActividadesService
   @Override
   @Transactional
   public void bajarseActividad(Long actividadId, Long usuarioId) {
+    validarExistenciaUsuario(usuarioId);
+
     var actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
 
@@ -90,5 +127,27 @@ class ActividadesServiceImplem implements ActividadesService
 
     actividad.removerParticipante(usuario);
     actividadesRepository.save(actividad);
+  }
+
+
+  @Override
+  public PronosticoRespuestaDto obtenerClimaActividad(Long actividadId, Long usuarioId) {
+    validarExistenciaUsuario(usuarioId);
+
+    var actividad = actividadesRepository.findById(actividadId)
+        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+
+
+    boolean esParticipante = actividad.getParticipantes().stream()
+        .anyMatch(u -> u.getId().equals(usuarioId));
+
+    if (!esParticipante) {
+      throw new IllegalStateException("Debes ser participante de la actividad para ver su clima.");
+    }
+
+    Clima climaActual = proveedorClima.obtenerClima(actividad.getUbicacion());
+    Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFecha());
+
+    return new PronosticoRespuestaDto(climaActual, pronostico);
   }
 }
