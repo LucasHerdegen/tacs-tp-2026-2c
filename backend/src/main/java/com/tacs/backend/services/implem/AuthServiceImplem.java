@@ -7,6 +7,7 @@ import com.tacs.backend.dtos.auth.LoginResponse;
 import com.tacs.backend.dtos.auth.RegistroRequest;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
 import com.tacs.backend.exceptions.InvalidCredentialsException;
+import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.AuthService;
@@ -50,5 +51,31 @@ class AuthServiceImplem implements AuthService
 
     String token = jwtService.generarToken(usuario);
     return new LoginResponse(token, "Bearer", jwtService.getExpirationSeconds());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public UsuarioDto buscarPorUsername(String username)
+  {
+    Usuario usuario = usuarioRepository.findByUsername(username)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+
+    return toDto(usuario);
+  }
+
+  @Override
+  @Transactional
+  public UsuarioDto actualizarRol(Long usuarioId, TipoRol rol)
+  {
+    Usuario usuario = usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+
+    usuario.setRol(rol);
+    return toDto(usuario);
+  }
+
+  private UsuarioDto toDto(Usuario usuario)
+  {
+    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());
   }
 }
