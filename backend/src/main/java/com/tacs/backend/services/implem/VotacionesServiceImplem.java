@@ -21,7 +21,7 @@ class VotacionesServiceImplem implements VotacionesService {
     private final VotacionMapper votacionMapper;
 
     @Override
-    public List<VotacionDto> votacionesAbiertas(Long usuarioId) {
+    public List<VotacionDto> votaciones(Long usuarioId, boolean abierta) {
         validarExistenciaUsuario(usuarioId);
 
         // TODO: asumo que el organizador no puede ser también participante de la misma
@@ -32,8 +32,8 @@ class VotacionesServiceImplem implements VotacionesService {
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
 
         List<Votacion> votaciones = new ArrayList<>();
-        votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
-        votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
+        votaciones.addAll(votacionesRepository.findByAbiertaAndActividadOrganizadorId(abierta, usuarioId));
+        votaciones.addAll(votacionesRepository.findByAbiertaAndActividadParticipantesId(abierta, usuarioId));
 
         return votaciones.stream()
                 .map(votacionMapper::votacionToVotacionDto)
