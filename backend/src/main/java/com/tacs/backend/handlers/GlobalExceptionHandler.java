@@ -20,4 +20,16 @@ class GlobalExceptionHandler
   {
     return ResponseEntity.notFound().build();
   }
+
+  @ExceptionHandler(com.tacs.backend.exceptions.ActividadNotFoundException.class)
+  public ResponseEntity<String> handleActividadNotFoundException(com.tacs.backend.exceptions.ActividadNotFoundException ex)
+  {
+    return ResponseEntity.notFound().build();
+  }
+
+  @ExceptionHandler(com.tacs.backend.exceptions.AccesoDenegadoException.class)
+  public ResponseEntity<String> handleAccesoDenegadoException(com.tacs.backend.exceptions.AccesoDenegadoException ex)
+  {
+    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(ex.getMessage());
+  }
 }

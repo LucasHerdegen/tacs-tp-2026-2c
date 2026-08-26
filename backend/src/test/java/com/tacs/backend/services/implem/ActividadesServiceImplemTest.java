@@ -11,7 +11,6 @@ import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
-import com.tacs.backend.repositories.EstadoActividadRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,9 +38,6 @@ class ActividadesServiceImplemTest
   private UsuarioRepository usuarioRepository;
 
   @Mock
-  private EstadoActividadRepository estadoActividadRepository;
-
-  @Mock
   private ActividadesMapper actividadesMapper;
 
   @InjectMocks
@@ -50,7 +46,6 @@ class ActividadesServiceImplemTest
   private ActividadPostDto actividadPostDto;
   private Usuario usuarioMock;
   private Actividad actividadMock;
-  private EstadoActividad estadoPropuesta;
 
   @BeforeEach
   void setUp()
@@ -72,8 +67,6 @@ class ActividadesServiceImplemTest
 
     actividadMock = new Actividad();
     actividadMock.setId(100L);
-
-    estadoPropuesta = new EstadoActividad();
   }
 
   @Test
@@ -86,8 +79,6 @@ class ActividadesServiceImplemTest
     when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioMock));
     when(actividadesMapper.actividadPostDtoToActividad(actividadPostDto, usuarioMock))
         .thenReturn(actividadMock);
-    when(estadoActividadRepository.findByTipo(TipoEstadoActividad.PROPUESTA))
-        .thenReturn(Optional.of(estadoPropuesta));
     when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
     when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(expectedDto);
 
@@ -97,9 +88,9 @@ class ActividadesServiceImplemTest
     // Assert
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(expectedDto);
+    assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
 
     verify(usuarioRepository).findById(1L);
-    verify(estadoActividadRepository).findByTipo(TipoEstadoActividad.PROPUESTA);
     verify(actividadesRepository).save(actividadMock);
   }
 
@@ -121,7 +112,7 @@ class ActividadesServiceImplemTest
         .hasMessage("La cantidad mínima no puede ser mayor a la máxima");
 
     // Verificamos que no se haya llamado a ningún repositorio
-    verifyNoInteractions(usuarioRepository, estadoActividadRepository, actividadesRepository);
+    verifyNoInteractions(usuarioRepository, actividadesRepository);
   }
 
   @Test
@@ -136,25 +127,65 @@ class ActividadesServiceImplemTest
         .isInstanceOf(UsuarioNotFoundException.class)
         .hasMessageContaining("El usuario con id 1 no fue encontrado");
 
-    verifyNoInteractions(estadoActividadRepository, actividadesRepository);
+    verifyNoInteractions(actividadesRepository);
+  }
+
+
+
+  @Test
+  @DisplayName("Cancelar actividad exitosamente - Cambia estado a CANCELADA")
+  void cancelarActividad_Success_ChangesStateToCancelada()
+  {
+    // Arrange
+    Long actividadId = 100L;
+    Long organizadorId = 1L;
+    
+    actividadMock.setOrganizador(usuarioMock); // id 1L
+    actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act
+    actividadesService.cancelarActividad(actividadId, organizadorId);
+
+    // Assert
+    assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    verify(actividadesRepository).save(actividadMock);
   }
 
   @Test
-  @DisplayName("Crear actividad falla si no existe el estado inicial - Lanza IllegalStateException")
-  void createActividad_EstadoInicialNoEncontrado_ThrowsException()
+  @DisplayName("Cancelar actividad por usuario que no es organizador - Lanza AccesoDenegadoException")
+  void cancelarActividad_NotOrganizer_ThrowsAccesoDenegadoException()
   {
     // Arrange
-    when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioMock));
-    when(actividadesMapper.actividadPostDtoToActividad(actividadPostDto, usuarioMock))
-        .thenReturn(actividadMock);
-    when(estadoActividadRepository.findByTipo(TipoEstadoActividad.PROPUESTA))
-        .thenReturn(Optional.empty());
+    Long actividadId = 100L;
+    Long intrusoId = 999L;
+    
+    actividadMock.setOrganizador(usuarioMock); // el organizador es 1L
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.createActividad(actividadPostDto))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("Estado inicial PROPUESTA no configurado en la base de datos");
+    assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, intrusoId))
+        .isInstanceOf(com.tacs.backend.exceptions.AccesoDenegadoException.class)
+        .hasMessage("Solo el organizador puede cancelar la actividad");
 
-    verifyNoInteractions(actividadesRepository);
+    verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Cancelar actividad que no existe - Lanza ActividadNotFoundException")
+  void cancelarActividad_ActividadNotFound_ThrowsActividadNotFoundException()
+  {
+    // Arrange
+    Long actividadId = 999L;
+    Long organizadorId = 1L;
+    
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.empty());
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, organizadorId))
+        .isInstanceOf(com.tacs.backend.exceptions.ActividadNotFoundException.class)
+        .hasMessage("Actividad no encontrada");
   }
 }

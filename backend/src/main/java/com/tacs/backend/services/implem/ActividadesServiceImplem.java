@@ -2,13 +2,11 @@ package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
-import com.tacs.backend.repositories.EstadoActividadRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +21,6 @@ class ActividadesServiceImplem implements ActividadesService
 {
   private final ActividadesRepository actividadesRepository;
   private final UsuarioRepository usuarioRepository;
-  private final EstadoActividadRepository estadoActividadRepository;
   private final ActividadesMapper actividadesMapper;
 
   @Override
@@ -39,10 +36,7 @@ class ActividadesServiceImplem implements ActividadesService
 
     var actividad = this.actividadesMapper.actividadPostDtoToActividad(actividadPostDto, usuario);
 
-    var estadoInicial = this.estadoActividadRepository.findByTipo(TipoEstadoActividad.PROPUESTA)
-        .orElseThrow(() -> new IllegalStateException("Estado inicial PROPUESTA no configurado en la base de datos"));
-
-    actividad.setEstado(estadoInicial);
+    actividad.cambiarEstado(TipoEstadoActividad.PROPUESTA);
 
     actividad = this.actividadesRepository.save(actividad);
 
@@ -54,7 +48,7 @@ class ActividadesServiceImplem implements ActividadesService
     validarExistenciaUsuario(usuarioId);
 
     List<Actividad> actividades = estado != null
-            ? actividadesRepository.findByOrganizadorIdAndEstadoTipo(usuarioId, estado)
+            ? actividadesRepository.findByOrganizadorIdAndEstado(usuarioId, estado)
             : actividadesRepository.findByOrganizadorId(usuarioId);
 
     return actividades.stream()
@@ -67,7 +61,7 @@ class ActividadesServiceImplem implements ActividadesService
     validarExistenciaUsuario(usuarioId);
 
     List<Actividad> actividades = estado != null
-            ? actividadesRepository.findByParticipantesIdAndEstadoTipo(usuarioId, estado)
+            ? actividadesRepository.findByParticipantesIdAndEstado(usuarioId, estado)
             : actividadesRepository.findByParticipantesId(usuarioId);
 
     return actividades.stream()
@@ -78,5 +72,22 @@ class ActividadesServiceImplem implements ActividadesService
   private void validarExistenciaUsuario(Long usuarioId) {
     if(!usuarioRepository.existsById(usuarioId))
       throw new UsuarioNotFoundException("El usuario con id: " + usuarioId + " no existe");
+  }
+
+  @Override
+  @Transactional
+  public void cancelarActividad(Long actividadId, Long usuarioId)
+  {
+    var actividad = actividadesRepository.findById(actividadId)
+        .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException("Actividad no encontrada"));
+
+    if (!actividad.getOrganizador().getId().equals(usuarioId))
+      throw new com.tacs.backend.exceptions.AccesoDenegadoException("Solo el organizador puede cancelar la actividad");
+
+    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
+    
+    actividadesRepository.save(actividad);
+
+    // TODO: Disparar evento o llamar al Notificador para avisar a los participantes (User Story 13)
   }
 }

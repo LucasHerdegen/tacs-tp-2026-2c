@@ -69,8 +69,8 @@ public class Actividad
   @CollectionTable(name = "actividad_cambios_fecha", joinColumns = @JoinColumn(name = "actividad_id"))
   private List<CambioFecha> cambiosFecha = new ArrayList<>();
 
-  @ManyToOne
-  private EstadoActividad estado;
+  @Enumerated(EnumType.STRING)
+  private TipoEstadoActividad estado;
 
   @Embedded
   private ReglasClima reglasClima;
@@ -114,8 +114,16 @@ public class Actividad
     CambioFecha cambio = new CambioFecha(LocalDateTime.now(), this.fechaRealizacion, date);
     this.cambiosFecha.add(cambio);
     this.fechaRealizacion = date;
-    // La logica de cambiar el estado a REPROGRAMADA dependera de la máquina de estados
+    
     if (estado != null)
-      estado.cambiarEstado(this, TipoEstadoActividad.REPROGRAMADA);
+      this.cambiarEstado(TipoEstadoActividad.REPROGRAMADA);
+  }
+
+  public void cambiarEstado(TipoEstadoActividad nuevoEstado)
+  {
+    if (this.estado == null)
+      this.estado = nuevoEstado;
+    else
+      Estados.getEstado(this.estado).cambiarEstado(this, nuevoEstado);
   }
 }

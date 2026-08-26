@@ -6,6 +6,7 @@ import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.services.ActividadesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -36,15 +37,26 @@ class ActividadesController
 
   @GetMapping("/organizador/{usuarioId}")   // TODO definir estructura endpoint? -> path param?
   public ResponseEntity<List<ActividadDto>> getActividadesOrganizadas(
-          @PathVariable Long usuarioId,
-          @RequestParam(required = false) TipoEstadoActividad estado) {
+      @PathVariable Long usuarioId,
+      @RequestParam(required = false) TipoEstadoActividad estado)
+  {
     return ResponseEntity.ok(actividadesService.actividadesOrganizadas(usuarioId, estado));
   }
 
   @GetMapping("/participante/{usuarioId}")
   public ResponseEntity<List<ActividadDto>> getActividadesParticipadas(
-          @PathVariable Long usuarioId,
-          @RequestParam(required = false) TipoEstadoActividad estado) {
+      @PathVariable Long usuarioId,
+      @RequestParam(required = false) TipoEstadoActividad estado)
+  {
     return ResponseEntity.ok(actividadesService.actividadesParticipadas(usuarioId, estado));
+  }
+
+  @PostMapping("/{id}/cancelaciones")
+  public ResponseEntity<Void> cancelarActividad(@PathVariable Long id)
+  {
+    // TODO: recuperar usuarioId del JWT
+    Long usuarioMocakeadoId = 1L;
+    actividadesService.cancelarActividad(id, usuarioMocakeadoId);
+    return ResponseEntity.status(HttpStatus.CREATED).build();
   }
 }

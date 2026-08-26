@@ -16,4 +16,6 @@ public interface ActividadesService
   List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado);
 
   List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado);
+
+  void cancelarActividad(Long actividadId, Long usuarioId);
 }
