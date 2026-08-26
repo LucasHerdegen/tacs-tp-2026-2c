@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -47,6 +48,24 @@ class ActividadesServiceImplem implements ActividadesService
     actividad = this.actividadesRepository.save(actividad);
 
     return this.actividadesMapper.actividadToActividadDto(actividad);
+  }
+
+  @Override
+  public List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado) {
+    validarExistenciaUsuario(usuarioId);
+
+    //TODO asumo que el organizador no puede ser participante, pero despues se puede cambiar, depende de como se maneje la votacion
+    List<Actividad> actividades = new ArrayList<>();
+    actividades.addAll(estado != null
+            ? actividadesRepository.findByOrganizadorIdAndEstadoTipo(usuarioId, estado)
+            : actividadesRepository.findByOrganizadorId(usuarioId));
+    actividades.addAll(estado != null
+            ? actividadesRepository.findByParticipantesIdAndEstadoTipo(usuarioId, estado)
+            : actividadesRepository.findByParticipantesId(usuarioId));
+
+    return actividades.stream()
+            .map(actividadesMapper::actividadToActividadDto)
+            .toList();
   }
 
   @Override

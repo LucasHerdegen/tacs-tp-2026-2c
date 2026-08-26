@@ -4,9 +4,12 @@ import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.services.ActividadesService;
+import com.tacs.backend.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -19,7 +22,7 @@ import java.util.List;
 class ActividadesController
 {
   private final ActividadesService actividadesService;
-
+  private final AuthService authService;
   @PostMapping
   public ResponseEntity<ActividadDto> createActividad(@RequestBody @Valid ActividadPostDto actividadPostDto)
   {
@@ -34,17 +37,22 @@ class ActividadesController
     return ResponseEntity.created(location).body(actividad);
   }
 
-  @GetMapping("/organizador/{usuarioId}")   // TODO definir estructura endpoint? -> path param?
-  public ResponseEntity<List<ActividadDto>> getActividadesOrganizadas(
-          @PathVariable Long usuarioId,
+  @GetMapping("/me")
+  public ResponseEntity<List<ActividadDto>> getMisActividades(
+          @AuthenticationPrincipal Jwt jwt,
+          @RequestParam(required = false) Boolean organizador,
           @RequestParam(required = false) TipoEstadoActividad estado) {
-    return ResponseEntity.ok(actividadesService.actividadesOrganizadas(usuarioId, estado));
-  }
+    Long usuarioId = authService.buscarPorUsername(jwt.getSubject()).id();
 
-  @GetMapping("/participante/{usuarioId}")
-  public ResponseEntity<List<ActividadDto>> getActividadesParticipadas(
-          @PathVariable Long usuarioId,
-          @RequestParam(required = false) TipoEstadoActividad estado) {
-    return ResponseEntity.ok(actividadesService.actividadesParticipadas(usuarioId, estado));
+    List<ActividadDto> actividades;
+    if(organizador==null) {
+      actividades = actividadesService.actividadesDelUsuario(usuarioId, estado);
+    } else if (organizador) {
+      actividades = actividadesService.actividadesOrganizadas(usuarioId, estado);
+    } else {
+      actividades = actividadesService.actividadesParticipadas(usuarioId, estado);
+    }
+
+    return ResponseEntity.ok(actividades);
   }
 }

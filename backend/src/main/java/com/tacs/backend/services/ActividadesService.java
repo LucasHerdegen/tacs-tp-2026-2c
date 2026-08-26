@@ -10,10 +10,10 @@ public interface ActividadesService
 {
   ActividadDto createActividad(ActividadPostDto actividadPostDto);
 
-  // ---- ver actividades organizadas + participadas por usuario ~~ User story #12
-  //estado es opcional, si viene null se listan todas las actividades (con todos los estados)
-  //ver implementacion
+  //metodo para ver organizadas + participadas, separadas en 3 metodos por performance
   List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado);
 
   List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado);
+
+  List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado);
 }
