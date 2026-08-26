@@ -4,10 +4,7 @@ import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -17,8 +14,10 @@ import java.util.List;
 public class VotacionesController {
     private final VotacionesService votacionesService;
 
-    @GetMapping("/abiertas/{usuarioId}")
-    public ResponseEntity<List<VotacionDto>> getVotacionesAbiertas(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(votacionesService.votacionesAbiertas(usuarioId));
+    @GetMapping
+    public ResponseEntity<List<VotacionDto>> getVotaciones(
+            @RequestParam Long usuarioId,
+            @RequestParam(defaultValue = "true") boolean abierta) {
+        return ResponseEntity.ok(votacionesService.votaciones(usuarioId, abierta));
     }
 }
