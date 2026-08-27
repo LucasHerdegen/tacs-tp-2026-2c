@@ -1,9 +1,14 @@
 package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
+import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
+import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -90,4 +95,29 @@ class ActividadesServiceImplem implements ActividadesService
 
     // TODO: Disparar evento o llamar al Notificador para avisar a los participantes (User Story 13)
   }
+
+  @Override
+  @Transactional
+  public ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto) {
+    Actividad actividad = actividadesRepository.findById(actividadId)
+        .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException("Actividad no encontrada"));
+
+    if (!actividad.getOrganizador().getId().equals(usuarioId))
+      throw new com.tacs.backend.exceptions.AccesoDenegadoException("Solo el organizador puede configurar el clima");
+
+    if (dto.reglasClima() != null)
+      actividad.actualizarReglasClima(dto.reglasClima());
+
+    if (dto.horasAnticipacion() != null)
+      actividad.actualizarHorasAnticipacion(dto.horasAnticipacion());
+
+    if (dto.rangoReprogramacion() != null)
+      actividad.actualizarRangoReprogramacion(dto.rangoReprogramacion());
+
+    actividadesRepository.save(actividad);
+
+    return actividadesMapper.actividadToActividadDto(actividad);
+  }
 }
+
+

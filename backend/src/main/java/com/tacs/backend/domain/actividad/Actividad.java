@@ -3,6 +3,9 @@ package com.tacs.backend.domain.actividad;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
+import com.tacs.backend.dtos.clima.ReglasClimaDto;
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embedded;
@@ -125,5 +128,35 @@ public class Actividad
       this.estado = nuevoEstado;
     else
       Estados.getEstado(this.estado).cambiarEstado(this, nuevoEstado);
+  }
+
+  public void actualizarReglasClima(ReglasClimaDto dto)
+  {
+  if (reglasClima == null)
+    reglasClima = new ReglasClima();
+
+    reglasClima.actualizar(dto);
+  }
+
+  public void actualizarHorasAnticipacion(Integer horas)
+  {
+    if (horas != null) {
+      this.horasAnticipacion = horas;
+    }
+  }
+
+  public void actualizarRangoReprogramacion(RangoReprogramacionDto dto)
+  {
+    if (dto == null) return;
+
+    if (rangoReprogramacion == null)
+      rangoReprogramacion = new RangoReprogramacion();
+
+    if (dto.dias() != null) 
+      rangoReprogramacion.setDias(dto.dias());
+    if (dto.horaInicio() != null) 
+      rangoReprogramacion.setHoraInicio(dto.horaInicio());
+    if (dto.horaFinal() != null) 
+      rangoReprogramacion.setHoraFinal(dto.horaFinal());
   }
 }

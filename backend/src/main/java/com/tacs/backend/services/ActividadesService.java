@@ -3,6 +3,7 @@ package com.tacs.backend.services;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 
 import java.util.List;
 
@@ -18,4 +19,7 @@ public interface ActividadesService
   List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado);
 
   void cancelarActividad(Long actividadId, Long usuarioId);
+
+  ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto);
 }
+

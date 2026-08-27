@@ -3,6 +3,7 @@ package com.tacs.backend.controllers;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.services.ActividadesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -58,5 +59,17 @@ class ActividadesController
     Long usuarioMocakeadoId = 1L;
     actividadesService.cancelarActividad(id, usuarioMocakeadoId);
     return ResponseEntity.status(HttpStatus.CREATED).build();
+  }
+
+  @PatchMapping("/{id}/configuracion-clima")
+  public ResponseEntity<ActividadDto> actualizarConfiguracionClima(
+      @PathVariable Long id,
+      @RequestBody ConfigurarCondicionesDto dto) 
+  {
+    // TODO: Recuperar usuarioId del JWT
+    Long usuarioIdMock = 1L; 
+    
+    ActividadDto actividadActualizada = actividadesService.actualizarConfiguracionClima(id, usuarioIdMock, dto);
+    return ResponseEntity.ok(actividadActualizada);
   }
 }
