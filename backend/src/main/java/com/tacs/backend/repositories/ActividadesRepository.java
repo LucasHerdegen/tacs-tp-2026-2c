@@ -12,5 +12,5 @@ public interface ActividadesRepository extends JpaRepository<Actividad, Long>
   List<Actividad> findByOrganizadorIdAndEstadoTipo(Long organizadorId, TipoEstadoActividad tipo);
   List<Actividad> findByParticipantesId(Long usuarioId);
   List<Actividad> findByParticipantesIdAndEstadoTipo(Long usuarioId, TipoEstadoActividad tipo);
-
+  long countByEstadoTipo(TipoEstadoActividad tipo);
 }
