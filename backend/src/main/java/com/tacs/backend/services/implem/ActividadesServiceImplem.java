@@ -22,7 +22,7 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @Service
-class ActividadesServiceImplem implements ActividadesService
+public class ActividadesServiceImplem implements ActividadesService
 {
   private final ActividadesRepository actividadesRepository;
   private final UsuarioRepository usuarioRepository;
