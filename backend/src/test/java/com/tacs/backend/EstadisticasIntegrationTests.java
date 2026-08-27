@@ -13,10 +13,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import javax.sql.DataSource;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,6 +49,9 @@ class EstadisticasIntegrationTests
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private DataSource dataSource;
+
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private Usuario admin;
@@ -56,6 +61,11 @@ class EstadisticasIntegrationTests
     @BeforeEach
     void setUp() throws Exception
     {
+        try(Connection connection = dataSource.getConnection()) {
+            String url = connection.getMetaData().getURL();
+            assertThat(url).as("La suite de tests solo puede correr contra H2 en memoria")
+                    .startsWith("jdbc:h2:mem:");
+        }
         actividadesRepository.deleteAll();
         usuarioRepository.deleteAll();
 
