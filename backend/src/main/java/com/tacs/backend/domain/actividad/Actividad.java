@@ -132,10 +132,10 @@ public class Actividad
 
   public void actualizarReglasClima(ReglasClimaDto dto)
   {
-    if (reglasClima == null)
-    reglasClima = new ReglasClima();
+    if (this.reglasClima == null)
+    this.reglasClima = new ReglasClima();
 
-    reglasClima.actualizar(dto);
+    this.reglasClima.actualizar(dto);
   }
 
   public void actualizarHorasAnticipacion(Integer horas)
@@ -147,10 +147,9 @@ public class Actividad
 
   public void actualizarRangoReprogramacion(RangoReprogramacionDto dto)
   {
-    if (reglasClima == null)
-    rangoReprogramacion = new RangoReprogramacion();
+    if (this.rangoReprogramacion == null)
+    this.rangoReprogramacion = new RangoReprogramacion();
 
-    rangoReprogramacion.actualizar(dto);
+    this.rangoReprogramacion.actualizar(dto);
   }
-    
 }

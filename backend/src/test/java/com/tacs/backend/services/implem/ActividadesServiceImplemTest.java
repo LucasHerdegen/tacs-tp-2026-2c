@@ -8,6 +8,7 @@ import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -25,7 +26,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+
 
 @ExtendWith(MockitoExtension.class)
 class ActividadesServiceImplemTest
@@ -187,5 +190,101 @@ class ActividadesServiceImplemTest
     assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, organizadorId))
         .isInstanceOf(com.tacs.backend.exceptions.ActividadNotFoundException.class)
         .hasMessage("Actividad no encontrada");
+  }
+
+  @Test
+  @DisplayName("Actualizar reglas de clima exitosamente")
+  void actualizarConfiguracionClima_ReglasClima_Success()
+  {
+    // Arrange
+    Long actividadId = 100L;
+    Long organizadorId = 1L;
+    actividadMock.setOrganizador(usuarioMock);
+
+    var reglasDto = new com.tacs.backend.dtos.clima.ReglasClimaDto(30.0, 15.0, 28.0, 20.0);
+    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(reglasDto, null, null);
+    ActividadDto expectedDto = mock(ActividadDto.class);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
+    when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(expectedDto);
+
+    // Act
+    ActividadDto result = actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto);
+
+    // Assert (Una sola aserción agrupada)
+    assertThat(result).isEqualTo(expectedDto);
+    assertThat(actividadMock.getReglasClima()).satisfies(reglas -> {
+      assertThat(reglas.getMaxProbabilidadLluvia()).isEqualTo(30.0);
+      assertThat(reglas.getMinTemperatura()).isEqualTo(15.0);
+    });
+
+    verify(actividadesRepository).save(actividadMock);
+  }
+
+  @Test
+  @DisplayName("Actualizar rango de reprogramación exitosamente")
+  void actualizarConfiguracionClima_RangoReprogramacion_Success()
+  {
+    // Arrange
+    Long actividadId = 100L;
+    Long organizadorId = 1L;
+    actividadMock.setOrganizador(usuarioMock);
+
+    var rangoDto = new com.tacs.backend.dtos.actividades.RangoReprogramacionDto(3, -10, 20);
+    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(null, null, rangoDto);
+    ActividadDto expectedDto = mock(ActividadDto.class);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
+    when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(expectedDto);
+
+    // Act & Assert
+    ActividadDto result = actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto);
+
+    assertThat(result).isEqualTo(expectedDto);
+    assertThat(actividadMock.getRangoReprogramacion().getDias()).isEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("Falla si un usuario distinto al organizador intenta modificar la configuración")
+  void actualizarConfiguracionClima_NotOrganizer_ThrowsAccesoDenegadoException()
+  {
+    // Arrange
+    Long actividadId = 100L;
+    Long usuarioIntrusoId = 999L;
+    actividadMock.setOrganizador(usuarioMock); // Organizador es 1L
+
+    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(null, 12, null);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, usuarioIntrusoId, configDto))
+        .isInstanceOf(com.tacs.backend.exceptions.AccesoDenegadoException.class)
+        .hasMessageContaining("Solo el organizador");
+
+    verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Falla si la hora final de reprogramación es menor a la de inicio")
+  void actualizarConfiguracionClima_RangoHorarioInvalido_ThrowsException()
+  {
+    // Arrange
+    Long actividadId = 100L;
+    Long organizadorId = 1L;
+    actividadMock.setOrganizador(usuarioMock);
+
+    // Hora inicio 20hs, Hora final 10hs (invalido)
+    var rangoInvalidoDto = new com.tacs.backend.dtos.actividades.RangoReprogramacionDto(3, 20, 10);
+    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(null, null, rangoInvalidoDto);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto))
+        .isInstanceOf(RangoReprogramacionInvalidoException.class);
+
+    verify(actividadesRepository, never()).save(any());
   }
 }

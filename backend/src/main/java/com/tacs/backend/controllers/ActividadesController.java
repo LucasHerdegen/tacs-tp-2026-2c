@@ -64,7 +64,7 @@ class ActividadesController
   @PatchMapping("/{id}/configuracion-clima")
   public ResponseEntity<ActividadDto> actualizarConfiguracionClima(
       @PathVariable Long id,
-      @RequestBody ConfigurarCondicionesDto dto) 
+      @Valid @RequestBody ConfigurarCondicionesDto dto) 
   {
     // TODO: Recuperar usuarioId del JWT
     Long usuarioIdMock = 1L; 
