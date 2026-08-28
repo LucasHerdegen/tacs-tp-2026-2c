@@ -22,6 +22,7 @@ public class VotacionMapper {
         return new VotacionDto(
                 votacion.getId(),
                 votacion.getFechaApertura(),
+                votacion.getFechaCierre(),
                 actividadesMapper.actividadToActividadDto(votacion.getActividad()),
                 votacion.getAlternativas().stream()
                         .map(this::alternativaToAlternativaDto)
