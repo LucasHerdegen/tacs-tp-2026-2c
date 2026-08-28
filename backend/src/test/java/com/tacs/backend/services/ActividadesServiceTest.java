@@ -42,6 +42,9 @@ class ActividadesServiceTest {
     @Mock
     private ProveedorClima proveedorClima;
 
+    @Mock
+    private com.tacs.backend.mappers.ClimaMapper climaMapper;
+
     @InjectMocks
     private com.tacs.backend.services.implem.ActividadesServiceImplem actividadesService;
 
@@ -103,11 +106,11 @@ class ActividadesServiceTest {
 
         when(actividadesRepository.findById(100L)).thenReturn(Optional.of(actividadMock));
 
-        Exception exception = assertThrows(IllegalStateException.class, () -> {
+        Exception exception = assertThrows(com.tacs.backend.exceptions.CapacidadMaximaException.class, () -> {
             actividadesService.unirseActividad(100L, 1L);
         });
         
-        assertEquals("La actividad ya esta al maximo de participantes permitidos.", exception.getMessage());
+        assertEquals("La actividad ya esta al maximo de participantes permitidos", exception.getMessage());
         verify(actividadesRepository, never()).save(any());
     }
 
@@ -137,11 +140,16 @@ class ActividadesServiceTest {
         when(proveedorClima.obtenerClima(actividadMock.getUbicacion())).thenReturn(climaActualMock);
         when(proveedorClima.obtenerPronostico(actividadMock.getUbicacion(), actividadMock.getFecha())).thenReturn(pronosticoMock);
 
+        com.tacs.backend.dtos.clima.ClimaDto climaActualDtoMock = new com.tacs.backend.dtos.clima.ClimaDto(10.0, 25.0, 15.0);
+        com.tacs.backend.dtos.clima.ClimaDto pronosticoDtoMock = new com.tacs.backend.dtos.clima.ClimaDto(0.0, 28.0, 10.0);
+        when(climaMapper.climaToClimaDto(climaActualMock)).thenReturn(climaActualDtoMock);
+        when(climaMapper.climaToClimaDto(pronosticoMock)).thenReturn(pronosticoDtoMock);
+
         PronosticoRespuestaDto respuesta = actividadesService.obtenerClimaActividad(100L, 1L);
 
         assertNotNull(respuesta);
-        assertEquals(25.0, respuesta.climaActual().getTemperatura());
-        assertEquals(28.0, respuesta.pronosticoFuturo().getTemperatura());
+        assertEquals(25.0, respuesta.climaActual().temperatura());
+        assertEquals(28.0, respuesta.pronosticoFuturo().temperatura());
     }
 
     @Test
@@ -149,11 +157,11 @@ class ActividadesServiceTest {
         when(usuarioRepository.existsById(1L)).thenReturn(true);
         when(actividadesRepository.findById(100L)).thenReturn(Optional.of(actividadMock));
 
-        Exception exception = assertThrows(IllegalStateException.class, () -> {
+        Exception exception = assertThrows(com.tacs.backend.exceptions.NoParticipanteException.class, () -> {
             actividadesService.obtenerClimaActividad(100L, 1L);
         });
 
-        assertEquals("Debes ser participante de la actividad para ver su clima.", exception.getMessage());
+        assertEquals("Debes ser participante de la actividad para ver su clima", exception.getMessage());
         verify(proveedorClima, never()).obtenerPronostico(any(), any());
     }
 }

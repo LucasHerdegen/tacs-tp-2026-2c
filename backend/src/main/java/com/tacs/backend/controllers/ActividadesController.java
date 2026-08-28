@@ -62,14 +62,14 @@ class ActividadesController
   public ResponseEntity<Void> unirseActividad(@PathVariable Long id, @RequestParam Long usuarioId)
   {
     actividadesService.unirseActividad(id, usuarioId);
-    return ResponseEntity.ok().build();
+    return ResponseEntity.noContent().build();
   }
 
   @DeleteMapping("/{id}/participantes")
   public ResponseEntity<Void> bajarseActividad(@PathVariable Long id, @RequestParam Long usuarioId)
   {
     actividadesService.bajarseActividad(id, usuarioId);
-    return ResponseEntity.ok().build();
+    return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/{id}/clima")

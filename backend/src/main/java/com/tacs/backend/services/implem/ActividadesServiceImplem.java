@@ -3,10 +3,13 @@ package com.tacs.backend.services.implem;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.clima.ClimaDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -20,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.tacs.backend.mappers.ClimaMapper;
+
 @RequiredArgsConstructor
 @Service
 public class ActividadesServiceImplem implements ActividadesService
@@ -29,6 +34,7 @@ public class ActividadesServiceImplem implements ActividadesService
   private final EstadoActividadRepository estadoActividadRepository;
   private final ActividadesMapper actividadesMapper;
   private final ProveedorClima proveedorClima;
+  private final ClimaMapper climaMapper;
 
   @Override
   @Transactional
@@ -101,10 +107,10 @@ public class ActividadesServiceImplem implements ActividadesService
     validarExistenciaUsuario(usuarioId);
 
     var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
     if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes()) {
-      throw new IllegalStateException("La actividad ya esta al maximo de participantes permitidos.");
+      throw new CapacidadMaximaException("La actividad ya esta al maximo de participantes permitidos");
     }
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -120,7 +126,7 @@ public class ActividadesServiceImplem implements ActividadesService
     validarExistenciaUsuario(usuarioId);
 
     var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -135,18 +141,18 @@ public class ActividadesServiceImplem implements ActividadesService
     validarExistenciaUsuario(usuarioId);
 
     var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
 
     boolean esParticipante = actividad.getParticipantes().stream()
         .anyMatch(u -> u.getId().equals(usuarioId));
 
     if (!esParticipante) {
-      throw new IllegalStateException("Debes ser participante de la actividad para ver su clima.");
+      throw new NoParticipanteException("Debes ser participante de la actividad para ver su clima");
     }
 
-    Clima climaActual = proveedorClima.obtenerClima(actividad.getUbicacion());
-    Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFecha());
+    ClimaDto climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
+    ClimaDto pronostico = climaMapper.climaToClimaDto(proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFecha()));
 
     return new PronosticoRespuestaDto(climaActual, pronostico);
   }

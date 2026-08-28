@@ -1,7 +1,10 @@
 package com.tacs.backend.handlers;
 
+import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.InvalidCredentialsException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
 import org.springframework.http.HttpStatus;
@@ -34,5 +37,17 @@ class GlobalExceptionHandler
   public ResponseEntity<String> handleInvalidCredentialsException(InvalidCredentialsException ex)
   {
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+  }
+  @ExceptionHandler(ActividadNotFoundException.class)
+  public ResponseEntity<String> handleActividadNotFoundException(ActividadNotFoundException ex) {
+    return ResponseEntity.notFound().build();
+  }
+  @ExceptionHandler(CapacidadMaximaException.class)
+  public ResponseEntity<String> handleCapacidadMaximaException(CapacidadMaximaException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+  }
+  @ExceptionHandler(NoParticipanteException.class)
+  public ResponseEntity<String> handleNoParticipanteException(NoParticipanteException ex) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
   }
 }
