@@ -24,19 +24,25 @@ public class VotacionMapper {
                 votacion.getFechaApertura(),
                 actividadesMapper.actividadToActividadDto(votacion.getActividad()),
                 votacion.getAlternativas().stream()
-                        .map(this::alternativaToAlternativaDto)
+                        .map(alternativa -> alternativaToAlternativaDto(alternativa, votacion))
                         .collect(Collectors.toList()),
                 votacion.getQuorumMinimo(),
                 votacion.isAbierta()
         );
     }
 
-    public AlternativaDto alternativaToAlternativaDto(Alternativa alternativa) {
+    // ahora recibe la Votacion para poder contar los votos de esta alternativa puntual
+    public AlternativaDto alternativaToAlternativaDto(Alternativa alternativa, Votacion votacion) {
+        long cantidadVotos = votacion.getVotos().stream()
+                .filter(voto -> voto.getAlternativa().getId().equals(alternativa.getId()))
+                .count();
+
         return new AlternativaDto(
                 alternativa.getId(),
                 alternativa.getFecha(),
                 climaToClimaDto(alternativa.getClima()),
-                alternativa.getNumeroAltenativa()
+                alternativa.getNumeroAltenativa(),
+                cantidadVotos
         );
     }
 

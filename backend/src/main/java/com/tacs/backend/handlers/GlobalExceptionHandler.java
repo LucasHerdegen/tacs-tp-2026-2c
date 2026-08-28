@@ -1,8 +1,11 @@
 package com.tacs.backend.handlers;
 
+import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.InvalidCredentialsException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.exceptions.VotacionCerradaException;
+import com.tacs.backend.exceptions.VotacionNotFoundException;
 import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,5 +37,23 @@ class GlobalExceptionHandler
   public ResponseEntity<String> handleInvalidCredentialsException(InvalidCredentialsException ex)
   {
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+  }
+
+  @ExceptionHandler(VotacionNotFoundException.class)
+  public ResponseEntity<String> handleVotacionNotFoundException(VotacionNotFoundException ex)
+  {
+    return ResponseEntity.notFound().build();
+  }
+
+  @ExceptionHandler(AlternativaNotFoundException.class)
+  public ResponseEntity<String> handleAlternativaNotFoundException(AlternativaNotFoundException ex)
+  {
+    return ResponseEntity.notFound().build();
+  }
+
+  @ExceptionHandler(VotacionCerradaException.class)
+  public ResponseEntity<String> handleVotacionCerradaException(VotacionCerradaException ex)
+  {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
   }
 }
