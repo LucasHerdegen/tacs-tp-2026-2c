@@ -30,14 +30,13 @@ class ActividadesServiceImplem implements ActividadesService
 
   @Override
   @Transactional
-  public ActividadDto createActividad(ActividadPostDto actividadPostDto)
+  public ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId)
   {
     if (actividadPostDto.cantidadMinima() > actividadPostDto.cantidadMaxima())
       throw new IllegalArgumentException("La cantidad mínima no puede ser mayor a la máxima");
 
-    // TODO: reemplazar por una llamada al repo de usuarios con id de JWT
-    var usuario = this.usuarioRepository.findById(1L)
-        .orElseThrow(() -> new UsuarioNotFoundException("El usuario con id 1 no fue encontrado"));
+    var usuario = this.usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("El usuario con id " + usuarioId + " no fue encontrado"));
 
     var actividad = this.actividadesMapper.actividadPostDtoToActividad(actividadPostDto, usuario);
 

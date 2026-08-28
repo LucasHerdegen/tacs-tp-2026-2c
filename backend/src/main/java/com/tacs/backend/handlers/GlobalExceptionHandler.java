@@ -30,10 +30,10 @@ class GlobalExceptionHandler
     return ResponseEntity.notFound().build();
   }
 
-  @ExceptionHandler(com.tacs.backend.exceptions.ActividadNotFoundException.class)
+  @ExceptionHandler(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException.class)
   public ResponseEntity<String> handleRangoReprogramacionInvalidoException(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException ex)
   {
-    return ResponseEntity.notFound().build();
+    return ResponseEntity.badRequest().body(ex.getMessage());
   }
 
   @ExceptionHandler(com.tacs.backend.exceptions.AccesoDenegadoException.class)

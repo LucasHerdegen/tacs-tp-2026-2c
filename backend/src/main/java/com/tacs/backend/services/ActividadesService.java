@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface ActividadesService
 {
-  ActividadDto createActividad(ActividadPostDto actividadPostDto);
+  ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId);
 
   // ---- ver actividades organizadas + participadas por usuario ~~ User story #12
   //estado es opcional, si viene null se listan todas las actividades (con todos los estados)

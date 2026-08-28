@@ -86,7 +86,7 @@ class ActividadesServiceImplemTest
     when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(expectedDto);
 
     // Act
-    ActividadDto result = actividadesService.createActividad(actividadPostDto);
+    ActividadDto result = actividadesService.createActividad(actividadPostDto, 1L);
 
     // Assert
     assertThat(result).isNotNull();
@@ -110,7 +110,7 @@ class ActividadesServiceImplemTest
     );
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.createActividad(dtoInvalido))
+    assertThatThrownBy(() -> actividadesService.createActividad(dtoInvalido, 1L))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("La cantidad mínima no puede ser mayor a la máxima");
 
@@ -126,7 +126,7 @@ class ActividadesServiceImplemTest
     when(usuarioRepository.findById(1L)).thenReturn(Optional.empty());
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.createActividad(actividadPostDto))
+    assertThatThrownBy(() -> actividadesService.createActividad(actividadPostDto, 1L))
         .isInstanceOf(UsuarioNotFoundException.class)
         .hasMessageContaining("El usuario con id 1 no fue encontrado");
 
