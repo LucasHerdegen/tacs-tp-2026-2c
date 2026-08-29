@@ -9,7 +9,6 @@ import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
-import com.tacs.backend.repositories.EstadoActividadRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,7 +60,7 @@ class ActividadesServiceTest {
         actividadMock.setId(100L);
         actividadMock.setTipo(TipoActividad.AIRE_LIBRE);
         actividadMock.setUbicacion(new Ubicacion("Palermo", -34.58, -58.42));
-        actividadMock.setFecha(LocalDateTime.now().plusDays(2));
+        actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(2));
         actividadMock.setMaximoParticipantes(2);
         actividadMock.setParticipantes(new ArrayList<>());
     }
@@ -74,7 +73,7 @@ class ActividadesServiceTest {
         when(actividadesRepository.findAll()).thenReturn(List.of(actividadMock, actividadOtra));
         
 
-        ActividadDto dummyDto = new ActividadDto(1L, "Titulo", "Desc", null, null, null, 0, 0, null, null, 0, null, null, null, null);
+        ActividadDto dummyDto = new ActividadDto(1L, "Titulo", "Desc", null, null, null, 0, 0, 0, null, null, 0, null, null, null, null);
         when(actividadesMapper.actividadToActividadDto(any(Actividad.class))).thenReturn(dummyDto);
 
         List<ActividadDto> resultado = actividadesService.buscarActividades(null, "Palermo", null);
@@ -138,7 +137,7 @@ class ActividadesServiceTest {
 
         when(actividadesRepository.findById(100L)).thenReturn(Optional.of(actividadMock));
         when(proveedorClima.obtenerClima(actividadMock.getUbicacion())).thenReturn(climaActualMock);
-        when(proveedorClima.obtenerPronostico(actividadMock.getUbicacion(), actividadMock.getFecha())).thenReturn(pronosticoMock);
+        when(proveedorClima.obtenerPronostico(actividadMock.getUbicacion(), actividadMock.getFechaRealizacion())).thenReturn(pronosticoMock);
 
         com.tacs.backend.dtos.clima.ClimaDto climaActualDtoMock = new com.tacs.backend.dtos.clima.ClimaDto(10.0, 25.0, 15.0);
         com.tacs.backend.dtos.clima.ClimaDto pronosticoDtoMock = new com.tacs.backend.dtos.clima.ClimaDto(0.0, 28.0, 10.0);
