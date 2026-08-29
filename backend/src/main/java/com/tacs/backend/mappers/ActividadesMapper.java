@@ -15,7 +15,7 @@ public class ActividadesMapper
 {
   public Actividad actividadPostDtoToActividad(ActividadPostDto dto, Usuario organizador)
   {
-    return new Actividad(
+    Actividad actividad = new Actividad(
         dto.titulo(),
         dto.descripcion(),
         dto.tipoActividad(),
@@ -26,6 +26,12 @@ public class ActividadesMapper
         dto.cantidadMaxima(),
         organizador
     );
+
+    actividad.setReglasClima(dto.reglasClima());
+    actividad.setHorasAnticipacion(dto.horasAnticipacion() != null ? dto.horasAnticipacion() : 0);
+    actividad.setRangoReprogramacion(dto.rangoReprogramacion());
+
+    return actividad;
   }
 
   public ActividadDto actividadToActividadDto(Actividad actividad)
