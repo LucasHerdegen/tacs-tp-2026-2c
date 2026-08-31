@@ -68,7 +68,7 @@ public class VotacionesController {
         return ResponseEntity.ok(votacionesService.votar(id, votoPostDto.usuarioId(), votoPostDto.numeroAlternativa()));
     }
 
-    @PostMapping("/{id}/cerrar")
+    @PostMapping("/{id}/cierre")
     public ResponseEntity<VotacionDto> cerrarVotacion(@PathVariable Long id) {
         return ResponseEntity.ok(votacionesService.resolverVotacion(id));
     }

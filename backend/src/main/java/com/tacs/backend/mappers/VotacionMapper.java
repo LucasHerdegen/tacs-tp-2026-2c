@@ -39,7 +39,8 @@ public class VotacionMapper {
     }
 
     // Ahora recibe la Votacion para poder contar los votos de esta alternativa puntual
-    public AlternativaDto alternativaToAlternativaDto(Alternativa alternativa, Votacion votacion) {
+    public AlternativaDto alternativaToAlternativaDto(Alternativa alternativa, Votacion votacion) 
+    {
         return new AlternativaDto(
                 alternativa.getId(),
                 alternativa.getFecha(),

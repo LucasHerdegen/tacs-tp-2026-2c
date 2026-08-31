@@ -28,10 +28,6 @@ public class ActividadesMapper
         organizador
     );
 
-    actividad.setReglasClima(dto.reglasClima());
-    actividad.setHorasAnticipacion(dto.horasAnticipacion() != null ? dto.horasAnticipacion() : 0);
-    actividad.setRangoReprogramacion(dto.rangoReprogramacion());
-
     return actividad;
   }
 
