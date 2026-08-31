@@ -15,17 +15,20 @@ public class ActividadesMapper
 {
   public Actividad actividadPostDtoToActividad(ActividadPostDto dto, Usuario organizador)
   {
-    return new Actividad(
+    Actividad actividad = new Actividad(
         dto.titulo(),
         dto.descripcion(),
         dto.tipoActividad(),
         dto.ubicacion(),
         dto.fecha(),
+        dto.duracionEstimada(),
         LocalDateTime.now(),
         dto.cantidadMinima(),
         dto.cantidadMaxima(),
         organizador
     );
+
+    return actividad;
   }
 
   public ActividadDto actividadToActividadDto(Actividad actividad)
@@ -36,7 +39,8 @@ public class ActividadesMapper
         actividad.getDescripcion(),
         actividad.getTipo(),
         actividad.getUbicacion(),
-        actividad.getFecha(),
+        actividad.getFechaRealizacion(),
+        actividad.getDuracionEstimada(),
         actividad.getMinimoParticipantes(),
         actividad.getMaximoParticipantes(),
         usuarioToUsuarioDto(actividad.getOrganizador()),
@@ -46,14 +50,16 @@ public class ActividadesMapper
         actividad.getHorasAnticipacion(),
         actividad.getRangoReprogramacion(),
         actividad.getCambiosFecha(),
-        actividad.getEstado() != null ? actividad.getEstado().getTipo() : null,
+        actividad.getEstado(),
         actividad.getReglasClima()
     );
   }
 
   public UsuarioDto usuarioToUsuarioDto(Usuario usuario)
   {
-    if (usuario == null) return null;
+    if (usuario == null)
+      return null;
+
     return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());
   }
 }

@@ -151,6 +151,7 @@ class VotacionesIntegrationTests
                 TipoActividad.AIRE_LIBRE,
                 new Ubicacion("Palermo", -34.58, -58.43),
                 LocalDateTime.now().plusDays(1),
+                120,
                 LocalDateTime.now(),
                 2,
                 10,

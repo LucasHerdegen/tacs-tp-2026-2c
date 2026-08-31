@@ -3,6 +3,9 @@ package com.tacs.backend.domain.actividad;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
+import com.tacs.backend.dtos.clima.ReglasClimaDto;
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embedded;
@@ -43,9 +46,9 @@ public class Actividad
   @Embedded
   private Ubicacion ubicacion;
 
-  private LocalDateTime fecha;
   private LocalDateTime fechaCreacion;
   private LocalDateTime fechaRealizacion;
+  private int duracionEstimada;
   private int minimoParticipantes;
   private int maximoParticipantes;
 
@@ -69,25 +72,27 @@ public class Actividad
   @CollectionTable(name = "actividad_cambios_fecha", joinColumns = @JoinColumn(name = "actividad_id"))
   private List<CambioFecha> cambiosFecha = new ArrayList<>();
 
-  @ManyToOne
-  private EstadoActividad estado;
+  @Enumerated(EnumType.STRING)
+  private TipoEstadoActividad estado;
 
   @Embedded
   private ReglasClima reglasClima;
 
   public Actividad(String titulo, String descripcion, TipoActividad tipoActividad, Ubicacion ubicacion,
-                   LocalDateTime fecha,
+                   LocalDateTime fechaRealizacion, int duracionEstimada,
                    LocalDateTime fechaCreacion, int minimoParticipantes, int maximoParticipantes, Usuario organizador)
   {
     this.titulo = titulo;
     this.descripcion = descripcion;
     this.tipo = tipoActividad;
     this.ubicacion = ubicacion;
+    this.duracionEstimada = duracionEstimada;
     this.fechaCreacion = fechaCreacion;
+    this.fechaRealizacion = fechaRealizacion;
     this.minimoParticipantes = minimoParticipantes;
     this.maximoParticipantes = maximoParticipantes;
     this.organizador = organizador;
-    this.fecha = fecha;
+    this.agregarParticipante(organizador);
   }
 
 
@@ -112,8 +117,39 @@ public class Actividad
     CambioFecha cambio = new CambioFecha(LocalDateTime.now(), this.fechaRealizacion, date);
     this.cambiosFecha.add(cambio);
     this.fechaRealizacion = date;
-    // La logica de cambiar el estado a REPROGRAMADA dependera de la máquina de estados
+    
     if (estado != null)
-      estado.cambiarEstado(this, TipoEstadoActividad.REPROGRAMADA);
+      this.cambiarEstado(TipoEstadoActividad.REPROGRAMADA);
+  }
+
+  public void cambiarEstado(TipoEstadoActividad nuevoEstado)
+  {
+    if (this.estado == null)
+      this.estado = nuevoEstado;
+    else
+      Estados.getEstado(this.estado).cambiarEstado(this, nuevoEstado);
+  }
+
+  public void actualizarReglasClima(ReglasClimaDto dto)
+  {
+    if (this.reglasClima == null)
+    this.reglasClima = new ReglasClima();
+
+    this.reglasClima.actualizar(dto);
+  }
+
+  public void actualizarHorasAnticipacion(Integer horas)
+  {
+    if (horas != null) {
+      this.horasAnticipacion = horas;
+    }
+  }
+
+  public void actualizarRangoReprogramacion(RangoReprogramacionDto dto)
+  {
+    if (this.rangoReprogramacion == null)
+    this.rangoReprogramacion = new RangoReprogramacion();
+
+    this.rangoReprogramacion.actualizar(dto);
   }
 }

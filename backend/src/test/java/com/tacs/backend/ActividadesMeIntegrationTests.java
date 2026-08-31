@@ -5,7 +5,6 @@ import com.tacs.backend.domain.actividad.*;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.ActividadesRepository;
-import com.tacs.backend.repositories.EstadoActividadRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,9 +41,6 @@ class ActividadesMeIntegrationTests {
 
     @Autowired
     private ActividadesRepository actividadesRepository;
-
-    @Autowired
-    private EstadoActividadRepository estadoActividadRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -88,20 +84,27 @@ class ActividadesMeIntegrationTests {
         assertThat(response.body()).doesNotContain("Partido de otro");
     }
 
+    /**
+     * El constructor de Actividad agrega al organizador como participante, asi que
+     * "participadas" incluye tambien las que organizo yo. El caso negativo real es
+     * una actividad ajena a la que no me sume.
+     */
     @Test
-    void organizadorFalseDevuelveSoloLasQueMeSume() throws Exception
+    void organizadorFalseDevuelveAquellasEnLasQueParticipo() throws Exception
     {
         Actividad ajena = guardarActividad("Salida a la que me sumo", otro);
         ajena.agregarParticipante(yo);
         actividadesRepository.save(ajena);
 
         guardarActividad("Corrida que organizo", yo);
+        guardarActividad("Asado ajeno al que no voy", otro);
 
         HttpResponse<String> response = get("/api/actividades/me?organizador=false", tokenYo);
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("Salida a la que me sumo");
-        assertThat(response.body()).doesNotContain("Corrida que organizo");
+        assertThat(response.body()).contains("Corrida que organizo");
+        assertThat(response.body()).doesNotContain("Asado ajeno al que no voy");
     }
 
     @Test
@@ -135,15 +138,12 @@ class ActividadesMeIntegrationTests {
     @Test
     void combinaFiltroDeEstadoConOrganizador() throws Exception
     {
-        EstadoActividad propuesta = guardarEstado(TipoEstadoActividad.PROPUESTA);
-        EstadoActividad confirmada = guardarEstado(TipoEstadoActividad.CONFIRMADA);
-
         Actividad enPropuesta = guardarActividad("Asado en propuesta", yo);
-        enPropuesta.setEstado(propuesta);
+        enPropuesta.setEstado(TipoEstadoActividad.PROPUESTA);
         actividadesRepository.save(enPropuesta);
 
         Actividad confirmadaAct = guardarActividad("Asado confirmado", yo);
-        confirmadaAct.setEstado(confirmada);
+        confirmadaAct.setEstado(TipoEstadoActividad.CONFIRMADA);
         actividadesRepository.save(confirmadaAct);
 
         HttpResponse<String> response = get("/api/actividades/me?organizador=true&estado=CONFIRMADA", tokenYo);
@@ -161,19 +161,13 @@ class ActividadesMeIntegrationTests {
                 TipoActividad.AIRE_LIBRE,
                 new Ubicacion("Palermo", -34.58, -58.43),
                 LocalDateTime.now().plusDays(1),
+                120,
                 LocalDateTime.now(),
                 2,
                 10,
                 organizador);
 
         return actividadesRepository.save(actividad);
-    }
-
-    private EstadoActividad guardarEstado(TipoEstadoActividad tipo)
-    {
-        EstadoActividad estado = new EstadoActividad();
-        estado.setTipo(tipo);
-        return estadoActividadRepository.save(estado);
     }
 
     private String login(String username, String password) throws Exception
