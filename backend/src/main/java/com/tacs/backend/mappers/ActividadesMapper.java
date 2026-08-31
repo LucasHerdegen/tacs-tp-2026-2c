@@ -15,7 +15,7 @@ public class ActividadesMapper
 {
   public Actividad actividadPostDtoToActividad(ActividadPostDto dto, Usuario organizador)
   {
-    return new Actividad(
+    Actividad actividad = new Actividad(
         dto.titulo(),
         dto.descripcion(),
         dto.tipoActividad(),
@@ -27,6 +27,8 @@ public class ActividadesMapper
         dto.cantidadMaxima(),
         organizador
     );
+
+    return actividad;
   }
 
   public ActividadDto actividadToActividadDto(Actividad actividad)

@@ -2,6 +2,7 @@ package com.tacs.backend.dtos.actividades;
 
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.Ubicacion;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,8 +10,13 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 
-import jakarta.validation.Valid;
-
+/**
+ * reglasClima, horasAnticipacion y rangoReprogramacion no se cargan en la
+ * creacion: la actividad nace sin monitoreo de clima (no entra al chequeo
+ * periodico, ver ActividadesRepository.findCandidatasParaChequeoClima) y el
+ * organizador los configura despues via
+ * PATCH /actividades/{id}/configuracion-clima (ConfigurarCondicionesDto).
+ */
 public record ActividadPostDto(@NotBlank(message = "El titulo es requerido") String titulo,
                                String descripcion,
                                @NotNull(message = "El tipo de actividad es requerido") TipoActividad tipoActividad,

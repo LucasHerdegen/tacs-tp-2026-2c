@@ -1,7 +1,6 @@
 package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
-import com.tacs.backend.domain.actividad.EstadoActividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.actividad.Ubicacion;
@@ -62,6 +61,9 @@ class ActividadesServiceImplemTest
         LocalDateTime.now().plusDays(2),
         2, // duracionEstimada
         10, // cantidadMinima
+        null, // reglasClima
+        null, // horasAnticipacion
+        null, // rangoReprogramacion
         10 // cantidadMaxima
     );
 
@@ -106,6 +108,7 @@ class ActividadesServiceImplemTest
         "Partido 5v5", "Fútbol", TipoActividad.AIRE_LIBRE, new Ubicacion(),
         LocalDateTime.now().plusDays(2), 2,
         10, // cantidadMinima
+        null, null, null,
         5   // cantidadMaxima (menor a la mínima)
     );
 

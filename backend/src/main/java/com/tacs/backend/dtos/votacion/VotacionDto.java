@@ -7,9 +7,11 @@ import java.util.List;
 
 public record VotacionDto (Long id,
                            LocalDateTime fechaApertura,
+                           LocalDateTime fechaLimite,
                            LocalDateTime fechaCierre,
                            ActividadDto actividadDto,
                            List<AlternativaDto> alternativasDtos,
                            int quorumMinimo,
-                           boolean abierta) {
+                           boolean abierta,
+                           AlternativaDto alternativaGanadora) {
 }

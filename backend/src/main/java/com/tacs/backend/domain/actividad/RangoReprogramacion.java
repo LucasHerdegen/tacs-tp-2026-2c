@@ -5,13 +5,19 @@ import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 
 import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+// Las validaciones de forma (dias > 0, horas 0-23, horaInicio <= horaFinal)
+// viven en RangoReprogramacionPostDto: esta clase es el value object de
+// dominio, sin Bean Validation, siguiendo la misma convencion PostDto
+// (input validado) vs. entidad (sin validacion) que el resto del proyecto.
 @Embeddable
 @Getter
 @Setter
+@EqualsAndHashCode
 @NoArgsConstructor
 @AllArgsConstructor
 public class RangoReprogramacion
