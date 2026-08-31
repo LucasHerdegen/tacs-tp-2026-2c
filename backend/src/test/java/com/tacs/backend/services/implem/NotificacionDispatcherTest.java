@@ -35,9 +35,9 @@ class NotificacionDispatcherTest
     when(notificadorQueNoSoportaNada.soporta(any())).thenReturn(false);
 
     NotificacionDispatcher dispatcher = new NotificacionDispatcher(List.of(notificadorQueNoSoportaNada, notificadorTelegram));
-    dispatcher.notificar("hola", destinatario);
+    dispatcher.notificar("ALELUYA!", destinatario);
 
-    verify(notificadorTelegram).enviarNotificacion("hola", destinatario);
+    verify(notificadorTelegram).enviarNotificacion("ALELUYA!", destinatario);
     verify(notificadorQueNoSoportaNada, never()).enviarNotificacion(any(), any());
   }
 
@@ -50,7 +50,7 @@ class NotificacionDispatcherTest
 
     NotificacionDispatcher dispatcher = new NotificacionDispatcher(List.of(notificadorQueNoSoportaNada));
 
-    assertThatThrownBy(() -> dispatcher.notificar("hola", destinatario))
+    assertThatThrownBy(() -> dispatcher.notificar("ALELUYA!", destinatario))
         .isInstanceOf(NotificadorNoDisponibleException.class);
 
     verify(notificadorQueNoSoportaNada, never()).enviarNotificacion(any(), any());

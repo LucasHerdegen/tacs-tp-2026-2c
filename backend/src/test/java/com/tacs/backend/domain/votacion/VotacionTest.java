@@ -92,6 +92,7 @@ class VotacionTest
     assertThat(votacion.getAlternativaGanadora()).isNull();
   }
 
+  /* Auxiliares */
   private Alternativa crearAlternativa(Long id, int numero)
   {
     Alternativa alternativa = new Alternativa();

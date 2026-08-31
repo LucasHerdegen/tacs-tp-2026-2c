@@ -82,9 +82,6 @@ class VotacionesServiceImplem implements VotacionesService {
         return votacionMapper.votacionToVotacionDto(votacion);
     }
 
-    // Se diferencia de crearVotacion en que el trigger es otro (clima desfavorable
-    // detectado por el cron, no el organizador), y por eso tambien difieren el
-    // quorum y la fechaLimite: acá no son input del usuario, se calculan solos.
     @Override
     @Transactional
     public Optional<VotacionDto> abrirVotacionAutomatica(Long actividadId) {
@@ -203,10 +200,7 @@ class VotacionesServiceImplem implements VotacionesService {
         votacionesRepository.delete(buscarVotacion(votacionId));
     }
 
-    // ==================== Metodos auxiliares (privados) ====================
-    // Ordenados segun donde se usan por primera vez leyendo los metodos publicos
-    // de arriba hacia abajo. construirAlternativa queda al final por ser el unico
-    // que usan otros dos auxiliares (crearAlternativa y mejorHorarioDelDia).
+    // ==================== Metodos auxiliares ====================
 
     private void validarExistenciaUsuario(Long usuarioId) {
         if (!usuarioRepository.existsById(usuarioId))
@@ -249,12 +243,12 @@ class VotacionesServiceImplem implements VotacionesService {
 
     /**
      * Busca, dentro de rangoReprogramacion (dias permitidos y franja horaria
-     * horaInicio-horaFinal definidos por el organizador), una alternativa por
-     * dia: la de mejor pronostico (menor probabilidad de lluvia) entre las
-     * horas de esa franja que cumplan las ReglasClima de la actividad. Un dia
-     * sin ninguna hora favorable en la franja queda afuera. Sin
-     * rangoReprogramacion configurado no hay donde buscar, y se devuelve vacio
-     * (la actividad termina cancelandose, ver abrirVotacionAutomatica).
+     * horaInicio-horaFinal definidos por el organizador), todas las horas de
+     * cada dia que cumplan las ReglasClima de la actividad: cada una se ofrece
+     * como alternativa propia, no solo la de mejor pronostico del dia (elegir
+     * entre varias opciones viables es trabajo de la votacion, no del sistema).
+     * Sin rangoReprogramacion configurado no hay donde buscar, y se devuelve
+     * vacio (la actividad termina cancelandose, ver abrirVotacionAutomatica).
      */
     private List<Alternativa> buscarAlternativasFavorables(Actividad actividad) {
         RangoReprogramacion rango = actividad.getRangoReprogramacion();
@@ -265,45 +259,37 @@ class VotacionesServiceImplem implements VotacionesService {
         List<Alternativa> favorables = new ArrayList<>();
         int numero = 1;
 
-        for (int dia = 1; dia <= rango.getDias(); dia++) {
-            Optional<Alternativa> mejorDelDia = mejorHorarioDelDia(actividad, rango, dia);
-
-            if (mejorDelDia.isPresent()) {
-                Alternativa alternativa = mejorDelDia.get();
+        for (int dia = 1; dia <= rango.getDias(); dia++)
+            for (Alternativa alternativa : alternativasFavorablesDelDia(actividad, rango, dia)) {
                 alternativa.setNumeroAltenativa(numero++);
                 favorables.add(alternativa);
             }
-        }
 
         return favorables;
     }
 
     /**
      * Recorre la franja horaInicio-horaFinal de ese dia cada
-     * GRANULARIDAD_BUSQUEDA_HORAS horas y devuelve la de menor probabilidad de
-     * lluvia entre las que cumplen las ReglasClima. Vacio si ninguna cumple.
+     * GRANULARIDAD_BUSQUEDA_HORAS horas y devuelve todas las alternativas que cumplen las
+     * ReglasClima (numero sin asignar todavia, se numera al aplanar en
+     * buscarAlternativasFavorables). Vacia si ninguna cumple.
      */
-    private Optional<Alternativa> mejorHorarioDelDia(Actividad actividad, RangoReprogramacion rango, int dia) {
+    private List<Alternativa> alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia) {
         LocalDateTime diaCandidato = actividad.getFecha().plusDays(dia);
-        Alternativa mejor = null;
+        List<Alternativa> favorablesDelDia = new ArrayList<>();
 
         for (int hora = rango.getHoraInicio(); hora <= rango.getHoraFinal(); hora += GRANULARIDAD_BUSQUEDA_HORAS) {
             LocalDateTime fechaCandidata = diaCandidato.withHour(hora).withMinute(0).withSecond(0).withNano(0);
 
             Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), fechaCandidata);
 
-            if (!actividad.cumpleCondiciones(pronostico))
-                continue;
-
-            if (mejor == null || pronostico.getProbabilidadLluvia() < mejor.getClima().getProbabilidadLluvia())
-                mejor = construirAlternativa(fechaCandidata, 0, pronostico); // numero se asigna al agregarla en buscarAlternativasFavorables
+            if (actividad.cumpleCondiciones(pronostico))
+                favorablesDelDia.add(construirAlternativa(fechaCandidata, 0, pronostico));
         }
 
-        return Optional.ofNullable(mejor);
+        return favorablesDelDia;
     }
 
-    // Usado tanto al cancelar por falta de quorum (resolverVotacion) como al
-    // cancelar por no encontrar ninguna fecha con clima favorable (abrirVotacionAutomatica).
     private void cancelarActividad(Actividad actividad) {
         if (actividad.getEstado() == null)
             throw new IllegalStateException("La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
@@ -318,9 +304,9 @@ class VotacionesServiceImplem implements VotacionesService {
      * esa fecha. Si la fecha original ya esta encima (o paso), usa un margen
      * minimo fijo en vez de una fechaLimite invalida (pasada o inmediata).
      *
-     * Esto es cuestionable si por ej. el CRON ejecutase a las 23hs de un
+     * NOTA - Esto es cuestionable si por ej. el CRON ejecutase a las 23hs de un
      * viernes por una actividad del sabado a las 23hs, practicamente no
-     * habria tiempo para votar.
+     * habria tiempo para votar. Se podria modificar simplemente cambiando este metodo
      */
     private LocalDateTime calcularFechaLimite(Actividad actividad) {
         LocalDateTime ahora = LocalDateTime.now();
@@ -342,7 +328,7 @@ class VotacionesServiceImplem implements VotacionesService {
             throw new VotacionCerradaException("La votacion ya esta cerrada");
     }
 
-    // El helper mas "de bajo nivel": lo usan crearAlternativa (fecha manual, via DTO)
+    // Helper utilizado por crearAlternativa (fecha manual, via DTO)
     // y mejorHorarioDelDia (fecha calculada por la busqueda automatica).
     private Alternativa construirAlternativa(LocalDateTime fecha, int numero, Clima clima) {
         Alternativa alternativa = new Alternativa();

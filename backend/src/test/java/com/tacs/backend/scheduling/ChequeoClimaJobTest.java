@@ -59,9 +59,9 @@ class ChequeoClimaJobTest
   void detectaActividadConClimaDesfavorableDentroDeLaVentana()
   {
     Actividad actividad = crearActividad(
-        LocalDateTime.now().plusHours(2), // fecha de la actividad
-        24,                                // horasAnticipacion: la ventana ya arrancÃ³
-        new ReglasClima(30, 10, 30, 20));  // max 30% de lluvia permitido
+        LocalDateTime.now().plusHours(2), 
+        24,                               
+        new ReglasClima(30, 10, 30, 20));  // Max 30% de lluvia permitido
 
     Clima pronosticoMalo = new Clima(80, 20, 10); // 80% de probabilidad de lluvia
 
@@ -82,7 +82,7 @@ class ChequeoClimaJobTest
         24,
         new ReglasClima(30, 10, 30, 20));
 
-    Clima pronosticoBueno = new Clima(5, 22, 10); // dentro de todos los limites
+    Clima pronosticoBueno = new Clima(5, 22, 10); // Dentro de todos los limites
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
     when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoBueno);
@@ -97,8 +97,8 @@ class ChequeoClimaJobTest
   void noEvaluaActividadesFueraDeLaVentanaDeAnticipacion()
   {
     Actividad actividad = crearActividad(
-        LocalDateTime.now().plusDays(10), // muy lejos en el tiempo
-        24,                                 // la ventana recien arranca 24hs antes
+        LocalDateTime.now().plusDays(10), 
+        24,                                 
         new ReglasClima(30, 10, 30, 20));
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
@@ -107,7 +107,7 @@ class ChequeoClimaJobTest
     List<Actividad> resultado = job.detectarClimaDesfavorable();
 
     assertThat(resultado).isEmpty();
-    verify(proveedorClima, never()).obtenerPronostico(any(), any());
+    // verify(proveedorClima, never()).obtenerPronostico(any(), any()); -> Util para validar llamadas innecesarias a un proveedor de servicio
   }
 
   @Test
@@ -123,12 +123,12 @@ class ChequeoClimaJobTest
     when(actividadesRepository.findCandidatasParaChequeoClima())
         .thenReturn(List.of(actividadQueFalla, actividadQueFunciona));
     when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFalla.getFecha()))
-        .thenThrow(new RuntimeException("proveedor de clima caido"));
+        .thenThrow(new RuntimeException("El proveedor no pudo responder!"));
     when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFunciona.getFecha()))
         .thenReturn(pronosticoMalo);
 
     inicializarJob();
-    List<Actividad> resultado = job.detectarClimaDesfavorable(); // no debe propagar la excepcion
+    List<Actividad> resultado = job.detectarClimaDesfavorable(); // No propaga exception, devuelve false y permite continuar la evaluacion - 
 
     assertThat(resultado).containsExactly(actividadQueFunciona);
   }
@@ -153,6 +153,7 @@ class ChequeoClimaJobTest
     inicializarJob();
     job.chequearClima();
 
+    // Verify valida llamado al mock de servicioNotificaciones, con estos argumentos (incluye titulo y medio de contacto). Eq = equals
     verify(servicioNotificaciones).notificar(contains(actividad.getTitulo()), eq(medioContacto));
   }
 
@@ -174,6 +175,7 @@ class ChequeoClimaJobTest
     inicializarJob();
     job.chequearClima();
 
+    // Valida que no hubo llamadas al mock servicioNotificaciones
     verify(servicioNotificaciones, never()).notificar(anyString(), any());
   }
 
@@ -193,7 +195,7 @@ class ChequeoClimaJobTest
     when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoMalo);
 
     inicializarJob();
-    job.chequearClima(); // no debe lanzar excepcion
+    job.chequearClima(); // No lanza exception, simplemente no notifica
 
     verify(servicioNotificaciones, never()).notificar(anyString(), any());
   }
@@ -219,7 +221,7 @@ class ChequeoClimaJobTest
         .when(servicioNotificaciones).notificar(anyString(), eq(medioQueFalla));
 
     inicializarJob();
-    job.chequearClima(); // no debe propagar la excepcion
+    job.chequearClima(); // No propaga exception, simplemente no notifica
 
     verify(servicioNotificaciones).notificar(anyString(), eq(medioQueFunciona));
   }
@@ -278,14 +280,15 @@ class ChequeoClimaJobTest
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividadQueFalla, actividadQueFunciona));
     when(proveedorClima.obtenerPronostico(eq(UBICACION), any())).thenReturn(pronosticoMalo);
-    when(votacionesService.abrirVotacionAutomatica(1L)).thenThrow(new RuntimeException("fallo inesperado"));
+    when(votacionesService.abrirVotacionAutomatica(1L)).thenThrow(new RuntimeException("Fallo la apertura de la votacion!"));
 
     inicializarJob();
-    job.chequearClima(); // no debe propagar la excepcion ni frenar el resto del loop
+    job.chequearClima(); // No propaga exception
 
     verify(votacionesService).abrirVotacionAutomatica(2L);
   }
 
+  /* Auxiliares */
   private Actividad crearActividad(LocalDateTime fecha, int horasAnticipacion, ReglasClima reglasClima)
   {
     Actividad actividad = new Actividad(

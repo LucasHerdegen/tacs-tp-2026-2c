@@ -12,10 +12,12 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
-Estos constraints solo se ejercitan de verdad cuando ActividadPostDto.rangoReprogramacion
-llega con @Valid desde el controller; acá se testea el propio RangoReprogramacion
-de forma aislada, sin levantar el contexto de Spring.*/
+/*
+  Estos constraints solo se ejercitan de verdad cuando ActividadPostDto.rangoReprogramacion
+  llega con @Valid desde el controller; acá se testea el propio RangoReprogramacion
+  de forma aislada, sin levantar el contexto de Spring. 
+*/
+
 class RangoReprogramacionTest
 {
   private static ValidatorFactory factory;

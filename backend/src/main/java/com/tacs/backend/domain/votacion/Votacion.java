@@ -77,7 +77,7 @@ public class Votacion
   }
 
   /**
-   * Alternativa con mas votos. En caso de empate gana la que se propuso primero
+   * Alternativa con + votos. En caso de empate gana la que se propuso primero
    * (menor numeroAlternativa). Vacio si la votacion no tiene alternativas.
    */
   public Optional<Alternativa> alternativaMasVotada()

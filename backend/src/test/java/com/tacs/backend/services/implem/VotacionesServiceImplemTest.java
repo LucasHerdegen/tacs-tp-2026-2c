@@ -212,7 +212,7 @@ class VotacionesServiceImplemTest
   }
 
   @Test
-  void eligeElHorarioConMenorProbabilidadDeLluviaCuandoHayMasDeUnaHoraFavorableEnElMismoDia()
+  void ofreceUnaAlternativaPorCadaHoraFavorableDelMismoDiaEnVezDeQuedarseConLaDeMenorProbabilidadDeLluvia()
   {
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA), fechaOriginal);
@@ -229,7 +229,7 @@ class VotacionesServiceImplemTest
     when(votacionesRepository.findByAbiertaTrueAndActividadId(54L)).thenReturn(Optional.empty());
     when(proveedorClima.obtenerPronostico(UBICACION, hora10)).thenReturn(new Clima(20, 22, 10)); // cumple, 20%
     when(proveedorClima.obtenerPronostico(UBICACION, hora12)).thenReturn(new Clima(80, 22, 10)); // no cumple
-    when(proveedorClima.obtenerPronostico(UBICACION, hora14)).thenReturn(new Clima(5, 22, 10));  // cumple, 5% (mejor)
+    when(proveedorClima.obtenerPronostico(UBICACION, hora14)).thenReturn(new Clima(5, 22, 10));  // cumple, 5%
     when(votacionesRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
 
@@ -240,9 +240,10 @@ class VotacionesServiceImplemTest
     verify(votacionesRepository).save(captor.capture());
     List<Alternativa> alternativas = captor.getValue().getAlternativas();
 
-    assertThat(alternativas).hasSize(1);
-    assertThat(alternativas.get(0).getFecha()).isEqualTo(hora14);
-    assertThat(alternativas.get(0).getClima().getProbabilidadLluvia()).isEqualTo(5);
+    // hora10 y hora14 cumplen, se ofrecen ambas; hora12 no cumple y queda afuera
+    assertThat(alternativas).hasSize(2);
+    assertThat(alternativas).extracting(Alternativa::getFecha).containsExactly(hora10, hora14);
+    assertThat(alternativas).extracting(Alternativa::getNumeroAltenativa).containsExactly(1, 2);
   }
 
   @Test
@@ -656,6 +657,7 @@ class VotacionesServiceImplemTest
     assertThat(resultado).isEmpty();
   }
 
+  /* Auxiliares */ 
   private Actividad crearActividad(EstadoActividad estado)
   {
     return crearActividad(estado, LocalDateTime.now().plusDays(1));

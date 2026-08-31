@@ -89,14 +89,15 @@ class CierreVotacionJobTest
     when(votacionesRepository.findByAbiertaTrueAndFechaLimiteBefore(any()))
         .thenReturn(List.of(queFalla, queFunciona));
     when(votacionesService.resolverVotacion(30L))
-        .thenThrow(new RuntimeException("fallo inesperado"));
+        .thenThrow(new RuntimeException("Fallo el cierre de la votacion!"));
 
     inicializarJob();
-    job.cerrarVotacionesVencidas(); // no debe propagar la excepcion ni frenar el resto del loop
+    job.cerrarVotacionesVencidas(); 
 
     verify(votacionesService).resolverVotacion(40L);
   }
 
+  /* Auxiliares */
   private Votacion crearVotacion(Long id)
   {
     Actividad actividad = new Actividad(
@@ -114,7 +115,7 @@ class CierreVotacionJobTest
     votacion.setId(id);
     votacion.setActividad(actividad);
     votacion.setAbierta(true);
-    votacion.setFechaLimite(LocalDateTime.now().minusMinutes(5)); // ya vencida
+    votacion.setFechaLimite(LocalDateTime.now().minusMinutes(5)); // Vencida
 
     return votacion;
   }
