@@ -30,9 +30,9 @@ public class Votacion
   private Long id;
 
   private LocalDateTime fechaApertura;
+  private LocalDateTime fechaCierre;
   private boolean abierta = true;
   private LocalDateTime fechaLimite;
-  private LocalDateTime fechaCierre;
 
   @ManyToOne
   private Actividad actividad;

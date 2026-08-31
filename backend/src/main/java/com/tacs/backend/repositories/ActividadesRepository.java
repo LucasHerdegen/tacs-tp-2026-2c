@@ -10,13 +10,13 @@ import java.util.List;
 public interface ActividadesRepository extends JpaRepository<Actividad, Long>
 {
   List<Actividad> findByOrganizadorId(Long organizadorId);
-  List<Actividad> findByOrganizadorIdAndEstadoTipo(Long organizadorId, TipoEstadoActividad tipo);
+  List<Actividad> findByOrganizadorIdAndEstado(Long organizadorId, TipoEstadoActividad estado);
   List<Actividad> findByParticipantesId(Long usuarioId);
-  List<Actividad> findByParticipantesIdAndEstadoTipo(Long usuarioId, TipoEstadoActividad tipo);
+  List<Actividad> findByParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
 
   @Query("""
       SELECT a FROM Actividad a
-      WHERE a.estado.tipo NOT IN (
+      WHERE a.estado NOT IN (
           com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA,
           com.tacs.backend.domain.actividad.TipoEstadoActividad.FINALIZADA)
       AND a.reglasClima IS NOT NULL

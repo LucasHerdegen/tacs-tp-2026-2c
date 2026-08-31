@@ -66,7 +66,7 @@ class ChequeoClimaJobTest
     Clima pronosticoMalo = new Clima(80, 20, 10); // 80% de probabilidad de lluvia
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoMalo);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoMalo);
 
     inicializarJob();
     List<Actividad> resultado = job.detectarClimaDesfavorable();
@@ -85,7 +85,7 @@ class ChequeoClimaJobTest
     Clima pronosticoBueno = new Clima(5, 22, 10); // Dentro de todos los limites
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoBueno);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoBueno);
 
     inicializarJob();
     List<Actividad> resultado = job.detectarClimaDesfavorable();
@@ -122,9 +122,9 @@ class ChequeoClimaJobTest
 
     when(actividadesRepository.findCandidatasParaChequeoClima())
         .thenReturn(List.of(actividadQueFalla, actividadQueFunciona));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFalla.getFecha()))
+    when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFalla.getFechaRealizacion()))
         .thenThrow(new RuntimeException("El proveedor no pudo responder!"));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFunciona.getFecha()))
+    when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFunciona.getFechaRealizacion()))
         .thenReturn(pronosticoMalo);
 
     inicializarJob();
@@ -148,7 +148,7 @@ class ChequeoClimaJobTest
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoMalo);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoMalo);
 
     inicializarJob();
     job.chequearClima();
@@ -170,7 +170,7 @@ class ChequeoClimaJobTest
     Clima pronosticoBueno = new Clima(5, 22, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoBueno);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoBueno);
 
     inicializarJob();
     job.chequearClima();
@@ -192,7 +192,7 @@ class ChequeoClimaJobTest
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoMalo);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoMalo);
 
     inicializarJob();
     job.chequearClima(); // No lanza exception, simplemente no notifica
@@ -216,7 +216,7 @@ class ChequeoClimaJobTest
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoMalo);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoMalo);
     doThrow(new RuntimeException("Telegram caido"))
         .when(servicioNotificaciones).notificar(anyString(), eq(medioQueFalla));
 
@@ -238,7 +238,7 @@ class ChequeoClimaJobTest
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoMalo);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoMalo);
 
     inicializarJob();
     job.chequearClima();
@@ -257,7 +257,7 @@ class ChequeoClimaJobTest
     Clima pronosticoBueno = new Clima(5, 22, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
-    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFecha())).thenReturn(pronosticoBueno);
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoBueno);
 
     inicializarJob();
     job.chequearClima();
@@ -291,21 +291,32 @@ class ChequeoClimaJobTest
   /* Auxiliares */
   private Actividad crearActividad(LocalDateTime fecha, int horasAnticipacion, ReglasClima reglasClima)
   {
+    // Organizador real (no null): el constructor de Actividad ya lo agrega
+    // como participante automaticamente, y un null ahi terminaria colandose
+    // en getParticipantes() y rompiendo cualquier iteracion sobre esa lista.
     Actividad actividad = new Actividad(
         "Asado en el parque",
         "Actividad de prueba",
         TipoActividad.AIRE_LIBRE,
         UBICACION,
         fecha,
+        2,
         LocalDateTime.now(),
         2,
         10,
-        null);
+        crearOrganizador());
 
     actividad.setHorasAnticipacion(horasAnticipacion);
     actividad.setReglasClima(reglasClima);
 
     return actividad;
+  }
+
+  private Usuario crearOrganizador()
+  {
+    Usuario organizador = new Usuario("organizador", "password", TipoRol.USER);
+    organizador.setId(1L);
+    return organizador;
   }
 
   private Usuario crearParticipante(MedioContacto medioContacto)

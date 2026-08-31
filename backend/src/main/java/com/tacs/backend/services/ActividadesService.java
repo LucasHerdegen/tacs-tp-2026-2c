@@ -8,12 +8,13 @@ import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 
 import java.util.List;
 
 public interface ActividadesService
 {
-  ActividadDto createActividad(ActividadPostDto actividadPostDto);
+  ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId);
 
   List<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha);
 
@@ -29,4 +30,9 @@ public interface ActividadesService
   List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado);
 
   List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado);
+
+  void cancelarActividad(Long actividadId, Long usuarioId);
+
+  ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto);
 }
+

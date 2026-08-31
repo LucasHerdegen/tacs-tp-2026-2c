@@ -63,7 +63,7 @@ public class ChequeoClimaJob
   private boolean tieneClimaDesfavorable(Actividad actividad)
   {
     try {
-      Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFecha());
+      Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion());
       return !actividad.cumpleCondiciones(pronostico);
     } catch (Exception e) {
       log.error("Fallo consultando el pronostico para actividad id={}, se reintenta en la proxima corrida del cron",
@@ -75,7 +75,7 @@ public class ChequeoClimaJob
   private boolean dentroDeVentanaAnticipacion(Actividad actividad)
   {
     LocalDateTime limiteEvaluacion = LocalDateTime.now().plusHours(actividad.getHorasAnticipacion());
-    return !limiteEvaluacion.isBefore(actividad.getFecha());
+    return !limiteEvaluacion.isBefore(actividad.getFechaRealizacion());
   }
 
   private void manejarClimaDesfavorable(Actividad actividad)

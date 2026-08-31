@@ -275,7 +275,7 @@ class VotacionesServiceImplem implements VotacionesService {
      * buscarAlternativasFavorables). Vacia si ninguna cumple.
      */
     private List<Alternativa> alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia) {
-        LocalDateTime diaCandidato = actividad.getFecha().plusDays(dia);
+        LocalDateTime diaCandidato = actividad.getFechaRealizacion().plusDays(dia);
         List<Alternativa> favorablesDelDia = new ArrayList<>();
 
         for (int hora = rango.getHoraInicio(); hora <= rango.getHoraFinal(); hora += GRANULARIDAD_BUSQUEDA_HORAS) {
@@ -295,22 +295,22 @@ class VotacionesServiceImplem implements VotacionesService {
             throw new IllegalStateException("La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
 
         // TODO: Notificar cuando se cancela al organizador?
-        actividad.getEstado().cambiarEstado(actividad, TipoEstadoActividad.CANCELADA);
+        actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
     }
 
     /**
-     * 1/2 del tiempo restante hasta la fecha original de la actividad,
+     * 1/2 del tiempo (configurable) restante hasta la fecha original de la actividad,
      * dejando margen para votar y para que el resultado se conozca antes de
      * esa fecha. Si la fecha original ya esta encima (o paso), usa un margen
      * minimo fijo en vez de una fechaLimite invalida (pasada o inmediata).
      *
      * NOTA - Esto es cuestionable si por ej. el CRON ejecutase a las 23hs de un
      * viernes por una actividad del sabado a las 23hs, practicamente no
-     * habria tiempo para votar. Se podria modificar simplemente cambiando este metodo
+     * habria tiempo para votar. 
      */
     private LocalDateTime calcularFechaLimite(Actividad actividad) {
         LocalDateTime ahora = LocalDateTime.now();
-        Duration restante = Duration.between(ahora, actividad.getFecha());
+        Duration restante = Duration.between(ahora, actividad.getFechaRealizacion());
 
         if (restante.isNegative() || restante.isZero())
             return ahora.plusHours(1);

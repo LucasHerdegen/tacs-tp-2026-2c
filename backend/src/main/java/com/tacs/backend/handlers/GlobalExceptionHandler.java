@@ -1,8 +1,11 @@
 package com.tacs.backend.handlers;
 
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.InvalidCredentialsException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.exceptions.VotacionNotFoundException;
@@ -25,6 +28,18 @@ class GlobalExceptionHandler
   public ResponseEntity<String> handleUsuarioNotFoundException(UsuarioNotFoundException ex)
   {
     return ResponseEntity.notFound().build();
+  }
+
+  @ExceptionHandler(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException.class)
+  public ResponseEntity<String> handleRangoReprogramacionInvalidoException(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException ex)
+  {
+    return ResponseEntity.badRequest().body(ex.getMessage());
+  }
+
+  @ExceptionHandler(com.tacs.backend.exceptions.AccesoDenegadoException.class)
+  public ResponseEntity<String> handleAccesoDenegadoException(com.tacs.backend.exceptions.AccesoDenegadoException ex)
+  {
+    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(ex.getMessage());
   }
 
   @ExceptionHandler(UsernameAlreadyExistsException.class)
@@ -55,5 +70,17 @@ class GlobalExceptionHandler
   public ResponseEntity<String> handleVotacionCerradaException(VotacionCerradaException ex)
   {
     return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+  }
+  @ExceptionHandler(ActividadNotFoundException.class)
+  public ResponseEntity<String> handleActividadNotFoundException(ActividadNotFoundException ex) {
+    return ResponseEntity.notFound().build();
+  }
+  @ExceptionHandler(CapacidadMaximaException.class)
+  public ResponseEntity<String> handleCapacidadMaximaException(CapacidadMaximaException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+  }
+  @ExceptionHandler(NoParticipanteException.class)
+  public ResponseEntity<String> handleNoParticipanteException(NoParticipanteException ex) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
   }
 }

@@ -1,7 +1,6 @@
 package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
-import com.tacs.backend.domain.actividad.EstadoActividad;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
@@ -33,7 +32,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -77,7 +75,7 @@ class VotacionesServiceImplemTest
   @Test
   void resolverConQuorumAlcanzadoReprogramaLaActividadALaFechaGanadora()
   {
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.REPROGRAMADA));
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     LocalDateTime fechaGanadora = LocalDateTime.now().plusDays(3);
     Alternativa ganadora = crearAlternativa(1L, 1, fechaGanadora);
 
@@ -92,7 +90,7 @@ class VotacionesServiceImplemTest
     service.resolverVotacion(10L);
 
     assertThat(actividad.getFechaRealizacion()).isEqualTo(fechaGanadora);
-    assertThat(actividad.getEstado().getTipo()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
     assertThat(votacion.isAbierta()).isFalse();
     assertThat(votacion.getAlternativaGanadora()).isEqualTo(ganadora);
     verify(actividadesRepository).save(actividad);
@@ -101,7 +99,7 @@ class VotacionesServiceImplemTest
   @Test
   void resolverSinQuorumCancelaLaActividadYNoDejaGanadora()
   {
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA));
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     Alternativa alternativa = crearAlternativa(1L, 1, LocalDateTime.now().plusDays(3));
 
     Votacion votacion = crearVotacion(actividad, 5, List.of(alternativa)); // quorum 5, un solo voto
@@ -114,7 +112,7 @@ class VotacionesServiceImplemTest
     inicializarService();
     service.resolverVotacion(10L);
 
-    assertThat(actividad.getEstado().getTipo()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     assertThat(votacion.isAbierta()).isFalse();
     assertThat(votacion.getAlternativaGanadora()).isNull();
     verify(actividadesRepository).save(actividad);
@@ -123,7 +121,7 @@ class VotacionesServiceImplemTest
   @Test
   void resolverSinAlternativasCancelaLaActividad()
   {
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA));
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     Votacion votacion = crearVotacion(actividad, 1, List.of());
 
     when(votacionesRepository.findById(10L)).thenReturn(Optional.of(votacion));
@@ -133,7 +131,7 @@ class VotacionesServiceImplemTest
     inicializarService();
     service.resolverVotacion(10L);
 
-    assertThat(actividad.getEstado().getTipo()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     assertThat(votacion.getAlternativaGanadora()).isNull();
   }
 
@@ -179,7 +177,7 @@ class VotacionesServiceImplemTest
   void abreVotacionAutomaticaSoloConLosDiasQueTienenAlgunaHoraFavorableDentroDelRango()
   {
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA), fechaOriginal);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(50L);
     actividad.setMinimoParticipantes(4);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
@@ -215,7 +213,7 @@ class VotacionesServiceImplemTest
   void ofreceUnaAlternativaPorCadaHoraFavorableDelMismoDiaEnVezDeQuedarseConLaDeMenorProbabilidadDeLluvia()
   {
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA), fechaOriginal);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(54L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20)); // max 30% de lluvia permitido
     actividad.setRangoReprogramacion(new RangoReprogramacion(1, 10, 14)); // 1 dia, grilla: 10, 12, 14
@@ -250,7 +248,7 @@ class VotacionesServiceImplemTest
   void cancelaLaActividadSiNingunaHoraDeNingunDiaDelRangoTieneClimaFavorable()
   {
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA), fechaOriginal);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(51L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
@@ -263,7 +261,7 @@ class VotacionesServiceImplemTest
     Optional<VotacionDto> resultado = service.abrirVotacionAutomatica(51L);
 
     assertThat(resultado).isEmpty();
-    assertThat(actividad.getEstado().getTipo()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     verify(actividadesRepository).save(actividad);
     verify(votacionesRepository, never()).save(any());
   }
@@ -271,7 +269,7 @@ class VotacionesServiceImplemTest
   @Test
   void cancelaLaActividadSiNoTieneRangoReprogramacionConfiguradoSinConsultarElClima()
   {
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA));
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId(55L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
     // sin actividad.setRangoReprogramacion(...): queda null
@@ -283,7 +281,7 @@ class VotacionesServiceImplemTest
     Optional<VotacionDto> resultado = service.abrirVotacionAutomatica(55L);
 
     assertThat(resultado).isEmpty();
-    assertThat(actividad.getEstado().getTipo()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     verify(proveedorClima, never()).obtenerPronostico(any(), any());
   }
 
@@ -291,7 +289,7 @@ class VotacionesServiceImplemTest
   void siLaFechaOriginalYaPasoUsaUnMargenMinimoParaLaFechaLimiteEnVezDeUnaFechaPasada()
   {
     LocalDateTime fechaOriginal = LocalDateTime.now().minusHours(2); // ya paso
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA), fechaOriginal);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(52L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
@@ -316,7 +314,7 @@ class VotacionesServiceImplemTest
   @Test
   void noAbreVotacionAutomaticaSiLaActividadYaTieneUnaAbierta()
   {
-    Actividad actividad = crearActividad(estadoConTransicionesA(TipoEstadoActividad.CANCELADA));
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId(53L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
 
@@ -657,13 +655,20 @@ class VotacionesServiceImplemTest
     assertThat(resultado).isEmpty();
   }
 
-  /* Auxiliares */ 
-  private Actividad crearActividad(EstadoActividad estado)
+  /* Auxiliares */
+  private Actividad crearActividad(TipoEstadoActividad estado)
   {
     return crearActividad(estado, LocalDateTime.now().plusDays(1));
   }
 
-  private Actividad crearActividad(EstadoActividad estado, LocalDateTime fecha)
+  // PROPUESTA como origen porque, segun Estados, es el unico estado desde el
+  // que se puede llegar tanto a REPROGRAMADA como a CANCELADA (los dos
+  // destinos que usan los tests de resolverVotacion/abrirVotacionAutomatica).
+  //
+  // Organizador real (no null): el constructor de Actividad ya lo agrega
+  // como participante automaticamente, y un null ahi se cuela en
+  // getParticipantes() y rompe cualquier iteracion/stream sobre esa lista.
+  private Actividad crearActividad(TipoEstadoActividad estado, LocalDateTime fecha)
   {
     Actividad actividad = new Actividad(
         "Asado en el parque",
@@ -671,24 +676,13 @@ class VotacionesServiceImplemTest
         TipoActividad.AIRE_LIBRE,
         UBICACION,
         fecha,
+        2,
         LocalDateTime.now(),
         2,
         10,
-        null);
+        crearUsuarioConId(999L));
     actividad.setEstado(estado);
     return actividad;
-  }
-
-  private EstadoActividad estadoConTransicionesA(TipoEstadoActividad destino)
-  {
-    EstadoActividad destinoEstado = new EstadoActividad();
-    destinoEstado.setTipo(destino);
-
-    EstadoActividad origen = new EstadoActividad();
-    origen.setTipo(TipoEstadoActividad.CONFIRMADA);
-    origen.setPosiblesEstados(new ArrayList<>(List.of(destinoEstado)));
-
-    return origen;
   }
 
   private Alternativa crearAlternativa(Long id, int numero, LocalDateTime fecha)

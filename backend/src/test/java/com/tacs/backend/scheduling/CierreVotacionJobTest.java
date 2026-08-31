@@ -106,6 +106,7 @@ class CierreVotacionJobTest
         TipoActividad.AIRE_LIBRE,
         UBICACION,
         LocalDateTime.now().plusDays(1),
+        2,
         LocalDateTime.now(),
         2,
         10,

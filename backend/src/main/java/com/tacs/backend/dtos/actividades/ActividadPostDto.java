@@ -20,13 +20,14 @@ import java.time.LocalDateTime;
  */
 public record ActividadPostDto(@NotBlank(message = "El titulo es requerido") String titulo,
                                String descripcion,
-                               TipoActividad tipoActividad,
-                               @NotNull(message = "La ubicacion es requerida") Ubicacion ubicacion,
+                               @NotNull(message = "El tipo de actividad es requerido") TipoActividad tipoActividad,
+                               @NotNull(message = "La ubicacion es requerida") @Valid Ubicacion ubicacion,
                                @NotNull(message = "La fecha es requerida") @Future(message = "La fecha debe ser futura") LocalDateTime fecha,
+                               @Min(value = 1, message = "La duracion minima es 1") int duracionEstimada,
                                @Min(value = 2, message = "La actividad debe de contar con por lo menos 2 personas") int cantidadMinima,
-                               int cantidadMaxima,
                                ReglasClima reglasClima,
                                Integer horasAnticipacion,
-                               @Valid RangoReprogramacion rangoReprogramacion)
+                               @Valid RangoReprogramacion rangoReprogramacion,
+                               @Min(value = 2, message = "La cantidad maxima debe ser por lo menos 2") int cantidadMaxima)
 {
 }
