@@ -68,6 +68,13 @@ class VotacionesServiceImplem implements VotacionesService {
                 .toList();
     }
 
+    /**
+     * Crea una nueva votacion para una actividad, validando el quorum y abriendo opciones.
+     *
+     * @param actividadId Identificador de la actividad.
+     * @param votacionPostDto DTO que contiene informacion de la votacion.
+     * @return DTO con la votacion creada.
+     */
     @Override
     @Transactional
     public VotacionDto crearVotacion(Long actividadId, VotacionPostDto votacionPostDto) {
@@ -86,6 +93,13 @@ class VotacionesServiceImplem implements VotacionesService {
         return votacionMapper.votacionToVotacionDto(votacion);
     }
 
+    /**
+     * Abre de manera automatica una votacion buscando alternativas climaticamente favorables.
+     * En caso de no encontrar alternativas, cancela la actividad.
+     *
+     * @param actividadId Identificador de la actividad a reprogramar.
+     * @return Optional con el DTO de la votacion si fue abierta exitosamente.
+     */
     @Override
     @Transactional
     public Optional<VotacionDto> abrirVotacionAutomatica(Long actividadId) {
@@ -144,6 +158,14 @@ class VotacionesServiceImplem implements VotacionesService {
         votacionesRepository.save(votacion);
     }
 
+    /**
+     * Registra el voto de un participante por una alternativa de la votacion.
+     *
+     * @param votacionId Identificador de la votacion.
+     * @param usuarioId Identificador del participante que vota.
+     * @param numeroAlternativa Numero de la alternativa elegida.
+     * @return DTO de la votacion actualizada.
+     */
     @Override
     @Transactional
     public VotacionDto votar(Long votacionId, Long usuarioId, int numeroAlternativa) {
@@ -174,6 +196,13 @@ class VotacionesServiceImplem implements VotacionesService {
         return votacionMapper.votacionToVotacionDto(votacion);
     }
 
+    /**
+     * Cierra la votacion y determina la alternativa ganadora segun los votos y el quorum minimo.
+     * Reprograma la actividad o la cancela si no hay alternativa ganadora.
+     *
+     * @param votacionId Identificador de la votacion a resolver.
+     * @return DTO de la votacion resuelta.
+     */
     @Override
     @Transactional
     public VotacionDto resolverVotacion(Long votacionId) {

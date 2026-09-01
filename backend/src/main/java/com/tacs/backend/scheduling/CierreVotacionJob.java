@@ -19,6 +19,10 @@ public class CierreVotacionJob
   private final VotacionesRepository votacionesRepository;
   private final VotacionesService votacionesService;
 
+  /**
+   * Tarea programada que busca y cierra las votaciones cuyo tiempo limite ha expirado.
+   * Resuelve cada votacion para determinar la reprogramacion o cancelacion de la actividad.
+   */
   @Scheduled(fixedRateString = "${votacion.cierre.intervalo-ms}")
   public void cerrarVotacionesVencidas()
   {

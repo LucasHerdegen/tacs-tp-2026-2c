@@ -26,6 +26,10 @@ public class ChequeoClimaJob
   private final ServicioNotificaciones servicioNotificaciones;
   private final VotacionesService votacionesService;
 
+  /**
+   * Tarea programada que verifica periodicamente el pronostico del clima
+   * para las actividades proximas y abre votaciones si es desfavorable.
+   */
   @Scheduled(fixedRateString = "${clima.chequeo.intervalo-ms}")
   public void chequearClima()
   {
