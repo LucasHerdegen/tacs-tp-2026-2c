@@ -4,7 +4,6 @@ import com.tacs.backend.domain.actividad.*;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.ActividadesRepository;
-import com.tacs.backend.repositories.EstadoActividadRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,9 +41,6 @@ class EstadisticasIntegrationTests
 
     @Autowired
     private ActividadesRepository actividadesRepository;
-
-    @Autowired
-    private EstadoActividadRepository estadoActividadRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -95,27 +91,22 @@ class EstadisticasIntegrationTests
     @Test
     void administradorObtieneLosConteos() throws Exception
     {
-        EstadoActividad reprogramada = guardarEstado(TipoEstadoActividad.REPROGRAMADA);
-        EstadoActividad cancelada = guardarEstado(TipoEstadoActividad.CANCELADA);
-        EstadoActividad confirmada = guardarEstado(TipoEstadoActividad.CONFIRMADA);
-        EstadoActividad finalizada = guardarEstado(TipoEstadoActividad.FINALIZADA);
-
         guardarActividad("Asado propuesto");
 
         Actividad actividadReprogramada = guardarActividad("Salida reprogramada");
-        actividadReprogramada.setEstado(reprogramada);
+        actividadReprogramada.setEstado(TipoEstadoActividad.REPROGRAMADA);
         actividadesRepository.save(actividadReprogramada);
 
         Actividad actividadCancelada = guardarActividad("Corrida cancelada");
-        actividadCancelada.setEstado(cancelada);
+        actividadCancelada.setEstado(TipoEstadoActividad.CANCELADA);
         actividadesRepository.save(actividadCancelada);
 
         Actividad actividadConfirmada = guardarActividad("Juntada Confirmada");
-        actividadConfirmada.setEstado(confirmada);
+        actividadConfirmada.setEstado(TipoEstadoActividad.CONFIRMADA);
         actividadesRepository.save(actividadConfirmada);
 
         Actividad actividadFinalizada = guardarActividad("Partido terminado");
-        actividadFinalizada.setEstado(finalizada);
+        actividadFinalizada.setEstado(TipoEstadoActividad.FINALIZADA);
         actividadesRepository.save(actividadFinalizada);
 
         HttpResponse<String> response = get("/api/admin/estadisticas", tokenAdmin);
@@ -136,19 +127,13 @@ class EstadisticasIntegrationTests
                 TipoActividad.AIRE_LIBRE,
                 new Ubicacion("Palermo", -34.58, -58.43),
                 LocalDateTime.now().plusDays(1),
+                120,
                 LocalDateTime.now(),
                 2,
                 10,
                 admin);
 
         return actividadesRepository.save(actividad);
-    }
-
-    private EstadoActividad guardarEstado(TipoEstadoActividad tipo)
-    {
-        EstadoActividad estado = new EstadoActividad();
-        estado.setTipo(tipo);
-        return estadoActividadRepository.save(estado);
     }
 
     private String login(String username, String password) throws Exception
