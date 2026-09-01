@@ -12,6 +12,7 @@ import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.services.ServicioNotificaciones;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class ActividadesServiceImplemTest
   @Mock
   private ActividadesMapper actividadesMapper;
 
+  @Mock
+  private ServicioNotificaciones servicioNotificaciones;
+
   @InjectMocks
   private ActividadesServiceImplem actividadesService;
 
@@ -61,9 +65,6 @@ class ActividadesServiceImplemTest
         LocalDateTime.now().plusDays(2),
         2, // duracionEstimada
         10, // cantidadMinima
-        null, // reglasClima
-        null, // horasAnticipacion
-        null, // rangoReprogramacion
         10 // cantidadMaxima
     );
 
@@ -108,7 +109,6 @@ class ActividadesServiceImplemTest
         "Partido 5v5", "Fútbol", TipoActividad.AIRE_LIBRE, new Ubicacion(),
         LocalDateTime.now().plusDays(2), 2,
         10, // cantidadMinima
-        null, null, null,
         5   // cantidadMaxima (menor a la mínima)
     );
 
@@ -148,6 +148,7 @@ class ActividadesServiceImplemTest
     
     actividadMock.setOrganizador(usuarioMock); // id 1L
     actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
+    actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 

@@ -5,27 +5,17 @@ import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
-import com.tacs.backend.dtos.clima.ClimaDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.services.ActividadesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.apache.coyote.Response;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
@@ -54,6 +44,26 @@ class ActividadesController
         .toUri();
 
     return ResponseEntity.created(location).body(actividad);
+  }
+
+  @GetMapping("/me")
+  public ResponseEntity<List<ActividadDto>> getMisActividades(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) Boolean organizador,
+      @RequestParam(required = false) TipoEstadoActividad estado)
+  {
+    Long usuarioId = jwt.getClaim("id");
+
+    List<ActividadDto> actividades;
+    if (organizador == null) {
+      actividades = actividadesService.actividadesDelUsuario(usuarioId, estado);
+    } else if (organizador) {
+      actividades = actividadesService.actividadesOrganizadas(usuarioId, estado);
+    } else {
+      actividades = actividadesService.actividadesParticipadas(usuarioId, estado);
+    }
+
+    return ResponseEntity.ok(actividades);
   }
 
   @GetMapping

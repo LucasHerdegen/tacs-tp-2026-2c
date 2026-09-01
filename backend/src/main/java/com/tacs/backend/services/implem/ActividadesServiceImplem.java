@@ -9,22 +9,25 @@ import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.dtos.clima.ClimaDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
-import com.tacs.backend.exceptions.ActividadNotFoundException;
-import com.tacs.backend.exceptions.CapacidadMaximaException;
-import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.ProveedorClima;
+import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.tacs.backend.mappers.ClimaMapper;
@@ -38,6 +41,8 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ActividadesMapper actividadesMapper;
   private final ProveedorClima proveedorClima;
   private final ClimaMapper climaMapper;
+  private final ServicioNotificaciones servicioNotificaciones;
+  private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
   @Override
   @Transactional
@@ -56,6 +61,24 @@ public class ActividadesServiceImplem implements ActividadesService
     actividad = this.actividadesRepository.save(actividad);
 
     return this.actividadesMapper.actividadToActividadDto(actividad);
+  }
+
+  @Override
+  public List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado) {
+    validarExistenciaUsuario(usuarioId);
+
+    //TODO asumo que el organizador no puede ser participante, pero despues se puede cambiar, depende de como se maneje la votacion
+    List<Actividad> actividades = new ArrayList<>();
+    actividades.addAll(estado != null
+            ? actividadesRepository.findByOrganizadorIdAndEstado(usuarioId, estado)
+            : actividadesRepository.findByOrganizadorId(usuarioId));
+    actividades.addAll(estado != null
+            ? actividadesRepository.findByParticipantesIdAndEstado(usuarioId, estado)
+            : actividadesRepository.findByParticipantesId(usuarioId));
+
+    return actividades.stream()
+            .map(actividadesMapper::actividadToActividadDto)
+            .toList();
   }
 
   @Override
@@ -170,7 +193,10 @@ public class ActividadesServiceImplem implements ActividadesService
 
     actividadesRepository.save(actividad);
 
-    // TODO: Disparar evento o llamar al Notificador para avisar a los participantes (User Story 13)
+    servicioNotificaciones.notificarATodos(
+            "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
+                    actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
+            actividad.getParticipantes());
   }
 
   @Override
