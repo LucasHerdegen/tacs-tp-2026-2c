@@ -20,6 +20,7 @@ import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.ProveedorClima;
+import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,12 +37,14 @@ import java.util.Optional;
 @Service
 class VotacionesServiceImplem implements VotacionesService {
     private static final int GRANULARIDAD_BUSQUEDA_HORAS = 2;
+    private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
     private final VotacionesRepository votacionesRepository;
     private final ActividadesRepository actividadesRepository;
     private final UsuarioRepository usuarioRepository;
     private final VotacionMapper votacionMapper;
     private final ProveedorClima proveedorClima;
+    private final ServicioNotificaciones servicioNotificaciones;
 
     // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
@@ -50,7 +54,6 @@ class VotacionesServiceImplem implements VotacionesService {
 
         // TODO: asumo que el organizador no puede ser también participante de la misma
         // actividad. Si esa regla cambia, revisar duplicados (volver a un Set como antes)
-
         // Set<Votacion> votaciones = new LinkedHashSet<>();
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
@@ -92,7 +95,7 @@ class VotacionesServiceImplem implements VotacionesService {
         List<Alternativa> alternativasFavorables = buscarAlternativasFavorables(actividad);
 
         if (alternativasFavorables.isEmpty()) {
-            cancelarActividad(actividad);
+            cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico");
             actividadesRepository.save(actividad);
             return Optional.empty();
         }
@@ -181,10 +184,13 @@ class VotacionesServiceImplem implements VotacionesService {
 
         Actividad actividad = votacion.getActividad();
 
-        if (ganadora.isPresent())
+        if(ganadora.isPresent()) {
+            LocalDateTime fechaAnterior = actividad.getFechaRealizacion();
             actividad.reprogramar(ganadora.get().getFecha());
-        else
-            cancelarActividad(actividad);
+            notificarReprogramacion(actividad, fechaAnterior);
+        } else {
+            cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos");
+        }
 
         actividadesRepository.save(actividad);
 
@@ -290,20 +296,31 @@ class VotacionesServiceImplem implements VotacionesService {
         return favorablesDelDia;
     }
 
-    private void cancelarActividad(Actividad actividad) {
+    private void cancelarActividad(Actividad actividad, String motivo) {
         if (actividad.getEstado() == null)
             throw new IllegalStateException("La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
 
-        // TODO: Notificar cuando se cancela al organizador?
         actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
+
+        servicioNotificaciones.notificarATodos(
+                "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo),
+                actividad.getParticipantes());
+    }
+
+    private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior) {
+        servicioNotificaciones.notificarATodos(
+                "La actividad '%s' se reprogramo del %s al %s.".formatted(
+                        actividad.getTitulo(),
+                        fechaAnterior.format(FORMATO),
+                        actividad.getFechaRealizacion().format(FORMATO)),
+                actividad.getParticipantes());
     }
 
     /**
      * 1/2 del tiempo (configurable) restante hasta la fecha original de la actividad,
      * dejando margen para votar y para que el resultado se conozca antes de
      * esa fecha. Si la fecha original ya esta encima (o paso), usa un margen
-     * minimo fijo en vez de una fechaLimite invalida (pasada o inmediata).
-     *
+     * minimo fijo en vez de una fechaLimite invalida (pasada o inmediata)
      * NOTA - Esto es cuestionable si por ej. el CRON ejecutase a las 23hs de un
      * viernes por una actividad del sabado a las 23hs, practicamente no
      * habria tiempo para votar. 
