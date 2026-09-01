@@ -635,8 +635,7 @@ class VotacionesServiceImplemTest
     Votacion participada = crearVotacion(crearActividad(null), 3, List.of());
 
     when(usuarioRepository.existsById(1L)).thenReturn(true);
-    when(votacionesRepository.findByAbiertaAndActividadOrganizadorId(true, 1L)).thenReturn(List.of(organizada));
-    when(votacionesRepository.findByAbiertaAndActividadParticipantesId(true, 1L)).thenReturn(List.of(participada));
+    when(votacionesRepository.findByAbiertaYUsuarioInvolucrado(true, 1L)).thenReturn(List.of(organizada, participada));
     when(votacionMapper.votacionToVotacionDto(organizada)).thenReturn(mock(VotacionDto.class));
     when(votacionMapper.votacionToVotacionDto(participada)).thenReturn(mock(VotacionDto.class));
 
@@ -650,8 +649,7 @@ class VotacionesServiceImplemTest
   void votacionesDevuelveListaVaciaSiElUsuarioNoTieneNinguna()
   {
     when(usuarioRepository.existsById(1L)).thenReturn(true);
-    when(votacionesRepository.findByAbiertaAndActividadOrganizadorId(false, 1L)).thenReturn(List.of());
-    when(votacionesRepository.findByAbiertaAndActividadParticipantesId(false, 1L)).thenReturn(List.of());
+    when(votacionesRepository.findByAbiertaYUsuarioInvolucrado(false, 1L)).thenReturn(List.of());
 
     inicializarService();
     List<VotacionDto> resultado = service.votaciones(1L, false);
