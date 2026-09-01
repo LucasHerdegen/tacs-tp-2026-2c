@@ -51,6 +51,8 @@ public class Actividad
   private int duracionEstimada;
   private int minimoParticipantes;
   private int maximoParticipantes;
+  private boolean recordatorioEnviado;
+
 
   @ManyToOne
   private Usuario organizador;
@@ -95,6 +97,9 @@ public class Actividad
     this.agregarParticipante(organizador);
   }
 
+  public void marcarRecordatorioEnviado() {
+    this.recordatorioEnviado = true;
+  }
 
   public boolean cumpleCondiciones(Clima clima)
   {
@@ -117,6 +122,7 @@ public class Actividad
     CambioFecha cambio = new CambioFecha(LocalDateTime.now(), this.fechaRealizacion, date);
     this.cambiosFecha.add(cambio);
     this.fechaRealizacion = date;
+    this.recordatorioEnviado = false;
     
     if (estado != null)
       this.cambiarEstado(TipoEstadoActividad.REPROGRAMADA);

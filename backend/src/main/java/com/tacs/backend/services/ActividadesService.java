@@ -33,4 +33,3 @@ public interface ActividadesService
 
   ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto);
 }
-

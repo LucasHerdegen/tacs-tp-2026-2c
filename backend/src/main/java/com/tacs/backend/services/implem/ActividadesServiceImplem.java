@@ -20,11 +20,13 @@ import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.ProveedorClima;
+import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +41,8 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ActividadesMapper actividadesMapper;
   private final ProveedorClima proveedorClima;
   private final ClimaMapper climaMapper;
+  private final ServicioNotificaciones servicioNotificaciones;
+  private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
   @Override
   @Transactional
@@ -189,7 +193,10 @@ public class ActividadesServiceImplem implements ActividadesService
 
     actividadesRepository.save(actividad);
 
-    // TODO: Disparar evento o llamar al Notificador para avisar a los participantes (User Story 13)
+    servicioNotificaciones.notificarATodos(
+            "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
+                    actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
+            actividad.getParticipantes());
   }
 
   @Override

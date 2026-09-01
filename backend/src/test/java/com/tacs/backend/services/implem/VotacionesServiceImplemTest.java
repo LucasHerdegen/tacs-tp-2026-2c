@@ -22,6 +22,7 @@ import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.ProveedorClima;
+import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionNotFoundException;
@@ -65,11 +66,14 @@ class VotacionesServiceImplemTest
   @Mock
   private ProveedorClima proveedorClima;
 
+  @Mock
+  private ServicioNotificaciones servicioNotificaciones;
+
   private VotacionesServiceImplem service;
 
   private void inicializarService()
   {
-    service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository, votacionMapper, proveedorClima);
+    service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository, votacionMapper, proveedorClima, servicioNotificaciones);
   }
 
   @Test

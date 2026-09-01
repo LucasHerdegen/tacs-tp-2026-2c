@@ -26,4 +26,15 @@ public interface ActividadesRepository extends JpaRepository<Actividad, Long>
       )
       """)
   List<Actividad> findCandidatasParaChequeoClima();
+
+
+  @Query("""
+    SELECT DISTINCT a FROM Actividad a
+     LEFT JOIN FETCH a.participantes
+     WHERE a.estado NOT IN (
+         com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA,
+         com.tacs.backend.domain.actividad.TipoEstadoActividad.FINALIZADA)
+     AND a.recordatorioEnviado = false
+     AND a.fechaRealizacion > CURRENT_TIMESTAMP""")
+  List<Actividad> findCandidatasParaRecordatorio();
 }
