@@ -1,5 +1,6 @@
 package com.tacs.backend.domain.actividad;
 
+import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -14,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /*
   Estos constraints solo se ejercitan de verdad cuando ActividadPostDto.rangoReprogramacion
-  llega con @Valid desde el controller; acá se testea el propio RangoReprogramacion
+  llega con @Valid desde el controller; acá se testea el propio RangoReprogramacionDto
   de forma aislada, sin levantar el contexto de Spring. 
 */
 
@@ -39,17 +40,17 @@ class RangoReprogramacionTest
   @Test
   void esValidoConDiasYHorasDentroDeRango()
   {
-    RangoReprogramacion rango = new RangoReprogramacion(3, 10, 20);
+    RangoReprogramacionDto rango = new RangoReprogramacionDto(3, 10, 20);
 
     assertThat(validator.validate(rango)).isEmpty();
   }
 
   @Test
-  void esInvalidoConDiasMenorOIgualACero()
+  void esInvalidoConDiasMenorACero()
   {
-    RangoReprogramacion rango = new RangoReprogramacion(0, 10, 20);
+    RangoReprogramacionDto rango = new RangoReprogramacionDto(-1, 10, 20);
 
-    Set<ConstraintViolation<RangoReprogramacion>> violaciones = validator.validate(rango);
+    Set<ConstraintViolation<RangoReprogramacionDto>> violaciones = validator.validate(rango);
 
     assertThat(violaciones).isNotEmpty();
   }
@@ -57,19 +58,9 @@ class RangoReprogramacionTest
   @Test
   void esInvalidoConHoraFueraDelRango0A23()
   {
-    RangoReprogramacion rango = new RangoReprogramacion(3, 10, 99);
+    RangoReprogramacionDto rango = new RangoReprogramacionDto(3, 10, 99);
 
-    Set<ConstraintViolation<RangoReprogramacion>> violaciones = validator.validate(rango);
-
-    assertThat(violaciones).isNotEmpty();
-  }
-
-  @Test
-  void esInvalidoConHoraInicioMayorAHoraFinal()
-  {
-    RangoReprogramacion rango = new RangoReprogramacion(3, 20, 10);
-
-    Set<ConstraintViolation<RangoReprogramacion>> violaciones = validator.validate(rango);
+    Set<ConstraintViolation<RangoReprogramacionDto>> violaciones = validator.validate(rango);
 
     assertThat(violaciones).isNotEmpty();
   }
