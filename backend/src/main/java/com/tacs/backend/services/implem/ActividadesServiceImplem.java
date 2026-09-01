@@ -44,6 +44,13 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ServicioNotificaciones servicioNotificaciones;
   private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
+  /**
+   * Crea una nueva actividad propuesta por el usuario especificado.
+   *
+   * @param actividadPostDto DTO con los detalles de la nueva actividad.
+   * @param usuarioId ID del usuario que organiza la actividad.
+   * @return DTO de la actividad creada.
+   */
   @Override
   @Transactional
   public ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId)
@@ -123,6 +130,13 @@ public class ActividadesServiceImplem implements ActividadesService
         .toList();
   }
 
+  /**
+   * Agrega a un usuario como participante de una actividad si no se ha alcanzado
+   * la capacidad maxima.
+   *
+   * @param actividadId Identificador de la actividad.
+   * @param usuarioId Identificador del usuario que desea unirse.
+   */
   @Override
   @Transactional
   public void unirseActividad(Long actividadId, Long usuarioId) {
@@ -142,6 +156,12 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
 
+  /**
+   * Remueve a un usuario de la lista de participantes de una actividad.
+   *
+   * @param actividadId Identificador de la actividad.
+   * @param usuarioId Identificador del usuario que desea bajarse.
+   */
   @Override
   @Transactional
   public void bajarseActividad(Long actividadId, Long usuarioId) {
@@ -179,6 +199,12 @@ public class ActividadesServiceImplem implements ActividadesService
     return new PronosticoRespuestaDto(climaActual, pronostico);
   }
 
+  /**
+   * Cancela una actividad existente y notifica a los participantes.
+   *
+   * @param actividadId Identificador de la actividad a cancelar.
+   * @param usuarioId Identificador del usuario que solicita la cancelacion (debe ser el organizador).
+   */
   @Override
   @Transactional
   public void cancelarActividad(Long actividadId, Long usuarioId)
@@ -199,6 +225,14 @@ public class ActividadesServiceImplem implements ActividadesService
             actividad.getParticipantes());
   }
 
+  /**
+   * Actualiza las configuraciones de clima, anticipacion y rango de reprogramacion de una actividad.
+   *
+   * @param actividadId Identificador de la actividad.
+   * @param usuarioId Identificador del usuario que solicita la configuracion (debe ser el organizador).
+   * @param dto DTO con las nuevas configuraciones a aplicar.
+   * @return DTO de la actividad actualizada.
+   */
   @Override
   @Transactional
   public ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto) {

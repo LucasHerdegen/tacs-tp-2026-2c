@@ -276,7 +276,7 @@ class VotacionesServiceImplemTest
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId(55L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
-    // sin actividad.setRangoReprogramacion(...): queda null
+    actividad.setRangoReprogramacion(null);
 
     when(actividadesRepository.findById(55L)).thenReturn(Optional.of(actividad));
     when(votacionesRepository.findByAbiertaTrueAndActividadId(55L)).thenReturn(Optional.empty());
@@ -635,8 +635,7 @@ class VotacionesServiceImplemTest
     Votacion participada = crearVotacion(crearActividad(null), 3, List.of());
 
     when(usuarioRepository.existsById(1L)).thenReturn(true);
-    when(votacionesRepository.findByAbiertaAndActividadOrganizadorId(true, 1L)).thenReturn(List.of(organizada));
-    when(votacionesRepository.findByAbiertaAndActividadParticipantesId(true, 1L)).thenReturn(List.of(participada));
+    when(votacionesRepository.findByAbiertaYUsuarioInvolucrado(true, 1L)).thenReturn(List.of(organizada, participada));
     when(votacionMapper.votacionToVotacionDto(organizada)).thenReturn(mock(VotacionDto.class));
     when(votacionMapper.votacionToVotacionDto(participada)).thenReturn(mock(VotacionDto.class));
 
@@ -650,8 +649,7 @@ class VotacionesServiceImplemTest
   void votacionesDevuelveListaVaciaSiElUsuarioNoTieneNinguna()
   {
     when(usuarioRepository.existsById(1L)).thenReturn(true);
-    when(votacionesRepository.findByAbiertaAndActividadOrganizadorId(false, 1L)).thenReturn(List.of());
-    when(votacionesRepository.findByAbiertaAndActividadParticipantesId(false, 1L)).thenReturn(List.of());
+    when(votacionesRepository.findByAbiertaYUsuarioInvolucrado(false, 1L)).thenReturn(List.of());
 
     inicializarService();
     List<VotacionDto> resultado = service.votaciones(1L, false);
@@ -686,6 +684,7 @@ class VotacionesServiceImplemTest
         10,
         crearUsuarioConId(999L));
     actividad.setEstado(estado);
+    actividad.setRangoReprogramacion(new com.tacs.backend.domain.actividad.RangoReprogramacion(5, 0, 23));
     return actividad;
   }
 

@@ -61,3 +61,5 @@ application-dev.properties
 CLAUDE.md
 
 .claude/
+
+AGENTS.md

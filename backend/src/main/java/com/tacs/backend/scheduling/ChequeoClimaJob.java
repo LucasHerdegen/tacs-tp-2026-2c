@@ -26,8 +26,13 @@ public class ChequeoClimaJob
   private final ServicioNotificaciones servicioNotificaciones;
   private final VotacionesService votacionesService;
 
+  /**
+   * Tarea programada que verifica periodicamente el pronostico del clima
+   * para las actividades proximas y abre votaciones si es desfavorable.
+   */
   @Scheduled(fixedRateString = "${clima.chequeo.intervalo-ms}")
-  public void chequearClima() {
+  public void chequearClima()
+  {
     for (Actividad actividad : detectarClimaDesfavorable())
       manejarClimaDesfavorable(actividad);
   }
@@ -43,7 +48,8 @@ public class ChequeoClimaJob
   {
     List<Actividad> desfavorables = new ArrayList<>();
 
-    for (Actividad actividad : actividadesRepository.findCandidatasParaChequeoClima()) {
+    for (Actividad actividad : actividadesRepository.findCandidatasParaChequeoClima())
+    {
       if (!dentroDeVentanaAnticipacion(actividad))
         continue;
 
@@ -62,10 +68,12 @@ public class ChequeoClimaJob
    */
   private boolean tieneClimaDesfavorable(Actividad actividad)
   {
-    try {
+    try
+    {
       Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion());
       return !actividad.cumpleCondiciones(pronostico);
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       log.error("Fallo consultando el pronostico para actividad id={}, se reintenta en la proxima corrida del cron",
           actividad.getId(), e);
       return false;
@@ -80,39 +88,71 @@ public class ChequeoClimaJob
 
   private void manejarClimaDesfavorable(Actividad actividad)
   {
-    // TODO: falta la notificación al organizador (US3)
     log.info("Clima desfavorable detectado para actividad id={} ('{}')",
         actividad.getId(), actividad.getTitulo());
 
+    notificarOrganizador(actividad);
+
     for (Usuario participante : actividad.getParticipantes())
-      notificarParticipante(actividad, participante);
+      if (!participante.equals(actividad.getOrganizador()))
+        notificarParticipante(actividad, participante);
 
     abrirVotacionAutomatica(actividad);
   }
 
   private void abrirVotacionAutomatica(Actividad actividad)
   {
-    try {
+    try
+    {
       votacionesService.abrirVotacionAutomatica(actividad.getId());
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       log.error("Fallo abriendo votacion automatica para actividad id={}", actividad.getId(), e);
+    }
+  }
+
+  private void notificarOrganizador(Actividad actividad)
+  {
+    Usuario organizador = actividad.getOrganizador();
+    if (organizador.getMedioContacto() == null)
+    {
+      log.warn(
+          "Organizador id={} no tiene medio de contacto configurado, no se le notifica el clima desfavorable de la actividad id={}",
+          organizador.getId(), actividad.getId());
+      return;
+    }
+
+    String contenido = "Alerta de Organizador: El pronóstico para tu actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrirá una votación automática para reprogramar."
+        .formatted(actividad.getTitulo());
+
+    try
+    {
+      servicioNotificaciones.notificar(contenido, organizador.getMedioContacto());
+    } catch (Exception e)
+    {
+      log.error("Fallo notificando clima desfavorable al organizador id={} de actividad id={}",
+          organizador.getId(), actividad.getId(), e);
     }
   }
 
   private void notificarParticipante(Actividad actividad, Usuario participante)
   {
-    if (participante.getMedioContacto() == null) {
-      log.warn("Participante id={} no tiene medio de contacto configurado, no se le notifica el clima desfavorable de la actividad id={}",
+    if (participante.getMedioContacto() == null)
+    {
+      log.warn(
+          "Participante id={} no tiene medio de contacto configurado, no se le notifica el clima desfavorable de la actividad id={}",
           participante.getId(), actividad.getId());
       return;
     }
 
-    String contenido = "El pronóstico para la actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrira una votacion para reprogramar"
+    String contenido = "El pronóstico para la actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrirá una votación para reprogramar."
         .formatted(actividad.getTitulo());
 
-    try {
+    try
+    {
       servicioNotificaciones.notificar(contenido, participante.getMedioContacto());
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       log.error("Fallo notificando clima desfavorable a participante id={} de actividad id={}",
           participante.getId(), actividad.getId(), e);
     }

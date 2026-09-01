@@ -29,6 +29,10 @@ public class RecordatorioInicioJob {
         this.horasAnticipacionDefault = horasAnticipacionDefault;
     }
 
+    /**
+     * Tarea programada que notifica a los participantes de las actividades
+     * que estan proximas a comenzar, segun las horas de anticipacion configuradas.
+     */
     @Scheduled(fixedRateString = "${recordatorio.inicio.intervalo-ms}")
     public void enviarRecordatorios() {
         for (Actividad actividad : detectarActividadesPorComenzar())

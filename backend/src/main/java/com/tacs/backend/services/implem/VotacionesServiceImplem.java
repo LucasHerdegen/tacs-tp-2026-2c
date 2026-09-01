@@ -12,6 +12,7 @@ import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.exceptions.VotacionNotFoundException;
@@ -58,15 +59,18 @@ class VotacionesServiceImplem implements VotacionesService {
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
 
-        List<Votacion> votaciones = new ArrayList<>();
-        votaciones.addAll(votacionesRepository.findByAbiertaAndActividadOrganizadorId(abierta, usuarioId));
-        votaciones.addAll(votacionesRepository.findByAbiertaAndActividadParticipantesId(abierta, usuarioId));
-
-        return votaciones.stream()
-                .map(votacionMapper::votacionToVotacionDto)
-                .toList();
+        return votacionesRepository.findByAbiertaYUsuarioInvolucrado(abierta, usuarioId).stream()
+            .map(votacionMapper::votacionToVotacionDto)
+            .toList();
     }
 
+    /**
+     * Crea una nueva votacion para una actividad, validando el quorum y abriendo opciones.
+     *
+     * @param actividadId Identificador de la actividad.
+     * @param votacionPostDto DTO que contiene informacion de la votacion.
+     * @return DTO con la votacion creada.
+     */
     @Override
     @Transactional
     public VotacionDto crearVotacion(Long actividadId, VotacionPostDto votacionPostDto) {
@@ -85,6 +89,13 @@ class VotacionesServiceImplem implements VotacionesService {
         return votacionMapper.votacionToVotacionDto(votacion);
     }
 
+    /**
+     * Abre de manera automatica una votacion buscando alternativas climaticamente favorables.
+     * En caso de no encontrar alternativas, cancela la actividad.
+     *
+     * @param actividadId Identificador de la actividad a reprogramar.
+     * @return Optional con el DTO de la votacion si fue abierta exitosamente.
+     */
     @Override
     @Transactional
     public Optional<VotacionDto> abrirVotacionAutomatica(Long actividadId) {
@@ -143,6 +154,14 @@ class VotacionesServiceImplem implements VotacionesService {
         votacionesRepository.save(votacion);
     }
 
+    /**
+     * Registra el voto de un participante por una alternativa de la votacion.
+     *
+     * @param votacionId Identificador de la votacion.
+     * @param usuarioId Identificador del participante que vota.
+     * @param numeroAlternativa Numero de la alternativa elegida.
+     * @return DTO de la votacion actualizada.
+     */
     @Override
     @Transactional
     public VotacionDto votar(Long votacionId, Long usuarioId, int numeroAlternativa) {
@@ -173,6 +192,13 @@ class VotacionesServiceImplem implements VotacionesService {
         return votacionMapper.votacionToVotacionDto(votacion);
     }
 
+    /**
+     * Cierra la votacion y determina la alternativa ganadora segun los votos y el quorum minimo.
+     * Reprograma la actividad o la cancela si no hay alternativa ganadora.
+     *
+     * @param votacionId Identificador de la votacion a resolver.
+     * @return DTO de la votacion resuelta.
+     */
     @Override
     @Transactional
     public VotacionDto resolverVotacion(Long votacionId) {
@@ -230,7 +256,11 @@ class VotacionesServiceImplem implements VotacionesService {
                     .formatted(quorumMinimo, actividad.getMinimoParticipantes()));
     }
 
-    private Alternativa crearAlternativa(AlternativaPostDto dto, int numero, Actividad actividad) {
+    private Alternativa crearAlternativa(AlternativaPostDto dto, int numero, Actividad actividad)
+    {
+        if (actividad.getRangoReprogramacion() == null || !actividad.getRangoReprogramacion().contiene(actividad.getFechaRealizacion(), dto.fecha()))
+            throw new RangoReprogramacionInvalidoException("La fecha de la alternativa debe estar dentro del rango de reprogramacion permitido por la actividad");
+            
         Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), dto.fecha());
         return construirAlternativa(dto.fecha(), numero, pronostico);
     }

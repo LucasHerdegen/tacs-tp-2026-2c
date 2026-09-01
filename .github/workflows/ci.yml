@@ -9,8 +9,8 @@ on:
       - '**'
 
 jobs:
-  compile:
-    name: Compile Backend
+  build-and-test:
+    name: Compile and Test Backend
     runs-on: ubuntu-latest
 
     steps:
@@ -30,4 +30,8 @@ jobs:
 
       - name: Compile with Maven
         run: ./mvnw clean compile
+        working-directory: backend
+        
+      - name: Run Tests
+        run: ./mvnw test
         working-directory: backend

@@ -116,7 +116,7 @@ class ChequeoClimaJobTest
     Actividad actividadQueFalla = crearActividad(
         LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
     Actividad actividadQueFunciona = crearActividad(
-        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(3), 24, new ReglasClima(30, 10, 30, 20));
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
