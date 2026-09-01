@@ -59,13 +59,9 @@ class VotacionesServiceImplem implements VotacionesService {
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
         // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
 
-        List<Votacion> votaciones = new ArrayList<>();
-        votaciones.addAll(votacionesRepository.findByAbiertaAndActividadOrganizadorId(abierta, usuarioId));
-        votaciones.addAll(votacionesRepository.findByAbiertaAndActividadParticipantesId(abierta, usuarioId));
-
-        return votaciones.stream()
-                .map(votacionMapper::votacionToVotacionDto)
-                .toList();
+        return votacionesRepository.findByAbiertaYUsuarioInvolucrado(abierta, usuarioId).stream()
+            .map(votacionMapper::votacionToVotacionDto)
+            .toList();
     }
 
     /**
