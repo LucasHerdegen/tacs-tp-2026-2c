@@ -12,6 +12,7 @@ import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.exceptions.VotacionNotFoundException;
@@ -230,7 +231,11 @@ class VotacionesServiceImplem implements VotacionesService {
                     .formatted(quorumMinimo, actividad.getMinimoParticipantes()));
     }
 
-    private Alternativa crearAlternativa(AlternativaPostDto dto, int numero, Actividad actividad) {
+    private Alternativa crearAlternativa(AlternativaPostDto dto, int numero, Actividad actividad)
+    {
+        if (actividad.getRangoReprogramacion() == null || !actividad.getRangoReprogramacion().contiene(actividad.getFechaRealizacion(), dto.fecha()))
+            throw new RangoReprogramacionInvalidoException("La fecha de la alternativa debe estar dentro del rango de reprogramacion permitido por la actividad");
+            
         Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), dto.fecha());
         return construirAlternativa(dto.fecha(), numero, pronostico);
     }

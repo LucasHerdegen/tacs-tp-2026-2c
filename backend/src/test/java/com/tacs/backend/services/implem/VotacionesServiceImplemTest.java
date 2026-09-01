@@ -276,7 +276,7 @@ class VotacionesServiceImplemTest
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId(55L);
     actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
-    // sin actividad.setRangoReprogramacion(...): queda null
+    actividad.setRangoReprogramacion(null);
 
     when(actividadesRepository.findById(55L)).thenReturn(Optional.of(actividad));
     when(votacionesRepository.findByAbiertaTrueAndActividadId(55L)).thenReturn(Optional.empty());
@@ -686,6 +686,7 @@ class VotacionesServiceImplemTest
         10,
         crearUsuarioConId(999L));
     actividad.setEstado(estado);
+    actividad.setRangoReprogramacion(new com.tacs.backend.domain.actividad.RangoReprogramacion(5, 0, 23));
     return actividad;
   }
 
