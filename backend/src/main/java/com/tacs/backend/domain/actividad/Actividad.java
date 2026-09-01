@@ -145,7 +145,7 @@ public class Actividad
    */
   public void removerParticipante(Usuario usuario)
   {
-    if (this.organizador.equals(usuario))
+    if (this.organizador != null && this.organizador.equals(usuario))
       throw new AccesoDenegadoException("El organizador no puede bajarse de la actividad");
 
     this.participantes.remove(usuario);
