@@ -49,6 +49,8 @@ public class SecurityConfig
             .permitAll()
             .requestMatchers(HttpMethod.PATCH, "/api/usuarios/*/rol")
             .hasRole("ADMIN")
+            .requestMatchers(HttpMethod.GET, "/api/admin/estadisticas")
+            .hasRole("ADMIN")
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2
             .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

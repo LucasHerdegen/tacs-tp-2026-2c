@@ -13,6 +13,7 @@ public interface ActividadesRepository extends JpaRepository<Actividad, Long>
   List<Actividad> findByOrganizadorIdAndEstado(Long organizadorId, TipoEstadoActividad estado);
   List<Actividad> findByParticipantesId(Long usuarioId);
   List<Actividad> findByParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
+  long countByEstado(TipoEstadoActividad estado);
 
   @Query("""
       SELECT a FROM Actividad a
