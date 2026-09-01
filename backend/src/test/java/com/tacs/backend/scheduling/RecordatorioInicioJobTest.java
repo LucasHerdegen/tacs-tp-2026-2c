@@ -52,8 +52,6 @@ class RecordatorioInicioJobTest
         actividadesRepository, servicioNotificaciones, HORAS_ANTICIPACION_DEFAULT);
   }
 
-  /* ==================== Deteccion ==================== */
-
   @Test
   void detectaActividadDentroDeLaVentanaDeAnticipacion()
   {
@@ -80,9 +78,6 @@ class RecordatorioInicioJobTest
     assertThat(resultado).isEmpty();
   }
 
-  // horasAnticipacion arranca en 0 y solo se setea via PATCH /configuracion-clima.
-  // Sin default, la ventana seria "now >= fechaRealizacion" y el recordatorio
-  // saldria recien a la hora de inicio, que es justamente lo que no queremos.
   @Test
   void aplicaLaAnticipacionPorDefectoCuandoLaActividadNoLaTieneConfigurada()
   {
@@ -109,8 +104,6 @@ class RecordatorioInicioJobTest
     assertThat(resultado).isEmpty();
   }
 
-  /* ==================== Notificacion y marcado ==================== */
-
   @Test
   void notificaAlosParticipantesYMarcaElRecordatorioComoEnviado()
   {
@@ -128,8 +121,6 @@ class RecordatorioInicioJobTest
     verify(actividadesRepository).save(actividad);
   }
 
-  // El organizador se agrega solo como participante en el constructor de Actividad,
-  // asi que no hay que sumarlo aparte a los destinatarios.
   @Test
   void elOrganizadorTambienRecibeElRecordatorio()
   {
@@ -157,8 +148,6 @@ class RecordatorioInicioJobTest
     assertThat(actividad.isRecordatorioEnviado()).isFalse();
   }
 
-  // Si el envio fallo, el flag NO se marca: el recordatorio se reintenta en la
-  // proxima corrida en vez de perderse para siempre.
   @Test
   void siFallaLaNotificacionNoMarcaElRecordatorioNiGuarda()
   {
@@ -198,10 +187,6 @@ class RecordatorioInicioJobTest
   }
 
   /* ==================== Auxiliares ==================== */
-
-  // Organizador real (no null): el constructor de Actividad ya lo agrega como
-  // participante, y un null ahi se cuela en getParticipantes() y rompe
-  // cualquier iteracion sobre esa lista.
   private Actividad crearActividad(LocalDateTime fechaRealizacion, int horasAnticipacion)
   {
     Actividad actividad = new Actividad(

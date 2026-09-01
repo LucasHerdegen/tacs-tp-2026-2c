@@ -12,11 +12,6 @@ class ActividadTest
 {
   private static final Ubicacion UBICACION = new Ubicacion("Palermo", -34.58, -58.43);
 
-  /**
-   * Sin este reset, una actividad reprogramada nunca vuelve a avisar que esta por
-   * comenzar: el flag quedaria en true de la fecha vieja y la query del
-   * RecordatorioInicioJob la descartaria para siempre.
-   */
   @Test
   void reprogramarReseteaElRecordatorioParaQueSeAviseDeLaNuevaFecha()
   {
@@ -54,8 +49,6 @@ class ActividadTest
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
   }
 
-  // De esto depende que notificar a getParticipantes() alcance para avisarle
-  // tambien al organizador, sin sumarlo aparte en cada caso de uso.
   @Test
   void elOrganizadorQuedaComoParticipanteAlCrearLaActividad()
   {
@@ -77,9 +70,6 @@ class ActividadTest
   }
 
   /* ==================== Auxiliares ==================== */
-
-  // PROPUESTA porque, segun Estados, es el unico estado desde el que se puede
-  // llegar tanto a REPROGRAMADA como a CANCELADA.
   private Actividad crearActividad(LocalDateTime fechaRealizacion)
   {
     Actividad actividad = new Actividad(
