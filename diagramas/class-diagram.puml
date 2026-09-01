@@ -34,6 +34,7 @@ class Actividad
     - ubicacion: Ubicacion
     - fechaCreacion: Date
     - fechaRealizacion: Date
+    - duracionEstimada: int
     - minimoParticipantes: int
     - maximoParticipantes: int
     - organizador: Usuario
@@ -123,6 +124,7 @@ class Votacion
 {
     - id: Long
     - fechaApertura: Date
+    - fechaCierre: Date
     - abierta: Boolean
     - actividad: Actividad
     - alternativas: List<Alternativa>

@@ -20,10 +20,10 @@ class EstadisticasServiceImplem implements EstadisticasService {
     public EstadisticasDto obtenerEstadisticas() {
         // de quererlo aca puedo sacar un par, esto es como un dashboard
         long creadas = actividadesRepository.count();
-        long reprogramadas = actividadesRepository.countByEstadoTipo(TipoEstadoActividad.REPROGRAMADA);
-        long canceladas = actividadesRepository.countByEstadoTipo(TipoEstadoActividad.CANCELADA);
-        long confirmadas = actividadesRepository.countByEstadoTipo(TipoEstadoActividad.CONFIRMADA);
-        long finalizadas = actividadesRepository.countByEstadoTipo(TipoEstadoActividad.FINALIZADA);
+        long reprogramadas = actividadesRepository.countByEstado(TipoEstadoActividad.REPROGRAMADA);
+        long canceladas = actividadesRepository.countByEstado(TipoEstadoActividad.CANCELADA);
+        long confirmadas = actividadesRepository.countByEstado(TipoEstadoActividad.CONFIRMADA);
+        long finalizadas = actividadesRepository.countByEstado(TipoEstadoActividad.FINALIZADA);
 
         return new EstadisticasDto(creadas, reprogramadas, canceladas, confirmadas, finalizadas);
     }

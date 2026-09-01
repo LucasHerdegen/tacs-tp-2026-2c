@@ -52,6 +52,7 @@ class JwtServiceImplem implements JwtService
         .issuedAt(issuedAt)
         .expiresAt(issuedAt.plusSeconds(expirationSeconds))
         .claim("role", usuario.getRol().name())
+        .claim("id", usuario.getId())
         .build();
 
     JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();

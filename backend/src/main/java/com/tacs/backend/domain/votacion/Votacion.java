@@ -15,7 +15,9 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 @Entity
 @Getter
@@ -28,8 +30,9 @@ public class Votacion
   private Long id;
 
   private LocalDateTime fechaApertura;
+  private LocalDateTime fechaCierre;
   private boolean abierta = true;
-
+  private LocalDateTime fechaLimite;
 
   @ManyToOne
   private Actividad actividad;
@@ -39,6 +42,9 @@ public class Votacion
 
   @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
   private List<Voto> votos = new ArrayList<>();
+
+  @ManyToOne
+  private Alternativa alternativaGanadora;
 
   private int quorumMinimo;
 
@@ -61,5 +67,36 @@ public class Votacion
   public void eliminarVoto(Usuario usuario)
   {
     votos.removeIf(v -> v.getUsuario().getId().equals(usuario.getId()));
+  }
+
+  public long cantidadVotos(Alternativa alternativa)
+  {
+    return votos.stream()
+        .filter(v -> v.getAlternativa().getId().equals(alternativa.getId()))
+        .count();
+  }
+
+  /**
+   * Alternativa con + votos. En caso de empate gana la que se propuso primero
+   * (menor numeroAlternativa). Vacio si la votacion no tiene alternativas.
+   */
+  public Optional<Alternativa> alternativaMasVotada()
+  {
+    return alternativas.stream()
+        .max(Comparator
+            .comparingLong(this::cantidadVotos)
+            .thenComparing(Comparator.comparingInt(Alternativa::getNumeroAltenativa).reversed()));
+  }
+
+  /**
+   * Cierra la votacion dejando registrada la alternativa ganadora (o vacio si
+   * no se alcanzo el quorumMinimo, en cuyo caso la actividad se cancela en vez
+   * de reprogramarse).
+   */
+  public void cerrar(Alternativa ganadora)
+  {
+    this.abierta = false;
+    this.fechaCierre = LocalDateTime.now();
+    this.alternativaGanadora = ganadora;
   }
 }
