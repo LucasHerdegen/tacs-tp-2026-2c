@@ -4,6 +4,7 @@ import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,7 @@ public class RecordatorioInicioJob {
      * que estan proximas a comenzar, segun las horas de anticipacion configuradas.
      */
     @Scheduled(fixedRateString = "${recordatorio.inicio.intervalo-ms}")
+    @SchedulerLock(name = "RecordatorioInicioJob_enviarRecordatorios", lockAtLeastFor = "1m", lockAtMostFor = "10m")
     public void enviarRecordatorios() {
         for (Actividad actividad : detectarActividadesPorComenzar())
             notificarSinRomperLoop(actividad);

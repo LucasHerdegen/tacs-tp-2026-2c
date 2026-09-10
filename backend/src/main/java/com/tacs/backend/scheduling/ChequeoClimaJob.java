@@ -9,6 +9,7 @@ import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,7 @@ public class ChequeoClimaJob
    * para las actividades proximas y abre votaciones si es desfavorable.
    */
   @Scheduled(fixedRateString = "${clima.chequeo.intervalo-ms}")
+  @SchedulerLock(name = "ChequeoClimaJob_chequearClima", lockAtLeastFor = "1m", lockAtMostFor = "10m")
   public void chequearClima()
   {
     for (Actividad actividad : detectarClimaDesfavorable())
@@ -93,7 +95,7 @@ public class ChequeoClimaJob
 
     notificarOrganizador(actividad);
 
-    for (Usuario participante : actividad.getParticipantes())
+    for (Usuario participante : new java.util.ArrayList<>(actividad.getParticipantes()))
       if (!participante.equals(actividad.getOrganizador()))
         notificarParticipante(actividad, participante);
 

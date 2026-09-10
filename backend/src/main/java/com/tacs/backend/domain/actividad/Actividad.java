@@ -24,6 +24,8 @@ public class Actividad
 {
   private Long id;
 
+  private Long version;
+
   @Override
   public boolean equals(Object o)
   {

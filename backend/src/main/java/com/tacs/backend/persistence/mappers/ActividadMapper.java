@@ -25,6 +25,7 @@ public class ActividadMapper
     if (entity == null) return null;
     Actividad domain = new Actividad();
     domain.setId(entity.getId());
+    domain.setVersion(entity.getVersion());
     domain.setTitulo(entity.getTitulo());
     domain.setDescripcion(entity.getDescripcion());
     domain.setTipo(entity.getTipo());
@@ -64,6 +65,7 @@ public class ActividadMapper
     if (domain == null) return null;
     ActividadEntity entity = new ActividadEntity();
     entity.setId(domain.getId());
+    entity.setVersion(domain.getVersion());
     entity.setTitulo(domain.getTitulo());
     entity.setDescripcion(domain.getDescripcion());
     entity.setTipo(domain.getTipo());

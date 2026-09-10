@@ -25,6 +25,9 @@ public class ActividadEntity
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @Version
+  private Long version;
+
   @Column(nullable = false)
   private String titulo;
 
@@ -53,11 +56,16 @@ public class ActividadEntity
   private boolean recordatorioEnviado = false;
 
   @ManyToOne(optional = false, cascade = CascadeType.ALL)
-  @JoinColumn(name = "organizador_id")
+  @JoinColumn(name = "organizador_id", nullable = false)
   private UsuarioEntity organizador;
 
   @ManyToMany(cascade = CascadeType.ALL)
-  @JoinTable(name = "actividad_participantes", joinColumns = @JoinColumn(name = "actividad_id"), inverseJoinColumns = @JoinColumn(name = "usuario_id"))
+  @JoinTable(
+      name = "actividad_participantes",
+      joinColumns = @JoinColumn(name = "actividad_id"),
+      inverseJoinColumns = @JoinColumn(name = "usuario_id"),
+      uniqueConstraints = @UniqueConstraint(columnNames = {"actividad_id", "usuario_id"})
+  )
   private List<UsuarioEntity> participantes = new ArrayList<>();
 
   private int horasAnticipacion;

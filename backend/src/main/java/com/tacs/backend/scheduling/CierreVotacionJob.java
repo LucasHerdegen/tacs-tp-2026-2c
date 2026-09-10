@@ -5,6 +5,7 @@ import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ public class CierreVotacionJob
    * Resuelve cada votacion para determinar la reprogramacion o cancelacion de la actividad.
    */
   @Scheduled(fixedRateString = "${votacion.cierre.intervalo-ms}")
+  @SchedulerLock(name = "CierreVotacionJob_cerrarVotacionesVencidas", lockAtLeastFor = "1m", lockAtMostFor = "10m")
   public void cerrarVotacionesVencidas()
   {
     for (Votacion votacion : detectarVotacionesVencidas())
