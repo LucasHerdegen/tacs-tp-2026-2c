@@ -1,7 +1,6 @@
 package com.tacs.backend.dtos.actividades;
 
 import com.tacs.backend.domain.actividad.TipoActividad;
-import com.tacs.backend.domain.actividad.Ubicacion;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;

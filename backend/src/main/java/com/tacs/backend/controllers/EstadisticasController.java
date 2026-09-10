@@ -15,15 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/admin")
-class EstadisticasController {
-    private final EstadisticasService estadisticasService;
+class EstadisticasController
+{
+  private final EstadisticasService estadisticasService;
 
-    @Operation(summary = "Obtener estadísticas", description = "Devuelve estadísticas globales del sistema (Requiere rol ADMIN)")
-    @ApiResponse(responseCode = "200", description = "Estadísticas obtenidas", content = @Content(schema = @Schema(implementation = EstadisticasDto.class)))
-    @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
-    @ApiResponse(responseCode = "403", description = "No autorizado", content = @Content)
-    @GetMapping("/estadisticas")
-    public ResponseEntity<EstadisticasDto> getEstadisticas() {
-        return ResponseEntity.ok(estadisticasService.obtenerEstadisticas());
-    }
+  @Operation(summary = "Obtener estadísticas", description = "Devuelve estadísticas globales del sistema (Requiere rol ADMIN)")
+  @ApiResponse(responseCode = "200", description = "Estadísticas obtenidas", content = @Content(schema = @Schema(implementation = EstadisticasDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "403", description = "No autorizado", content = @Content)
+  @GetMapping("/estadisticas")
+  public ResponseEntity<EstadisticasDto> getEstadisticas()
+  {
+    return ResponseEntity.ok(estadisticasService.obtenerEstadisticas());
+  }
 }

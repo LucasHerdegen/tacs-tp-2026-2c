@@ -5,6 +5,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 
 @ControllerAdvice
 class GlobalExceptionHandler
@@ -21,14 +23,14 @@ class GlobalExceptionHandler
     return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 
-  @ExceptionHandler(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException.class)
+  @ExceptionHandler(RangoReprogramacionInvalidoException.class)
   public ProblemDetail handleRangoReprogramacionInvalidoException(
       RangoReprogramacionInvalidoException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
-  @ExceptionHandler(com.tacs.backend.exceptions.AccesoDenegadoException.class)
+  @ExceptionHandler(AccesoDenegadoException.class)
   public ProblemDetail handleAccesoDenegadoException(AccesoDenegadoException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());

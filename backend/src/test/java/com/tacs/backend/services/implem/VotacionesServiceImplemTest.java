@@ -73,7 +73,8 @@ class VotacionesServiceImplemTest
 
   private void inicializarService()
   {
-    service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository, votacionMapper, proveedorClima, servicioNotificaciones);
+    service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository,
+        votacionMapper, proveedorClima, servicioNotificaciones);
   }
 
   @Test
@@ -340,7 +341,8 @@ class VotacionesServiceImplemTest
     Actividad actividad = crearActividad(null); // minimoParticipantes = 2, ver helper
     actividad.setId(60L);
 
-    VotacionPostDto dto = new VotacionPostDto(1, LocalDateTime.now().plusDays(1), List.of(new AlternativaPostDto(LocalDateTime.now().plusDays(2))));
+    VotacionPostDto dto = new VotacionPostDto(1, LocalDateTime.now().plusDays(1),
+        List.of(new AlternativaPostDto(LocalDateTime.now().plusDays(2))));
 
     when(actividadesRepository.findById(60L)).thenReturn(Optional.of(actividad));
 
@@ -359,7 +361,8 @@ class VotacionesServiceImplemTest
     actividad.setId(61L);
 
     LocalDateTime fechaAlternativa = LocalDateTime.now().plusDays(2);
-    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now().plusDays(1), List.of(new AlternativaPostDto(fechaAlternativa)));
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now().plusDays(1),
+        List.of(new AlternativaPostDto(fechaAlternativa)));
 
     when(actividadesRepository.findById(61L)).thenReturn(Optional.of(actividad));
     when(votacionesRepository.findByAbiertaTrueAndActividadId(61L)).thenReturn(Optional.empty());
@@ -684,7 +687,7 @@ class VotacionesServiceImplemTest
         10,
         crearUsuarioConId(999L));
     actividad.setEstado(estado);
-    actividad.setRangoReprogramacion(new com.tacs.backend.domain.actividad.RangoReprogramacion(5, 0, 23));
+    actividad.setRangoReprogramacion(new RangoReprogramacion(5, 0, 23));
     return actividad;
   }
 

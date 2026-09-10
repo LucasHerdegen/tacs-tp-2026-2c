@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.tacs.backend.domain.usuario.MedioContacto;
 
 @RequiredArgsConstructor
 @Service
@@ -84,7 +85,7 @@ class AuthServiceImplem implements AuthService
 
   @Override
   @Transactional
-  public UsuarioDto actualizarContacto(Long usuarioId, com.tacs.backend.domain.usuario.MedioContacto medioContacto)
+  public UsuarioDto actualizarContacto(Long usuarioId, MedioContacto medioContacto)
   {
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));

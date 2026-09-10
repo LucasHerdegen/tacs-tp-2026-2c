@@ -1,10 +1,8 @@
 package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
-import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.dtos.clima.ClimaDto;
@@ -27,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 import com.tacs.backend.mappers.ClimaMapper;
@@ -122,7 +119,7 @@ public class ActividadesServiceImplem implements ActividadesService
   public ActividadDto obtenerActividad(Long id)
   {
     Actividad actividad = actividadesRepository.findById(id)
-        .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException(
+        .orElseThrow(() -> new ActividadNotFoundException(
             "Actividad con ID " + id + " no encontrada"));
     return actividadesMapper.actividadToActividadDto(actividad);
   }
@@ -231,10 +228,10 @@ public class ActividadesServiceImplem implements ActividadesService
   public void cambiarEstado(Long actividadId, Long usuarioId, TipoEstadoActividad nuevoEstado)
   {
     var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
     if (!actividad.getOrganizador().getId().equals(usuarioId))
-      throw new com.tacs.backend.exceptions.AccesoDenegadoException(
+      throw new AccesoDenegadoException(
           "Solo el organizador puede cambiar el estado de la actividad");
 
     actividad.cambiarEstado(nuevoEstado);
@@ -263,10 +260,10 @@ public class ActividadesServiceImplem implements ActividadesService
   public ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto)
   {
     Actividad actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
     if (!actividad.getOrganizador().getId().equals(usuarioId))
-      throw new com.tacs.backend.exceptions.AccesoDenegadoException("Solo el organizador puede configurar el clima");
+      throw new AccesoDenegadoException("Solo el organizador puede configurar el clima");
 
     if (dto.reglasClima() != null)
       actividad.actualizarReglasClima(dto.reglasClima());
@@ -282,5 +279,3 @@ public class ActividadesServiceImplem implements ActividadesService
     return actividadesMapper.actividadToActividadDto(actividad);
   }
 }
-
-

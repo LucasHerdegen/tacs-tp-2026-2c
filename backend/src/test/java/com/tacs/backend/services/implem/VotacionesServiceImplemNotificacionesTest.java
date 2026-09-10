@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -40,7 +39,7 @@ import static org.mockito.Mockito.when;
  * Cubre las notificaciones de reprogramacion y cancelacion disparadas por la
  * resolucion de una votacion (el TODO "Notificar cuando se cancela" en
  * VotacionesServiceImplem.cancelarActividad).
- *
+ * <p>
  * Va en una clase aparte de VotacionesServiceImplemTest para no chocar con
  * ediciones en paralelo sobre ese archivo; se puede fusionar despues.
  */

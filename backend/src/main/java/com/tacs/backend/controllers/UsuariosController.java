@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.tacs.backend.dtos.usuario.ActualizarContactoDto;
 
 @RequiredArgsConstructor
 @RestController
@@ -54,7 +55,7 @@ class UsuariosController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @PatchMapping("/me/contacto")
   public ResponseEntity<UsuarioDto> actualizarMiContacto(
-      @RequestBody @Valid com.tacs.backend.dtos.usuario.ActualizarContactoDto dto,
+      @RequestBody @Valid ActualizarContactoDto dto,
       @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
   {
     Long usuarioId = jwt.getClaim("id");

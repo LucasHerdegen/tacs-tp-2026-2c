@@ -30,8 +30,8 @@ public interface ActividadesJpaRepository extends JpaRepository<ActividadEntity,
   @Query("""
       SELECT a FROM ActividadEntity a
       WHERE a.estado NOT IN (
-          com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA,
-          com.tacs.backend.domain.actividad.TipoEstadoActividad.FINALIZADA)
+          TipoEstadoActividad.CANCELADA,
+          TipoEstadoActividad.FINALIZADA)
       AND a.reglasClima IS NOT NULL
       AND NOT EXISTS (
           SELECT 1 FROM VotacionEntity v WHERE v.actividad = a AND v.abierta = true
@@ -45,8 +45,8 @@ public interface ActividadesJpaRepository extends JpaRepository<ActividadEntity,
       SELECT DISTINCT a FROM ActividadEntity a
        LEFT JOIN FETCH a.participantes
        WHERE a.estado NOT IN (
-           com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA,
-           com.tacs.backend.domain.actividad.TipoEstadoActividad.FINALIZADA)
+           TipoEstadoActividad.CANCELADA,
+           TipoEstadoActividad.FINALIZADA)
        AND a.recordatorioEnviado = false
        AND a.fechaRealizacion > CURRENT_TIMESTAMP""")
   List<ActividadEntity> findCandidatasParaRecordatorio();

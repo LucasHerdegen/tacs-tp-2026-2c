@@ -14,7 +14,7 @@ public class VotoMapper
   private final UsuarioJpaRepository usuarioJpaRepository;
 
   public VotoMapper(UsuarioMapper usuarioMapper, @Lazy AlternativaMapper alternativaMapper,
-                    com.tacs.backend.persistence.repositories.UsuarioJpaRepository usuarioJpaRepository)
+                    UsuarioJpaRepository usuarioJpaRepository)
   {
     this.usuarioMapper = usuarioMapper;
     this.alternativaMapper = alternativaMapper;

@@ -11,6 +11,7 @@ import com.tacs.backend.dtos.actividades.UbicacionDto;
 
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
+import com.tacs.backend.domain.actividad.Ubicacion;
 
 @Component
 public class ActividadesMapper
@@ -76,16 +77,16 @@ public class ActividadesMapper
     return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());
   }
 
-  public com.tacs.backend.domain.actividad.Ubicacion ubicacionDtoToUbicacion(UbicacionDto dto)
+  public Ubicacion ubicacionDtoToUbicacion(UbicacionDto dto)
   {
     if (dto == null) return null;
-    return new com.tacs.backend.domain.actividad.Ubicacion(dto.getBarrio(), dto.getLatitud(), dto.getLongitud());
+    return new Ubicacion(dto.getBarrio(), dto.getLatitud(), dto.getLongitud());
   }
 
-  public UbicacionDto ubicacionToUbicacionDto(com.tacs.backend.domain.actividad.Ubicacion ubicacion)
+  public UbicacionDto ubicacionToUbicacionDto(Ubicacion ubicacion)
   {
     if (ubicacion == null) return null;
-    return new com.tacs.backend.dtos.actividades.UbicacionDto(ubicacion.getBarrio(), ubicacion.getLatitud(),
+    return new UbicacionDto(ubicacion.getBarrio(), ubicacion.getLatitud(),
         ubicacion.getLongitud());
   }
 }

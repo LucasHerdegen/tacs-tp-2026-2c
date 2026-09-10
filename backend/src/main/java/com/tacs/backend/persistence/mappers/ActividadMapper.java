@@ -6,15 +6,18 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.stream.Collectors;
+import com.tacs.backend.persistence.repositories.UsuarioJpaRepository;
+import com.tacs.backend.domain.actividad.Ubicacion;
+import com.tacs.backend.persistence.entities.UbicacionEntity;
 
 @Component
 public class ActividadMapper
 {
   private final UsuarioMapper usuarioMapper;
-  private final com.tacs.backend.persistence.repositories.UsuarioJpaRepository usuarioJpaRepository;
+  private final UsuarioJpaRepository usuarioJpaRepository;
 
   public ActividadMapper(UsuarioMapper usuarioMapper,
-                         com.tacs.backend.persistence.repositories.UsuarioJpaRepository usuarioJpaRepository)
+                         UsuarioJpaRepository usuarioJpaRepository)
   {
     this.usuarioMapper = usuarioMapper;
     this.usuarioJpaRepository = usuarioJpaRepository;
@@ -113,13 +116,13 @@ public class ActividadMapper
     return entity;
   }
 
-  private com.tacs.backend.domain.actividad.Ubicacion mapUbicacionToDomain(com.tacs.backend.persistence.entities.UbicacionEntity entity) {
+  private Ubicacion mapUbicacionToDomain(UbicacionEntity entity) {
     if (entity == null) return null;
-    return new com.tacs.backend.domain.actividad.Ubicacion(entity.getBarrio(), entity.getLatitud(), entity.getLongitud());
+    return new Ubicacion(entity.getBarrio(), entity.getLatitud(), entity.getLongitud());
   }
 
-  private com.tacs.backend.persistence.entities.UbicacionEntity mapUbicacionToEntity(com.tacs.backend.domain.actividad.Ubicacion domain) {
+  private UbicacionEntity mapUbicacionToEntity(Ubicacion domain) {
     if (domain == null) return null;
-    return new com.tacs.backend.persistence.entities.UbicacionEntity(domain.getBarrio(), domain.getLatitud(), domain.getLongitud());
+    return new UbicacionEntity(domain.getBarrio(), domain.getLatitud(), domain.getLongitud());
   }
 }

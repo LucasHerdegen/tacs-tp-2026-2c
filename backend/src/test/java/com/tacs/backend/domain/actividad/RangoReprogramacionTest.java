@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /*
   Estos constraints solo se ejercitan de verdad cuando ActividadPostDto.rangoReprogramacion
   llega con @Valid desde el controller; acá se testea el propio RangoReprogramacionDto
-  de forma aislada, sin levantar el contexto de Spring. 
+  de forma aislada, sin levantar el contexto de Spring.
 */
 
 class RangoReprogramacionTest
