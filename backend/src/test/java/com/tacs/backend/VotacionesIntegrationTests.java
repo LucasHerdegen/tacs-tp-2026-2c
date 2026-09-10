@@ -13,29 +13,31 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.MediaType;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
+@SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
+@AutoConfigureMockMvc
+@Transactional
 class VotacionesIntegrationTests
 {
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
-    @LocalServerPort
-    private int port;
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -49,8 +51,6 @@ class VotacionesIntegrationTests
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-
     private Usuario yo;
     private Usuario otro;
     private String tokenYo;
@@ -58,10 +58,6 @@ class VotacionesIntegrationTests
     @BeforeEach
     void setUp() throws Exception
     {
-        votacionesRepository.deleteAll();
-        actividadesRepository.deleteAll();
-        usuarioRepository.deleteAll();
-
         yo = usuarioRepository.save(new Usuario("yo", passwordEncoder.encode("password-segura"), TipoRol.USER));
         otro = usuarioRepository.save(new Usuario("otro", passwordEncoder.encode("password-segura"), TipoRol.USER));
 
@@ -71,9 +67,8 @@ class VotacionesIntegrationTests
     @Test
     void sinTokenDevuelveUnauthorized() throws Exception
     {
-        HttpResponse<String> response = get("/api/votaciones", null);
-
-        assertThat(response.statusCode()).isEqualTo(401);
+        mockMvc.perform(get("/api/votaciones"))
+               .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -85,11 +80,14 @@ class VotacionesIntegrationTests
         Actividad ajena = guardarActividad("Actividad de otro", otro);
         guardarVotacion(ajena, true);
 
-        HttpResponse<String> response = get("/api/votaciones?abierta=true", tokenYo);
+        MvcResult result = mockMvc.perform(get("/api/votaciones?abierta=true")
+                                  .header("Authorization", "Bearer " + tokenYo))
+                                  .andExpect(status().isOk())
+                                  .andReturn();
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("Actividad que organizo");
-        assertThat(response.body()).doesNotContain("Actividad de otro");
+        String body = result.getResponse().getContentAsString();
+        assertThat(body).contains("Actividad que organizo");
+        assertThat(body).doesNotContain("Actividad de otro");
     }
 
     @Test
@@ -101,11 +99,14 @@ class VotacionesIntegrationTests
         Actividad otraAbierta = guardarActividad("Actividad abierta", yo);
         guardarVotacion(otraAbierta, true);
 
-        HttpResponse<String> response = get("/api/votaciones?abierta=false", tokenYo);
+        MvcResult result = mockMvc.perform(get("/api/votaciones?abierta=false")
+                                  .header("Authorization", "Bearer " + tokenYo))
+                                  .andExpect(status().isOk())
+                                  .andReturn();
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("Actividad cerrada");
-        assertThat(response.body()).doesNotContain("Actividad abierta");
+        String body = result.getResponse().getContentAsString();
+        assertThat(body).contains("Actividad cerrada");
+        assertThat(body).doesNotContain("Actividad abierta");
     }
 
     @Test
@@ -116,19 +117,25 @@ class VotacionesIntegrationTests
         actividadesRepository.save(ajena);
         guardarVotacion(ajena, true);
 
-        HttpResponse<String> response = get("/api/votaciones?abierta=true", tokenYo);
+        MvcResult result = mockMvc.perform(get("/api/votaciones?abierta=true")
+                                  .header("Authorization", "Bearer " + tokenYo))
+                                  .andExpect(status().isOk())
+                                  .andReturn();
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("Actividad a la que me sumo");
+        String body = result.getResponse().getContentAsString();
+        assertThat(body).contains("Actividad a la que me sumo");
     }
 
     @Test
     void usuarioSinVotacionesDevuelveListaVacia() throws Exception
     {
-        HttpResponse<String> response = get("/api/votaciones?abierta=true", tokenYo);
+        MvcResult result = mockMvc.perform(get("/api/votaciones?abierta=true")
+                                  .header("Authorization", "Bearer " + tokenYo))
+                                  .andExpect(status().isOk())
+                                  .andReturn();
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).isEqualTo("[]");
+        String body = result.getResponse().getContentAsString();
+        assertThat(body).isEqualTo("[]");
     }
 
     @Test
@@ -137,10 +144,13 @@ class VotacionesIntegrationTests
         Actividad ajena = guardarActividad("Actividad de otro", otro);
         guardarVotacion(ajena, true);
 
-        HttpResponse<String> response = get("/api/votaciones?abierta=true&usuarioId=" + otro.getId(), tokenYo);
+        MvcResult result = mockMvc.perform(get("/api/votaciones?abierta=true&usuarioId=" + otro.getId())
+                                  .header("Authorization", "Bearer " + tokenYo))
+                                  .andExpect(status().isOk())
+                                  .andReturn();
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).doesNotContain("Actividad de otro");
+        String body = result.getResponse().getContentAsString();
+        assertThat(body).doesNotContain("Actividad de otro");
     }
 
     private Actividad guardarActividad(String titulo, Usuario organizador)
@@ -177,34 +187,14 @@ class VotacionesIntegrationTests
             {"username":"%s","password":"%s"}
             """.formatted(username, password).trim();
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(uri("/api/auth/login"))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
+                                  .contentType(MediaType.APPLICATION_JSON)
+                                  .content(body))
+                                  .andReturn();
 
-        HttpResponse<String> response = send(request);
-        Matcher matcher = TOKEN_PATTERN.matcher(response.body());
+        String responseBody = result.getResponse().getContentAsString();
+        Matcher matcher = TOKEN_PATTERN.matcher(responseBody);
         assertThat(matcher.find()).as("La respuesta de login debe contener un token").isTrue();
         return matcher.group(1);
-    }
-
-    private HttpResponse<String> get(String path, String token) throws Exception
-    {
-        HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri(path)).GET();
-        if (token != null)
-            builder.header("Authorization", "Bearer " + token);
-
-        return send(builder.build());
-    }
-
-    private HttpResponse<String> send(HttpRequest request) throws Exception
-    {
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private URI uri(String path)
-    {
-        return URI.create("http://localhost:" + port + path);
     }
 }

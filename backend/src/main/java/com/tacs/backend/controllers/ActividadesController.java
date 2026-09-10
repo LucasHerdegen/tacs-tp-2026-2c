@@ -7,6 +7,10 @@ import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.services.ActividadesService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -29,6 +33,10 @@ class ActividadesController
 {
   private final ActividadesService actividadesService;
 
+  @Operation(summary = "Crear una actividad", description = "Crea una nueva actividad (Requiere rol USER)")
+  @ApiResponse(responseCode = "201", description = "Actividad creada exitosamente", content = @Content(schema = @Schema(implementation = ActividadDto.class)))
+  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @PostMapping
   public ResponseEntity<ActividadDto> createActividad(
       @RequestBody @Valid ActividadPostDto actividadPostDto,
@@ -46,6 +54,9 @@ class ActividadesController
     return ResponseEntity.created(location).body(actividad);
   }
 
+  @Operation(summary = "Obtener mis actividades", description = "Devuelve las actividades del usuario autenticado (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Lista de actividades", content = @Content(schema = @Schema(implementation = ActividadDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @GetMapping("/me")
   public ResponseEntity<List<ActividadDto>> getMisActividades(
       @AuthenticationPrincipal Jwt jwt,
@@ -66,6 +77,9 @@ class ActividadesController
     return ResponseEntity.ok(actividades);
   }
 
+  @Operation(summary = "Buscar actividades", description = "Busca actividades por tipo, barrio o fecha (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Lista de actividades encontradas", content = @Content(schema = @Schema(implementation = ActividadDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @GetMapping
   public ResponseEntity<List<ActividadDto>> buscarActividades(
       @RequestParam(required = false) TipoActividad tipo,
@@ -76,6 +90,11 @@ class ActividadesController
     return ResponseEntity.ok(actividades);
   }
 
+  @Operation(summary = "Unirse a actividad", description = "Agrega un participante a una actividad (Requiere rol USER)")
+  @ApiResponse(responseCode = "204", description = "Unido exitosamente")
+  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PostMapping("/{id}/participantes")
   public ResponseEntity<Void> unirseActividad(@PathVariable Long id, @RequestParam Long usuarioId)
   {
@@ -83,6 +102,11 @@ class ActividadesController
     return ResponseEntity.noContent().build();
   }
 
+  @Operation(summary = "Bajarse de actividad", description = "Elimina un participante de una actividad (Requiere rol USER)")
+  @ApiResponse(responseCode = "204", description = "Bajado exitosamente")
+  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @DeleteMapping("/{id}/participantes")
   public ResponseEntity<Void> bajarseActividad(@PathVariable Long id, @RequestParam Long usuarioId)
   {
@@ -90,11 +114,18 @@ class ActividadesController
     return ResponseEntity.noContent().build();
   }
 
+  @Operation(summary = "Obtener clima de actividad", description = "Devuelve el pronóstico del clima para una actividad (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Pronóstico del clima", content = @Content(schema = @Schema(implementation = PronosticoRespuestaDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @GetMapping("/{id}/clima")
   public ResponseEntity<PronosticoRespuestaDto> obtenerClimaActividad(@PathVariable Long id, @RequestParam Long usuarioId) {
     return ResponseEntity.ok(actividadesService.obtenerClimaActividad(id, usuarioId));
   }
 
+  @Operation(summary = "Actividades organizadas", description = "Obtiene las actividades organizadas por el usuario autenticado (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Lista de actividades", content = @Content(schema = @Schema(implementation = ActividadDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @GetMapping("/organizadas")
   public ResponseEntity<List<ActividadDto>> getActividadesOrganizadas(
       @RequestParam(required = false) TipoEstadoActividad estado,
@@ -104,6 +135,9 @@ class ActividadesController
     return ResponseEntity.ok(actividadesService.actividadesOrganizadas(usuarioId, estado));
   }
 
+  @Operation(summary = "Actividades participadas", description = "Obtiene las actividades participadas por el usuario autenticado (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Lista de actividades", content = @Content(schema = @Schema(implementation = ActividadDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @GetMapping("/participadas")
   public ResponseEntity<List<ActividadDto>> getActividadesParticipadas(
       @RequestParam(required = false) TipoEstadoActividad estado,
@@ -113,6 +147,11 @@ class ActividadesController
     return ResponseEntity.ok(actividadesService.actividadesParticipadas(usuarioId, estado));
   }
 
+  @Operation(summary = "Cancelar actividad", description = "Cancela una actividad existente (Requiere rol USER)")
+  @ApiResponse(responseCode = "201", description = "Actividad cancelada exitosamente")
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "403", description = "No autorizado", content = @Content)
+  @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PostMapping("/{id}/cancelaciones")
   public ResponseEntity<Void> cancelarActividad(
       @PathVariable Long id,
@@ -123,6 +162,12 @@ class ActividadesController
     return ResponseEntity.status(HttpStatus.CREATED).build();
   }
 
+  @Operation(summary = "Actualizar configuración de clima", description = "Actualiza las condiciones climáticas de una actividad (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Actividad actualizada", content = @Content(schema = @Schema(implementation = ActividadDto.class)))
+  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "403", description = "No autorizado", content = @Content)
+  @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PatchMapping("/{id}/configuracion-clima")
   public ResponseEntity<ActividadDto> actualizarConfiguracionClima(
       @PathVariable Long id,
