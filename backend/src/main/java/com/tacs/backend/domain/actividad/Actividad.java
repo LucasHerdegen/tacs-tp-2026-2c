@@ -9,19 +9,6 @@ import com.tacs.backend.dtos.clima.ReglasClimaDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,23 +17,35 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
 @Getter
 @Setter
 @NoArgsConstructor
 public class Actividad
 {
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Override
+  public boolean equals(Object o)
+  {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Actividad actividad = (Actividad) o;
+    return id != null && id.equals(actividad.id);
+  }
+
+  @Override
+  public int hashCode()
+  {
+    return getClass().hashCode();
+  }
 
   private String titulo;
   private String descripcion;
 
-  @Enumerated(EnumType.STRING)
+
   private TipoActividad tipo;
 
-  @Embedded
+
   private Ubicacion ubicacion;
 
   private LocalDateTime fechaCreacion;
@@ -57,30 +56,23 @@ public class Actividad
   private boolean recordatorioEnviado;
 
 
-  @ManyToOne
   private Usuario organizador;
 
-  @ManyToMany
-  @JoinTable(
-      name = "actividad_participantes",
-      joinColumns = @JoinColumn(name = "actividad_id"),
-      inverseJoinColumns = @JoinColumn(name = "usuario_id")
-  )
+
   private List<Usuario> participantes = new ArrayList<>();
 
   private int horasAnticipacion;
 
-  @Embedded
+
   private RangoReprogramacion rangoReprogramacion;
 
-  @ElementCollection
-  @CollectionTable(name = "actividad_cambios_fecha", joinColumns = @JoinColumn(name = "actividad_id"))
+
   private List<CambioFecha> cambiosFecha = new ArrayList<>();
 
-  @Enumerated(EnumType.STRING)
+
   private TipoEstadoActividad estado;
 
-  @Embedded
+
   private ReglasClima reglasClima;
 
   public Actividad(String titulo, String descripcion, TipoActividad tipoActividad, Ubicacion ubicacion,
@@ -103,7 +95,8 @@ public class Actividad
   /**
    * Marca que el recordatorio de inicio ya fue enviado para esta actividad.
    */
-  public void marcarRecordatorioEnviado() {
+  public void marcarRecordatorioEnviado()
+  {
     this.recordatorioEnviado = true;
   }
 
@@ -162,10 +155,10 @@ public class Actividad
     CambioFecha cambio = new CambioFecha(LocalDateTime.now(), this.fechaRealizacion, date);
     this.cambiosFecha.add(cambio);
     this.fechaRealizacion = date;
-    
+
     if (this.estado != null)
       this.cambiarEstado(TipoEstadoActividad.REPROGRAMADA);
-      
+
     this.recordatorioEnviado = false;
   }
 
@@ -193,7 +186,8 @@ public class Actividad
 
   public void actualizarHorasAnticipacion(Integer horas)
   {
-    if (horas != null) {
+    if (horas != null)
+    {
       this.horasAnticipacion = horas;
     }
   }

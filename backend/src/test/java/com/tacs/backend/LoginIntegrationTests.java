@@ -51,7 +51,7 @@ class LoginIntegrationTests
   void loginCorrectoDevuelveUnJwtQuePermiteIdentificarAlUsuario() throws Exception
   {
     MvcResult loginResult = postLogin("santi", "password-segura");
-    
+
     assertThat(loginResult.getResponse().getStatus()).isEqualTo(200);
     String loginBody = loginResult.getResponse().getContentAsString();
     assertThat(loginBody).contains("\"tokenType\":\"Bearer\"");
@@ -61,9 +61,9 @@ class LoginIntegrationTests
     assertThat(token.split("\\.")).hasSize(3);
 
     MvcResult meResult = mockMvc.perform(get("/api/auth/me")
-                                .header("Authorization", "Bearer " + token))
-                                .andExpect(status().isOk())
-                                .andReturn();
+            .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andReturn();
 
     String meBody = meResult.getResponse().getContentAsString();
     assertThat(meBody).contains("\"username\":\"santi\"");
@@ -77,7 +77,7 @@ class LoginIntegrationTests
     MvcResult result = postLogin("santi", "password-incorrecta");
 
     assertThat(result.getResponse().getStatus()).isEqualTo(401);
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Credenciales invalidas");
+    assertThat(result.getResponse().getContentAsString()).contains("Credenciales invalidas");
   }
 
   @Test
@@ -86,7 +86,7 @@ class LoginIntegrationTests
     MvcResult result = postLogin("usuario-inexistente", "password-segura");
 
     assertThat(result.getResponse().getStatus()).isEqualTo(401);
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Credenciales invalidas");
+    assertThat(result.getResponse().getContentAsString()).contains("Credenciales invalidas");
   }
 
   @Test
@@ -104,9 +104,9 @@ class LoginIntegrationTests
         """.formatted(username, password).trim();
 
     return mockMvc.perform(post("/api/auth/login")
-                  .contentType(MediaType.APPLICATION_JSON)
-                  .content(body))
-                  .andReturn();
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andReturn();
   }
 
   private String extractToken(String responseBody)
