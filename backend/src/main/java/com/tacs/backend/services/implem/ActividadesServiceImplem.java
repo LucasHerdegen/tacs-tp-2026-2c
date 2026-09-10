@@ -48,7 +48,7 @@ public class ActividadesServiceImplem implements ActividadesService
    * Crea una nueva actividad propuesta por el usuario especificado.
    *
    * @param actividadPostDto DTO con los detalles de la nueva actividad.
-   * @param usuarioId ID del usuario que organiza la actividad.
+   * @param usuarioId        ID del usuario que organiza la actividad.
    * @return DTO de la actividad creada.
    */
   @Override
@@ -71,63 +71,80 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado) {
-    validarExistenciaUsuario(usuarioId);
-
-    //TODO asumo que el organizador no puede ser participante, pero despues se puede cambiar, depende de como se maneje la votacion
-    List<Actividad> actividades = new ArrayList<>();
-    actividades.addAll(estado != null
-            ? actividadesRepository.findByOrganizadorIdAndEstado(usuarioId, estado)
-            : actividadesRepository.findByOrganizadorId(usuarioId));
-    actividades.addAll(estado != null
-            ? actividadesRepository.findByParticipantesIdAndEstado(usuarioId, estado)
-            : actividadesRepository.findByParticipantesId(usuarioId));
-
-    return actividades.stream()
-            .map(actividadesMapper::actividadToActividadDto)
-            .toList();
-  }
-
-  @Override
-  public List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado) {
+  public List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado)
+  {
     validarExistenciaUsuario(usuarioId);
 
     List<Actividad> actividades = estado != null
-            ? actividadesRepository.findByOrganizadorIdAndEstado(usuarioId, estado)
-            : actividadesRepository.findByOrganizadorId(usuarioId);
+        ? actividadesRepository.findByOrganizadorIdOrParticipantesIdAndEstado(usuarioId, estado)
+        : actividadesRepository.findByOrganizadorIdOrParticipantesId(usuarioId);
 
     return actividades.stream()
-            .map(actividadesMapper::actividadToActividadDto)
-            .toList();
+        .map(actividadesMapper::actividadToActividadDto)
+        .toList();
   }
 
   @Override
-  public List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado) {
+  public List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado)
+  {
     validarExistenciaUsuario(usuarioId);
 
     List<Actividad> actividades = estado != null
-            ? actividadesRepository.findByParticipantesIdAndEstado(usuarioId, estado)
-            : actividadesRepository.findByParticipantesId(usuarioId);
+        ? actividadesRepository.findByOrganizadorIdAndEstado(usuarioId, estado)
+        : actividadesRepository.findByOrganizadorId(usuarioId);
 
     return actividades.stream()
-            .map(actividadesMapper::actividadToActividadDto)
-            .toList();
+        .map(actividadesMapper::actividadToActividadDto)
+        .toList();
   }
 
-  private void validarExistenciaUsuario(Long usuarioId) {
-    if(!usuarioRepository.existsById(usuarioId))
+  @Override
+  public List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado)
+  {
+    validarExistenciaUsuario(usuarioId);
+
+    List<Actividad> actividades = estado != null
+        ? actividadesRepository.findByParticipantesIdAndEstado(usuarioId, estado)
+        : actividadesRepository.findByParticipantesId(usuarioId);
+
+    return actividades.stream()
+        .map(actividadesMapper::actividadToActividadDto)
+        .toList();
+  }
+
+  private void validarExistenciaUsuario(Long usuarioId)
+  {
+    if (!usuarioRepository.existsById(usuarioId))
       throw new UsuarioNotFoundException("El usuario con id: " + usuarioId + " no existe");
   }
 
   @Override
-  public List<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha)
+  public ActividadDto obtenerActividad(Long id)
   {
-    return actividadesRepository.findAll().stream()
+    Actividad actividad = actividadesRepository.findById(id)
+        .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException(
+            "Actividad con ID " + id + " no encontrada"));
+    return actividadesMapper.actividadToActividadDto(actividad);
+  }
+
+  @Override
+  public org.springframework.data.domain.Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio,
+                                                                              LocalDate fecha,
+                                                                              org.springframework.data.domain.Pageable pageable)
+  {
+    List<ActividadDto> filtered = actividadesRepository.findAll().stream()
         .filter(a -> tipo == null || a.getTipo().equals(tipo))
-        .filter(a -> barrio == null || (a.getUbicacion() != null && a.getUbicacion().getBarrio().equalsIgnoreCase(barrio)))
+        .filter(
+            a -> barrio == null || (a.getUbicacion() != null && a.getUbicacion().getBarrio().equalsIgnoreCase(barrio)))
         .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
         .map(actividadesMapper::actividadToActividadDto)
         .toList();
+
+    int start = (int) pageable.getOffset();
+    int end = Math.min((start + pageable.getPageSize()), filtered.size());
+    List<ActividadDto> pageContent = (start <= end) ? filtered.subList(start, end) : java.util.Collections.emptyList();
+
+    return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, filtered.size());
   }
 
   /**
@@ -135,17 +152,19 @@ public class ActividadesServiceImplem implements ActividadesService
    * la capacidad maxima.
    *
    * @param actividadId Identificador de la actividad.
-   * @param usuarioId Identificador del usuario que desea unirse.
+   * @param usuarioId   Identificador del usuario que desea unirse.
    */
   @Override
   @Transactional
-  public void unirseActividad(Long actividadId, Long usuarioId) {
+  public void unirseActividad(Long actividadId, Long usuarioId)
+  {
     validarExistenciaUsuario(usuarioId);
 
     var actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
-    if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes()) {
+    if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes())
+    {
       throw new CapacidadMaximaException("La actividad ya esta al maximo de participantes permitidos");
     }
     var usuario = usuarioRepository.findById(usuarioId)
@@ -160,11 +179,12 @@ public class ActividadesServiceImplem implements ActividadesService
    * Remueve a un usuario de la lista de participantes de una actividad.
    *
    * @param actividadId Identificador de la actividad.
-   * @param usuarioId Identificador del usuario que desea bajarse.
+   * @param usuarioId   Identificador del usuario que desea bajarse.
    */
   @Override
   @Transactional
-  public void bajarseActividad(Long actividadId, Long usuarioId) {
+  public void bajarseActividad(Long actividadId, Long usuarioId)
+  {
     validarExistenciaUsuario(usuarioId);
 
     var actividad = actividadesRepository.findById(actividadId)
@@ -177,9 +197,9 @@ public class ActividadesServiceImplem implements ActividadesService
     actividadesRepository.save(actividad);
   }
 
-
   @Override
-  public PronosticoRespuestaDto obtenerClimaActividad(Long actividadId, Long usuarioId) {
+  public PronosticoRespuestaDto obtenerClimaActividad(Long actividadId, Long usuarioId)
+  {
     validarExistenciaUsuario(usuarioId);
 
     var actividad = actividadesRepository.findById(actividadId)
@@ -189,12 +209,13 @@ public class ActividadesServiceImplem implements ActividadesService
     boolean esParticipante = actividad.getParticipantes().stream()
         .anyMatch(u -> u.getId().equals(usuarioId));
 
-    if (!esParticipante) {
+    if (!esParticipante)
       throw new NoParticipanteException("Debes ser participante de la actividad para ver su clima");
-    }
+
 
     ClimaDto climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
-    ClimaDto pronostico = climaMapper.climaToClimaDto(proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion()));
+    ClimaDto pronostico = climaMapper.climaToClimaDto(
+        proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion()));
 
     return new PronosticoRespuestaDto(climaActual, pronostico);
   }
@@ -203,39 +224,44 @@ public class ActividadesServiceImplem implements ActividadesService
    * Cancela una actividad existente y notifica a los participantes.
    *
    * @param actividadId Identificador de la actividad a cancelar.
-   * @param usuarioId Identificador del usuario que solicita la cancelacion (debe ser el organizador).
+   * @param usuarioId   Identificador del usuario que solicita la cancelacion (debe ser el organizador).
    */
   @Override
   @Transactional
-  public void cancelarActividad(Long actividadId, Long usuarioId)
+  public void cambiarEstado(Long actividadId, Long usuarioId, TipoEstadoActividad nuevoEstado)
   {
     var actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException("Actividad no encontrada"));
 
     if (!actividad.getOrganizador().getId().equals(usuarioId))
-      throw new com.tacs.backend.exceptions.AccesoDenegadoException("Solo el organizador puede cancelar la actividad");
+      throw new com.tacs.backend.exceptions.AccesoDenegadoException(
+          "Solo el organizador puede cambiar el estado de la actividad");
 
-    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
+    actividad.cambiarEstado(nuevoEstado);
 
     actividadesRepository.save(actividad);
 
-    servicioNotificaciones.notificarATodos(
-            "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
-                    actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
-            actividad.getParticipantes());
+    if (nuevoEstado == TipoEstadoActividad.CANCELADA)
+    {
+      servicioNotificaciones.notificarATodos(
+          "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
+              actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
+          actividad.getParticipantes());
+    }
   }
 
   /**
    * Actualiza las configuraciones de clima, anticipacion y rango de reprogramacion de una actividad.
    *
    * @param actividadId Identificador de la actividad.
-   * @param usuarioId Identificador del usuario que solicita la configuracion (debe ser el organizador).
-   * @param dto DTO con las nuevas configuraciones a aplicar.
+   * @param usuarioId   Identificador del usuario que solicita la configuracion (debe ser el organizador).
+   * @param dto         DTO con las nuevas configuraciones a aplicar.
    * @return DTO de la actividad actualizada.
    */
   @Override
   @Transactional
-  public ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto) {
+  public ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto)
+  {
     Actividad actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new com.tacs.backend.exceptions.ActividadNotFoundException("Actividad no encontrada"));
 

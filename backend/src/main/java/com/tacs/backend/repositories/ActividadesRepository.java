@@ -16,6 +16,10 @@ public interface ActividadesRepository
 
   List<Actividad> findByParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
 
+  List<Actividad> findByOrganizadorIdOrParticipantesId(Long usuarioId);
+
+  List<Actividad> findByOrganizadorIdOrParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
+
   long countByEstado(TipoEstadoActividad estado);
 
   List<Actividad> findCandidatasParaChequeoClima();

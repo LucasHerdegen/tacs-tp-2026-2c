@@ -15,4 +15,8 @@ public interface AuthService
   UsuarioDto buscarPorUsername(String username);
 
   UsuarioDto actualizarRol(Long usuarioId, TipoRol rol);
+
+  UsuarioDto obtenerUsuario(Long usuarioId);
+
+  UsuarioDto actualizarContacto(Long usuarioId, com.tacs.backend.domain.usuario.MedioContacto medioContacto);
 }

@@ -35,10 +35,10 @@ import static org.mockito.Mockito.when;
 /**
  * Cubre la notificacion de la cancelacion manual (el TODO de User Story 13 en
  * ActividadesServiceImplem.cancelarActividad).
- *
+ * <p>
  * Va en una clase aparte de ActividadesServiceImplemTest para no chocar con
  * ediciones en paralelo sobre ese archivo; se puede fusionar despues.
- *
+ * <p>
  * Usa @InjectMocks a proposito: inyecta por tipo, asi que no importa en que
  * posicion quede el campo ServicioNotificaciones en el constructor generado
  * por @RequiredArgsConstructor.
@@ -77,7 +77,7 @@ class ActividadesServiceImplemNotificacionesTest
 
     when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
 
-    service.cancelarActividad(1L, ORGANIZADOR_ID);
+    service.cambiarEstado(1L, ORGANIZADOR_ID, com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA);
 
     verify(servicioNotificaciones)
         .notificarATodos(contains(actividad.getTitulo()), eq(actividad.getParticipantes()));
@@ -90,7 +90,7 @@ class ActividadesServiceImplemNotificacionesTest
 
     when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
 
-    service.cancelarActividad(1L, ORGANIZADOR_ID);
+    service.cambiarEstado(1L, ORGANIZADOR_ID, com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA);
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     verify(actividadesRepository).save(actividad);
@@ -105,7 +105,8 @@ class ActividadesServiceImplemNotificacionesTest
 
     when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
 
-    assertThatThrownBy(() -> service.cancelarActividad(1L, 123L))
+    assertThatThrownBy(
+        () -> service.cambiarEstado(1L, 123L, com.tacs.backend.domain.actividad.TipoEstadoActividad.CANCELADA))
         .isInstanceOf(AccesoDenegadoException.class);
 
     verify(servicioNotificaciones, never()).notificarATodos(anyString(), any());

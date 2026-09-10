@@ -6,6 +6,8 @@ import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -14,7 +16,11 @@ public interface ActividadesService
 {
   ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId);
 
-  List<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha);
+  ActividadDto obtenerActividad(Long id);
+
+  Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio,
+                                       LocalDate fecha,
+                                       Pageable pageable);
 
   public void unirseActividad(Long actividadId, Long usuarioId);
 
@@ -29,7 +35,7 @@ public interface ActividadesService
 
   List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado);
 
-  void cancelarActividad(Long actividadId, Long usuarioId);
+  void cambiarEstado(Long actividadId, Long usuarioId, TipoEstadoActividad nuevoEstado);
 
   ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto);
 }

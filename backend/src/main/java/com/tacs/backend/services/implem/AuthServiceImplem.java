@@ -74,6 +74,24 @@ class AuthServiceImplem implements AuthService
     return toDto(usuario);
   }
 
+  @Override
+  public UsuarioDto obtenerUsuario(Long usuarioId)
+  {
+    Usuario usuario = usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+    return toDto(usuario);
+  }
+
+  @Override
+  @Transactional
+  public UsuarioDto actualizarContacto(Long usuarioId, com.tacs.backend.domain.usuario.MedioContacto medioContacto)
+  {
+    Usuario usuario = usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+    usuario.setMedioContacto(medioContacto);
+    return toDto(usuario);
+  }
+
   private UsuarioDto toDto(Usuario usuario)
   {
     return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());

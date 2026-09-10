@@ -45,6 +45,20 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
   }
 
   @Override
+  public List<Actividad> findByOrganizadorIdOrParticipantesId(Long usuarioId)
+  {
+    return jpaRepository.findByOrganizadorIdOrParticipantesId(usuarioId).stream().map(mapper::toDomain)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<Actividad> findByOrganizadorIdOrParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado)
+  {
+    return jpaRepository.findByOrganizadorIdOrParticipantesIdAndEstado(usuarioId, estado).stream().map(mapper::toDomain)
+        .collect(Collectors.toList());
+  }
+
+  @Override
   public long countByEstado(TipoEstadoActividad estado)
   {
     return jpaRepository.countByEstado(estado);

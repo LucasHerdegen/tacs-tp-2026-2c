@@ -36,4 +36,28 @@ class UsuariosController
   {
     return ResponseEntity.ok(authService.actualizarRol(usuarioId, request.rol()));
   }
+
+  @Operation(summary = "Obtener datos propios", description = "Devuelve los datos del usuario autenticado (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Usuario encontrado", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @org.springframework.web.bind.annotation.GetMapping("/me")
+  public ResponseEntity<UsuarioDto> obtenerMiUsuario(
+      @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+  {
+    Long usuarioId = jwt.getClaim("id");
+    return ResponseEntity.ok(authService.obtenerUsuario(usuarioId));
+  }
+
+  @Operation(summary = "Actualizar mi contacto", description = "Actualiza las preferencias de contacto del usuario autenticado (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Contacto actualizado", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
+  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @PatchMapping("/me/contacto")
+  public ResponseEntity<UsuarioDto> actualizarMiContacto(
+      @RequestBody @Valid com.tacs.backend.dtos.usuario.ActualizarContactoDto dto,
+      @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+  {
+    Long usuarioId = jwt.getClaim("id");
+    return ResponseEntity.ok(authService.actualizarContacto(usuarioId, dto.medioContacto()));
+  }
 }

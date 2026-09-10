@@ -56,7 +56,7 @@ class ActividadesServiceImplemTest
   @BeforeEach
   void setUp()
   {
-    Ubicacion ubicacion = new Ubicacion("Palermo", -34.588, -58.430);
+    com.tacs.backend.dtos.actividades.UbicacionDto ubicacion = new com.tacs.backend.dtos.actividades.UbicacionDto("Palermo", -34.588, -58.430);
     actividadPostDto = new ActividadPostDto(
         "Partido 5v5",
         "Fútbol en las canchas de Salguero",
@@ -106,7 +106,7 @@ class ActividadesServiceImplemTest
   {
     // Arrange
     ActividadPostDto dtoInvalido = new ActividadPostDto(
-        "Partido 5v5", "Fútbol", TipoActividad.AIRE_LIBRE, new Ubicacion(),
+        "Partido 5v5", "Fútbol", TipoActividad.AIRE_LIBRE, new com.tacs.backend.dtos.actividades.UbicacionDto(),
         LocalDateTime.now().plusDays(2), 2,
         10, // cantidadMinima
         5   // cantidadMaxima (menor a la mínima)
@@ -137,7 +137,6 @@ class ActividadesServiceImplemTest
   }
 
 
-
   @Test
   @DisplayName("Cancelar actividad exitosamente - Cambia estado a CANCELADA")
   void cancelarActividad_Success_ChangesStateToCancelada()
@@ -145,7 +144,7 @@ class ActividadesServiceImplemTest
     // Arrange
     Long actividadId = 100L;
     Long organizadorId = 1L;
-    
+
     actividadMock.setOrganizador(usuarioMock); // id 1L
     actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
     actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
@@ -153,7 +152,8 @@ class ActividadesServiceImplemTest
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
     // Act
-    actividadesService.cancelarActividad(actividadId, organizadorId);
+    actividadesService.cambiarEstado(actividadId, organizadorId,
+        TipoEstadoActividad.CANCELADA);
 
     // Assert
     assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
@@ -167,15 +167,16 @@ class ActividadesServiceImplemTest
     // Arrange
     Long actividadId = 100L;
     Long intrusoId = 999L;
-    
+
     actividadMock.setOrganizador(usuarioMock); // el organizador es 1L
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, intrusoId))
+    assertThatThrownBy(() -> actividadesService.cambiarEstado(actividadId, intrusoId,
+        TipoEstadoActividad.CANCELADA))
         .isInstanceOf(com.tacs.backend.exceptions.AccesoDenegadoException.class)
-        .hasMessage("Solo el organizador puede cancelar la actividad");
+        .hasMessage("Solo el organizador puede cambiar el estado de la actividad");
 
     verify(actividadesRepository, never()).save(any());
   }
@@ -187,11 +188,12 @@ class ActividadesServiceImplemTest
     // Arrange
     Long actividadId = 999L;
     Long organizadorId = 1L;
-    
+
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.empty());
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, organizadorId))
+    assertThatThrownBy(() -> actividadesService.cambiarEstado(actividadId, organizadorId,
+        TipoEstadoActividad.CANCELADA))
         .isInstanceOf(com.tacs.backend.exceptions.ActividadNotFoundException.class)
         .hasMessage("Actividad no encontrada");
   }

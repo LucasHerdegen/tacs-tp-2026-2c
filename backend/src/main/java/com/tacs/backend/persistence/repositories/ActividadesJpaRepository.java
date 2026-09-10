@@ -19,6 +19,12 @@ public interface ActividadesJpaRepository extends JpaRepository<ActividadEntity,
 
   List<ActividadEntity> findByParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
 
+  @Query("SELECT DISTINCT a FROM ActividadEntity a LEFT JOIN a.participantes p WHERE a.organizador.id = :usuarioId OR p.id = :usuarioId")
+  List<ActividadEntity> findByOrganizadorIdOrParticipantesId(Long usuarioId);
+
+  @Query("SELECT DISTINCT a FROM ActividadEntity a LEFT JOIN a.participantes p WHERE (a.organizador.id = :usuarioId OR p.id = :usuarioId) AND a.estado = :estado")
+  List<ActividadEntity> findByOrganizadorIdOrParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
+
   long countByEstado(TipoEstadoActividad estado);
 
   @Query("""

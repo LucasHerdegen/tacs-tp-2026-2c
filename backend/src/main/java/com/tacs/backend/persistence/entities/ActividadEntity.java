@@ -3,7 +3,7 @@ package com.tacs.backend.persistence.entities;
 import com.tacs.backend.domain.actividad.CambioFecha;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.actividad.Ubicacion;
+import com.tacs.backend.persistence.entities.UbicacionEntity;
 import com.tacs.backend.domain.clima.ReglasClima;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -35,7 +35,7 @@ public class ActividadEntity
   private TipoActividad tipo;
 
   @Embedded
-  private Ubicacion ubicacion;
+  private UbicacionEntity ubicacion;
 
   @Column(nullable = false, updatable = false)
   private LocalDateTime fechaCreacion;

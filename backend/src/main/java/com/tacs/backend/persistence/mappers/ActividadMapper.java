@@ -28,7 +28,7 @@ public class ActividadMapper
     domain.setTitulo(entity.getTitulo());
     domain.setDescripcion(entity.getDescripcion());
     domain.setTipo(entity.getTipo());
-    domain.setUbicacion(entity.getUbicacion());
+    domain.setUbicacion(mapUbicacionToDomain(entity.getUbicacion()));
     domain.setFechaCreacion(entity.getFechaCreacion());
     domain.setFechaRealizacion(entity.getFechaRealizacion());
     domain.setDuracionEstimada(entity.getDuracionEstimada());
@@ -67,7 +67,7 @@ public class ActividadMapper
     entity.setTitulo(domain.getTitulo());
     entity.setDescripcion(domain.getDescripcion());
     entity.setTipo(domain.getTipo());
-    entity.setUbicacion(domain.getUbicacion());
+    entity.setUbicacion(mapUbicacionToEntity(domain.getUbicacion()));
     entity.setFechaCreacion(domain.getFechaCreacion());
     entity.setFechaRealizacion(domain.getFechaRealizacion());
     entity.setDuracionEstimada(domain.getDuracionEstimada());
@@ -109,5 +109,15 @@ public class ActividadMapper
     entity.setEstado(domain.getEstado());
     entity.setReglasClima(domain.getReglasClima());
     return entity;
+  }
+
+  private com.tacs.backend.domain.actividad.Ubicacion mapUbicacionToDomain(com.tacs.backend.persistence.entities.UbicacionEntity entity) {
+    if (entity == null) return null;
+    return new com.tacs.backend.domain.actividad.Ubicacion(entity.getBarrio(), entity.getLatitud(), entity.getLongitud());
+  }
+
+  private com.tacs.backend.persistence.entities.UbicacionEntity mapUbicacionToEntity(com.tacs.backend.domain.actividad.Ubicacion domain) {
+    if (domain == null) return null;
+    return new com.tacs.backend.persistence.entities.UbicacionEntity(domain.getBarrio(), domain.getLatitud(), domain.getLongitud());
   }
 }
