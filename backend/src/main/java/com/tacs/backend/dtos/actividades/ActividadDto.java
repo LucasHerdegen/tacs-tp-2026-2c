@@ -22,5 +22,6 @@ public record ActividadDto(Long id,
                            RangoReprogramacion rangoReprogramacion,
                            List<CambioFecha> cambiosFecha,
                            TipoEstadoActividad estadoActividad,
-                           ReglasClima reglasClima) {
+                           ReglasClima reglasClima)
+{
 }

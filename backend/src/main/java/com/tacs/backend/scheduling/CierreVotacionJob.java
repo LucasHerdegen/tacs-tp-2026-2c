@@ -39,10 +39,12 @@ public class CierreVotacionJob
 
   private void cerrarSinRomperElLoop(Long votacionId)
   {
-    try {
+    try
+    {
       votacionesService.resolverVotacion(votacionId);
       log.info("Votacion id={} cerrada automaticamente por vencimiento de fechaLimite", votacionId);
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       log.error("Fallo cerrando automaticamente la votacion id={}, se reintenta en la proxima corrida del cron",
           votacionId, e);
     }

@@ -3,8 +3,6 @@ package com.tacs.backend.domain.actividad;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.domain.usuario.Usuario;
-import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
-import com.tacs.backend.dtos.clima.ReglasClimaDto;
 
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.CapacidadMaximaException;
@@ -63,7 +61,7 @@ public class Actividad
 
   private List<Usuario> participantes = new ArrayList<>();
 
-  private int horasAnticipacion;
+  private int horasAnticipacion = 24;
 
 
   private RangoReprogramacion rangoReprogramacion;
@@ -129,7 +127,12 @@ public class Actividad
       throw new CapacidadMaximaException("La actividad ha alcanzado la capacidad maxima de participantes");
 
     if (!this.participantes.contains(usuario))
+    {
       this.participantes.add(usuario);
+
+      if (this.estado == TipoEstadoActividad.PROPUESTA && this.participantes.size() >= this.minimoParticipantes)
+        this.estado = TipoEstadoActividad.CONFIRMADA;
+    }
   }
 
   /**
@@ -144,6 +147,9 @@ public class Actividad
       throw new AccesoDenegadoException("El organizador no puede bajarse de la actividad");
 
     this.participantes.remove(usuario);
+
+    if (this.estado == TipoEstadoActividad.CONFIRMADA && this.participantes.size() < this.minimoParticipantes)
+      this.estado = TipoEstadoActividad.PROPUESTA;
   }
 
   /**
@@ -178,27 +184,25 @@ public class Actividad
       Estados.getEstado(this.estado).cambiarEstado(this, nuevoEstado);
   }
 
-  public void actualizarReglasClima(ReglasClimaDto dto)
+  public void actualizarReglasClima(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)
   {
     if (this.reglasClima == null)
       this.reglasClima = new ReglasClima();
 
-    this.reglasClima.actualizar(dto);
+    this.reglasClima.actualizar(maxProbabilidadLluvia, minTemperatura, maxTemperatura, maxViento);
   }
 
   public void actualizarHorasAnticipacion(Integer horas)
   {
     if (horas != null)
-    {
       this.horasAnticipacion = horas;
-    }
   }
 
-  public void actualizarRangoReprogramacion(RangoReprogramacionDto dto)
+  public void actualizarRangoReprogramacion(Integer dias, Integer horaInicio, Integer horaFinal)
   {
     if (this.rangoReprogramacion == null)
       this.rangoReprogramacion = new RangoReprogramacion();
 
-    this.rangoReprogramacion.actualizar(dto);
+    this.rangoReprogramacion.actualizar(dias, horaInicio, horaFinal);
   }
 }

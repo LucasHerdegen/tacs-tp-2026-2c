@@ -16,6 +16,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.tacs.backend.dtos.usuario.ActualizarContactoDto;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+
 
 @RequiredArgsConstructor
 @RestController
@@ -41,9 +45,9 @@ class UsuariosController
   @Operation(summary = "Obtener datos propios", description = "Devuelve los datos del usuario autenticado (Requiere rol USER)")
   @ApiResponse(responseCode = "200", description = "Usuario encontrado", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
-  @org.springframework.web.bind.annotation.GetMapping("/me")
+  @GetMapping("/me")
   public ResponseEntity<UsuarioDto> obtenerMiUsuario(
-      @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+      @AuthenticationPrincipal Jwt jwt)
   {
     Long usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.obtenerUsuario(usuarioId));
@@ -56,7 +60,7 @@ class UsuariosController
   @PatchMapping("/me/contacto")
   public ResponseEntity<UsuarioDto> actualizarMiContacto(
       @RequestBody @Valid ActualizarContactoDto dto,
-      @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+      @AuthenticationPrincipal Jwt jwt)
   {
     Long usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.actualizarContacto(usuarioId, dto.medioContacto()));

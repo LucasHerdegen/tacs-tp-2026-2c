@@ -20,6 +20,8 @@ import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,15 +127,20 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public org.springframework.data.domain.Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio,
-                                                                              LocalDate fecha,
-                                                                              org.springframework.data.domain.Pageable pageable)
+  public Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio,
+                                              LocalDate fecha,
+                                              TipoEstadoActividad estado,
+                                              Boolean cupoDisponible,
+                                              Pageable pageable)
   {
     List<ActividadDto> filtered = actividadesRepository.findAll().stream()
         .filter(a -> tipo == null || a.getTipo().equals(tipo))
         .filter(
             a -> barrio == null || (a.getUbicacion() != null && a.getUbicacion().getBarrio().equalsIgnoreCase(barrio)))
         .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
+        .filter(a -> estado == null || a.getEstado() == estado)
+        .filter(
+            a -> cupoDisponible == null || !cupoDisponible || a.getParticipantes().size() < a.getMaximoParticipantes())
         .map(actividadesMapper::actividadToActividadDto)
         .toList();
 
@@ -266,13 +273,26 @@ public class ActividadesServiceImplem implements ActividadesService
       throw new AccesoDenegadoException("Solo el organizador puede configurar el clima");
 
     if (dto.reglasClima() != null)
-      actividad.actualizarReglasClima(dto.reglasClima());
+    {
+      actividad.actualizarReglasClima(
+        dto.reglasClima().maxProbabilidadLluvia(),
+        dto.reglasClima().minTemperatura(),
+        dto.reglasClima().maxTemperatura(),
+        dto.reglasClima().maxViento()
+      );
+    }
 
     if (dto.horasAnticipacion() != null)
       actividad.actualizarHorasAnticipacion(dto.horasAnticipacion());
 
     if (dto.rangoReprogramacion() != null)
-      actividad.actualizarRangoReprogramacion(dto.rangoReprogramacion());
+    {
+      actividad.actualizarRangoReprogramacion(
+        dto.rangoReprogramacion().dias(),
+        dto.rangoReprogramacion().horaInicio(),
+        dto.rangoReprogramacion().horaFinal()
+      );
+    }
 
     actividadesRepository.save(actividad);
 

@@ -32,123 +32,124 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class EstadisticasIntegrationTests
 {
-    private static final Pattern TOKEN_PATTERN = Pattern.compile("\"token\":\"([^\"]+)\"");
+  private static final Pattern TOKEN_PATTERN = Pattern.compile("\"token\":\"([^\"]+)\"");
 
-    @Autowired
-    private MockMvc mockMvc;
+  @Autowired
+  private MockMvc mockMvc;
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+  @Autowired
+  private UsuarioRepository usuarioRepository;
 
-    @Autowired
-    private ActividadesRepository actividadesRepository;
+  @Autowired
+  private ActividadesRepository actividadesRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+  @Autowired
+  private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private DataSource dataSource;
+  @Autowired
+  private DataSource dataSource;
 
-    private Usuario admin;
-    private String tokenAdmin;
-    private String tokenUser;
+  private Usuario admin;
+  private String tokenAdmin;
+  private String tokenUser;
 
-    @BeforeEach
-    void setUp() throws Exception
+  @BeforeEach
+  void setUp() throws Exception
+  {
+    try (Connection connection = dataSource.getConnection())
     {
-        try(Connection connection = dataSource.getConnection()) {
-            String url = connection.getMetaData().getURL();
-            assertThat(url).as("La suite de tests solo puede correr contra H2 en memoria")
-                    .startsWith("jdbc:h2:mem:");
-        }
-
-        admin = usuarioRepository.save(new Usuario("admin", passwordEncoder.encode("password-segura"), TipoRol.ADMIN));
-        usuarioRepository.save(new Usuario("user", passwordEncoder.encode("password-segura"), TipoRol.USER));
-
-        tokenAdmin = login("admin", "password-segura");
-        tokenUser = login("user", "password-segura");
+      String url = connection.getMetaData().getURL();
+      assertThat(url).as("La suite de tests solo puede correr contra H2 en memoria")
+          .startsWith("jdbc:h2:mem:");
     }
 
-    @Test
-    void sinTokenDevuelveUnauthorized() throws Exception
-    {
-        mockMvc.perform(get("/api/admin/estadisticas"))
-               .andExpect(status().isUnauthorized());
-    }
+    admin = usuarioRepository.save(new Usuario("admin", passwordEncoder.encode("password-segura"), TipoRol.ADMIN));
+    usuarioRepository.save(new Usuario("user", passwordEncoder.encode("password-segura"), TipoRol.USER));
 
-    @Test
-    void usuarioSinRolAdminDevuelveForbidden() throws Exception
-    {
-        mockMvc.perform(get("/api/admin/estadisticas")
-               .header("Authorization", "Bearer " + tokenUser))
-               .andExpect(status().isForbidden());
-    }
+    tokenAdmin = login("admin", "password-segura");
+    tokenUser = login("user", "password-segura");
+  }
 
-    @Test
-    void administradorObtieneLosConteos() throws Exception
-    {
-        guardarActividad("Asado propuesto");
+  @Test
+  void sinTokenDevuelveUnauthorized() throws Exception
+  {
+    mockMvc.perform(get("/api/admin/estadisticas"))
+        .andExpect(status().isUnauthorized());
+  }
 
-        Actividad actividadReprogramada = guardarActividad("Salida reprogramada");
-        actividadReprogramada.setEstado(TipoEstadoActividad.REPROGRAMADA);
-        actividadesRepository.save(actividadReprogramada);
+  @Test
+  void usuarioSinRolAdminDevuelveForbidden() throws Exception
+  {
+    mockMvc.perform(get("/api/admin/estadisticas")
+            .header("Authorization", "Bearer " + tokenUser))
+        .andExpect(status().isForbidden());
+  }
 
-        Actividad actividadCancelada = guardarActividad("Corrida cancelada");
-        actividadCancelada.setEstado(TipoEstadoActividad.CANCELADA);
-        actividadesRepository.save(actividadCancelada);
+  @Test
+  void administradorObtieneLosConteos() throws Exception
+  {
+    guardarActividad("Asado propuesto");
 
-        Actividad actividadConfirmada = guardarActividad("Juntada Confirmada");
-        actividadConfirmada.setEstado(TipoEstadoActividad.CONFIRMADA);
-        actividadesRepository.save(actividadConfirmada);
+    Actividad actividadReprogramada = guardarActividad("Salida reprogramada");
+    actividadReprogramada.setEstado(TipoEstadoActividad.REPROGRAMADA);
+    actividadesRepository.save(actividadReprogramada);
 
-        Actividad actividadFinalizada = guardarActividad("Partido terminado");
-        actividadFinalizada.setEstado(TipoEstadoActividad.FINALIZADA);
-        actividadesRepository.save(actividadFinalizada);
+    Actividad actividadCancelada = guardarActividad("Corrida cancelada");
+    actividadCancelada.setEstado(TipoEstadoActividad.CANCELADA);
+    actividadesRepository.save(actividadCancelada);
 
-        MvcResult result = mockMvc.perform(get("/api/admin/estadisticas")
-                                  .header("Authorization", "Bearer " + tokenAdmin))
-                                  .andExpect(status().isOk())
-                                  .andReturn();
+    Actividad actividadConfirmada = guardarActividad("Juntada Confirmada");
+    actividadConfirmada.setEstado(TipoEstadoActividad.CONFIRMADA);
+    actividadesRepository.save(actividadConfirmada);
 
-        String body = result.getResponse().getContentAsString();
-        assertThat(body).contains("\"actividadesCreadas\":5");
-        assertThat(body).contains("\"actividadesReprogramadas\":1");
-        assertThat(body).contains("\"actividadesCanceladas\":1");
-        assertThat(body).contains("\"actividadesConfirmadas\":1");
-        assertThat(body).contains("\"actividadesFinalizadas\":1");
-    }
+    Actividad actividadFinalizada = guardarActividad("Partido terminado");
+    actividadFinalizada.setEstado(TipoEstadoActividad.FINALIZADA);
+    actividadesRepository.save(actividadFinalizada);
 
-    private Actividad guardarActividad(String titulo)
-    {
-        Actividad actividad = new Actividad(
-                titulo,
-                "descripcion",
-                TipoActividad.AIRE_LIBRE,
-                new Ubicacion("Palermo", -34.58, -58.43),
-                LocalDateTime.now().plusDays(1),
-                120,
-                LocalDateTime.now(),
-                2,
-                10,
-                admin);
+    MvcResult result = mockMvc.perform(get("/api/admin/estadisticas")
+            .header("Authorization", "Bearer " + tokenAdmin))
+        .andExpect(status().isOk())
+        .andReturn();
 
-        return actividadesRepository.save(actividad);
-    }
+    String body = result.getResponse().getContentAsString();
+    assertThat(body).contains("\"actividadesCreadas\":5");
+    assertThat(body).contains("\"actividadesReprogramadas\":1");
+    assertThat(body).contains("\"actividadesCanceladas\":1");
+    assertThat(body).contains("\"actividadesConfirmadas\":1");
+    assertThat(body).contains("\"actividadesFinalizadas\":1");
+  }
 
-    private String login(String username, String password) throws Exception
-    {
-        String body = """
+  private Actividad guardarActividad(String titulo)
+  {
+    Actividad actividad = new Actividad(
+        titulo,
+        "descripcion",
+        TipoActividad.AIRE_LIBRE,
+        new Ubicacion("Palermo", -34.58, -58.43),
+        LocalDateTime.now().plusDays(1),
+        120,
+        LocalDateTime.now(),
+        2,
+        10,
+        admin);
+
+    return actividadesRepository.save(actividad);
+  }
+
+  private String login(String username, String password) throws Exception
+  {
+    String body = """
         {"username":"%s","password":"%s"}
         """.formatted(username, password).trim();
 
-        MvcResult result = mockMvc.perform(post("/api/auth/login")
-                                  .contentType(MediaType.APPLICATION_JSON)
-                                  .content(body))
-                                  .andReturn();
+    MvcResult result = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andReturn();
 
-        String responseBody = result.getResponse().getContentAsString();
-        Matcher matcher = TOKEN_PATTERN.matcher(responseBody);
-        assertThat(matcher.find()).as("La respuesta de login debe contener un token").isTrue();
-        return matcher.group(1);
-    }
+    String responseBody = result.getResponse().getContentAsString();
+    Matcher matcher = TOKEN_PATTERN.matcher(responseBody);
+    assertThat(matcher.find()).as("La respuesta de login debe contener un token").isTrue();
+    return matcher.group(1);
+  }
 }

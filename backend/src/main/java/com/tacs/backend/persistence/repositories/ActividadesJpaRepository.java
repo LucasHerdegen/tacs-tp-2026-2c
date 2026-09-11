@@ -33,6 +33,7 @@ public interface ActividadesJpaRepository extends JpaRepository<ActividadEntity,
           TipoEstadoActividad.CANCELADA,
           TipoEstadoActividad.FINALIZADA)
       AND a.reglasClima IS NOT NULL
+      AND a.fechaRealizacion > CURRENT_TIMESTAMP
       AND NOT EXISTS (
           SELECT 1 FROM VotacionEntity v WHERE v.actividad = a AND v.abierta = true
       )
@@ -50,4 +51,12 @@ public interface ActividadesJpaRepository extends JpaRepository<ActividadEntity,
        AND a.recordatorioEnviado = false
        AND a.fechaRealizacion > CURRENT_TIMESTAMP""")
   List<ActividadEntity> findCandidatasParaRecordatorio();
+
+  @Query("""
+      SELECT a FROM ActividadEntity a
+      WHERE a.estado NOT IN (
+          TipoEstadoActividad.CANCELADA,
+          TipoEstadoActividad.FINALIZADA)
+      AND a.fechaRealizacion <= CURRENT_TIMESTAMP""")
+  List<ActividadEntity> findCandidatasParaFinalizacion();
 }

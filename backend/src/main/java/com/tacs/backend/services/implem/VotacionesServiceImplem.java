@@ -82,6 +82,10 @@ class VotacionesServiceImplem implements VotacionesService
     validarSinVotacionAbierta(actividadId);
     validarQuorumMinimo(votacionPostDto.quorumMinimo(), actividad);
 
+    if (votacionPostDto.fechaLimite() != null && votacionPostDto.fechaLimite().isAfter(actividad.getFechaRealizacion()))
+      throw new IllegalArgumentException(
+          "La fecha límite de la votación no puede ser posterior a la fecha de la actividad");
+
     int numero = 1;
     List<Alternativa> alternativas = new ArrayList<>();
 

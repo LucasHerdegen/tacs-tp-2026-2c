@@ -1,9 +1,7 @@
 package com.tacs.backend.persistence.entities;
 
-import com.tacs.backend.domain.actividad.CambioFecha;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.clima.ReglasClima;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +10,6 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import com.tacs.backend.domain.actividad.RangoReprogramacion;
 
 @Entity
 @Table(name = "actividades")
@@ -70,14 +67,14 @@ public class ActividadEntity
 
   private int horasAnticipacion;
   @Embedded
-  private RangoReprogramacion rangoReprogramacion;
+  private RangoReprogramacionEntity rangoReprogramacion;
 
   @ElementCollection
-  private List<CambioFecha> cambiosFecha = new ArrayList<>();
+  private List<CambioFechaEntity> cambiosFecha = new ArrayList<>();
 
   @Enumerated(EnumType.STRING)
   private TipoEstadoActividad estado;
 
   @Embedded
-  private ReglasClima reglasClima;
+  private ReglasClimaEntity reglasClima;
 }

@@ -1,15 +1,14 @@
 package com.tacs.backend.domain.clima;
 
-import com.tacs.backend.dtos.clima.ReglasClimaDto;
 
-import jakarta.persistence.Embeddable;
+
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Embeddable
+
 @Getter
 @Setter
 @EqualsAndHashCode
@@ -29,18 +28,15 @@ public class ReglasClima
         clima.getViento() <= maxViento;
   }
 
-  public void actualizar(ReglasClimaDto dto)
+  public void actualizar(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)
   {
-  if (dto.maxProbabilidadLluvia() != null)
-    this.maxProbabilidadLluvia = dto.maxProbabilidadLluvia();
-
-  if (dto.minTemperatura() != null)
-    this.minTemperatura = dto.minTemperatura();
-
-  if (dto.maxTemperatura() != null)
-    this.maxTemperatura = dto.maxTemperatura();
-
-  if (dto.maxViento() != null)
-    this.maxViento = dto.maxViento();
+    if (maxProbabilidadLluvia != null)
+      this.maxProbabilidadLluvia = maxProbabilidadLluvia;
+    if (minTemperatura != null)
+      this.minTemperatura = minTemperatura;
+    if (maxTemperatura != null)
+      this.maxTemperatura = maxTemperatura;
+    if (maxViento != null)
+      this.maxViento = maxViento;
   }
 }

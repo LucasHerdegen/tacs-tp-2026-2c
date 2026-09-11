@@ -2,10 +2,17 @@ package com.tacs.backend.persistence.mappers;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.persistence.entities.ActividadEntity;
+import com.tacs.backend.persistence.entities.ReglasClimaEntity;
+import com.tacs.backend.persistence.entities.CambioFechaEntity;
+import com.tacs.backend.persistence.entities.RangoReprogramacionEntity;
+import com.tacs.backend.domain.clima.ReglasClima;
+import com.tacs.backend.domain.actividad.CambioFecha;
+import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.stream.Collectors;
+
 import com.tacs.backend.persistence.repositories.UsuarioJpaRepository;
 import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.persistence.entities.UbicacionEntity;
@@ -49,17 +56,30 @@ public class ActividadMapper
       domain.setParticipantes(new ArrayList<>());
     }
     domain.setHorasAnticipacion(entity.getHorasAnticipacion());
-    domain.setRangoReprogramacion(entity.getRangoReprogramacion());
+    if (entity.getRangoReprogramacion() != null)
+    {
+      domain.setRangoReprogramacion(
+          new RangoReprogramacion(entity.getRangoReprogramacion().getDias(),
+              entity.getRangoReprogramacion().getHoraInicio(), entity.getRangoReprogramacion().getHoraFinal()));
+    }
 
     if (entity.getCambiosFecha() != null)
     {
-      domain.setCambiosFecha(new ArrayList<>(entity.getCambiosFecha()));
+      domain.setCambiosFecha(entity.getCambiosFecha().stream().map(
+              c -> new CambioFecha(c.getFecha(), c.getFechaAntigua(), c.getFechaNueva()))
+          .collect(java.util.stream.Collectors.toList()));
     } else
     {
       domain.setCambiosFecha(new ArrayList<>());
     }
     domain.setEstado(entity.getEstado());
-    domain.setReglasClima(entity.getReglasClima());
+    if (entity.getReglasClima() != null)
+    {
+      domain.setReglasClima(
+          new ReglasClima(entity.getReglasClima().getMaxProbabilidadLluvia(),
+              entity.getReglasClima().getMinTemperatura(), entity.getReglasClima().getMaxTemperatura(),
+              entity.getReglasClima().getMaxViento()));
+    }
     return domain;
   }
 
@@ -102,26 +122,40 @@ public class ActividadMapper
       entity.setParticipantes(new ArrayList<>());
     }
     entity.setHorasAnticipacion(domain.getHorasAnticipacion());
-    entity.setRangoReprogramacion(domain.getRangoReprogramacion());
+    if (domain.getRangoReprogramacion() != null)
+    {
+      entity.setRangoReprogramacion(
+          new RangoReprogramacionEntity(domain.getRangoReprogramacion().getDias(),
+              domain.getRangoReprogramacion().getHoraInicio(), domain.getRangoReprogramacion().getHoraFinal()));
+    }
 
     if (domain.getCambiosFecha() != null)
     {
-      entity.setCambiosFecha(new ArrayList<>(domain.getCambiosFecha()));
+      entity.setCambiosFecha(domain.getCambiosFecha().stream().map(
+          c -> new CambioFechaEntity(c.getFecha(), c.getFechaAntigua(),
+              c.getFechaNueva())).collect(java.util.stream.Collectors.toList()));
     } else
     {
       entity.setCambiosFecha(new ArrayList<>());
     }
     entity.setEstado(domain.getEstado());
-    entity.setReglasClima(domain.getReglasClima());
+    if (domain.getReglasClima() != null)
+    {
+      entity.setReglasClima(new ReglasClimaEntity(
+          domain.getReglasClima().getMaxProbabilidadLluvia(), domain.getReglasClima().getMinTemperatura(),
+          domain.getReglasClima().getMaxTemperatura(), domain.getReglasClima().getMaxViento()));
+    }
     return entity;
   }
 
-  private Ubicacion mapUbicacionToDomain(UbicacionEntity entity) {
+  private Ubicacion mapUbicacionToDomain(UbicacionEntity entity)
+  {
     if (entity == null) return null;
     return new Ubicacion(entity.getBarrio(), entity.getLatitud(), entity.getLongitud());
   }
 
-  private UbicacionEntity mapUbicacionToEntity(Ubicacion domain) {
+  private UbicacionEntity mapUbicacionToEntity(Ubicacion domain)
+  {
     if (domain == null) return null;
     return new UbicacionEntity(domain.getBarrio(), domain.getLatitud(), domain.getLongitud());
   }

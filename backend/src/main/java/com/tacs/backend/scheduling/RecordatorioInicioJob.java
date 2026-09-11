@@ -15,56 +15,64 @@ import java.util.List;
 
 @Slf4j
 @Component
-public class RecordatorioInicioJob {
-    private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+public class RecordatorioInicioJob
+{
+  private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    private final ActividadesRepository actividadesRepository;
-    private final ServicioNotificaciones servicioNotificaciones;
-    private final int horasAnticipacionDefault;
+  private final ActividadesRepository actividadesRepository;
+  private final ServicioNotificaciones servicioNotificaciones;
+  private final int horasAnticipacionDefault;
 
-    public RecordatorioInicioJob(ActividadesRepository actividadesRepository,
-                                 ServicioNotificaciones servicioNotificaciones,
-                                 @Value("${recordatorio.inicio.horas-anticipacion-default}") int horasAnticipacionDefault) {
-        this.actividadesRepository = actividadesRepository;
-        this.servicioNotificaciones = servicioNotificaciones;
-        this.horasAnticipacionDefault = horasAnticipacionDefault;
+  public RecordatorioInicioJob(ActividadesRepository actividadesRepository,
+                               ServicioNotificaciones servicioNotificaciones,
+                               @Value("${recordatorio.inicio.horas-anticipacion-default}") int horasAnticipacionDefault)
+  {
+    this.actividadesRepository = actividadesRepository;
+    this.servicioNotificaciones = servicioNotificaciones;
+    this.horasAnticipacionDefault = horasAnticipacionDefault;
+  }
+
+  /**
+   * Tarea programada que notifica a los participantes de las actividades
+   * que estan proximas a comenzar, segun las horas de anticipacion configuradas.
+   */
+  @Scheduled(fixedRateString = "${recordatorio.inicio.intervalo-ms}")
+  @SchedulerLock(name = "RecordatorioInicioJob_enviarRecordatorios", lockAtLeastFor = "1m", lockAtMostFor = "10m")
+  public void enviarRecordatorios()
+  {
+    for (Actividad actividad : detectarActividadesPorComenzar())
+      notificarSinRomperLoop(actividad);
+  }
+
+  List<Actividad> detectarActividadesPorComenzar()
+  {
+    return actividadesRepository.findCandidatasParaRecordatorio().stream()
+        .filter(this::dentroDeVentanaAnticipacion)
+        .toList();
+  }
+
+  private boolean dentroDeVentanaAnticipacion(Actividad actividad)
+  {
+    int anticipacion = actividad.getHorasAnticipacion() > 0
+        ? actividad.getHorasAnticipacion()
+        : horasAnticipacionDefault;
+    return !LocalDateTime.now().plusHours(anticipacion).isBefore(actividad.getFechaRealizacion());
+  }
+
+  private void notificarSinRomperLoop(Actividad actividad)
+  {
+    try
+    {
+      servicioNotificaciones.notificarATodos(
+          "La actividad '%s' comienza el %s.".formatted(
+              actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
+          actividad.getParticipantes());
+      actividad.marcarRecordatorioEnviado();
+      actividadesRepository.save(actividad);
+    } catch (Exception e)
+    {
+      log.error("Fallo enviando el recordatorio de la actividad id={}, se reintenta en la proxima corrida",
+          actividad.getId(), e);
     }
-
-    /**
-     * Tarea programada que notifica a los participantes de las actividades
-     * que estan proximas a comenzar, segun las horas de anticipacion configuradas.
-     */
-    @Scheduled(fixedRateString = "${recordatorio.inicio.intervalo-ms}")
-    @SchedulerLock(name = "RecordatorioInicioJob_enviarRecordatorios", lockAtLeastFor = "1m", lockAtMostFor = "10m")
-    public void enviarRecordatorios() {
-        for (Actividad actividad : detectarActividadesPorComenzar())
-            notificarSinRomperLoop(actividad);
-    }
-
-    List<Actividad> detectarActividadesPorComenzar() {
-        return actividadesRepository.findCandidatasParaRecordatorio().stream()
-                .filter(this::dentroDeVentanaAnticipacion)
-                .toList();
-    }
-
-    private boolean dentroDeVentanaAnticipacion(Actividad actividad) {
-        int anticipacion = actividad.getHorasAnticipacion() > 0
-                ? actividad.getHorasAnticipacion()
-                : horasAnticipacionDefault;
-        return !LocalDateTime.now().plusHours(anticipacion).isBefore(actividad.getFechaRealizacion());
-    }
-
-    private void notificarSinRomperLoop(Actividad actividad) {
-        try {
-            servicioNotificaciones.notificarATodos(
-                    "La actividad '%s' comienza el %s.".formatted(
-                            actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
-                            actividad.getParticipantes());
-            actividad.marcarRecordatorioEnviado();
-            actividadesRepository.save(actividad);
-        } catch (Exception e) {
-            log.error("Fallo enviando el recordatorio de la actividad id={}, se reintenta en la proxima corrida",
-                    actividad.getId(), e);
-        }
-    }
+  }
 }

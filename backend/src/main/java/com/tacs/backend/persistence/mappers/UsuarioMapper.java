@@ -2,6 +2,8 @@ package com.tacs.backend.persistence.mappers;
 
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.persistence.entities.UsuarioEntity;
+import com.tacs.backend.persistence.entities.MedioContactoEntity;
+import com.tacs.backend.domain.usuario.MedioContacto;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -16,7 +18,11 @@ public class UsuarioMapper
     domain.setUsername(entity.getUsername());
     domain.setPassword(entity.getPassword());
     domain.setRol(entity.getRol());
-    domain.setMedioContacto(entity.getMedioContacto());
+    if (entity.getMedioContacto() != null)
+    {
+      domain.setMedioContacto(new MedioContacto(entity.getMedioContacto().getValor(),
+          entity.getMedioContacto().getTipo()));
+    }
     return domain;
   }
 
@@ -28,7 +34,12 @@ public class UsuarioMapper
     entity.setUsername(domain.getUsername());
     entity.setPassword(domain.getPassword());
     entity.setRol(domain.getRol());
-    entity.setMedioContacto(domain.getMedioContacto());
+    if (domain.getMedioContacto() != null)
+    {
+      entity.setMedioContacto(
+          new MedioContactoEntity(domain.getMedioContacto().getTipo(),
+              domain.getMedioContacto().getValor()));
+    }
     return entity;
   }
 }

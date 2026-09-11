@@ -1,6 +1,6 @@
 package com.tacs.backend.persistence.entities;
 
-import com.tacs.backend.domain.usuario.MedioContacto;
+
 import com.tacs.backend.domain.usuario.TipoRol;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -28,5 +28,5 @@ public class UsuarioEntity
   private TipoRol rol;
 
   @Embedded
-  private MedioContacto medioContacto;
+  private MedioContactoEntity medioContacto;
 }

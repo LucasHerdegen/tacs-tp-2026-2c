@@ -361,7 +361,7 @@ class VotacionesServiceImplemTest
     actividad.setId(61L);
 
     LocalDateTime fechaAlternativa = LocalDateTime.now().plusDays(2);
-    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now().plusDays(1),
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
         List.of(new AlternativaPostDto(fechaAlternativa)));
 
     when(actividadesRepository.findById(61L)).thenReturn(Optional.of(actividad));

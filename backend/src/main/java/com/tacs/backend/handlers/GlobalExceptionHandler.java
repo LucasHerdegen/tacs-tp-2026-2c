@@ -5,6 +5,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.FieldError;
+
+import java.util.Map;
+import java.util.HashMap;
+
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 
@@ -82,5 +88,53 @@ class GlobalExceptionHandler
   public ProblemDetail handleNoParticipanteException(NoParticipanteException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+  }
+
+  @ExceptionHandler(QuorumInvalidoException.class)
+  public ProblemDetail handleQuorumInvalidoException(QuorumInvalidoException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ProblemDetail handleIllegalArgumentException(IllegalArgumentException ex)
+  {
+    if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("no encontrad"))
+    {
+      return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+  }
+
+  @ExceptionHandler(IllegalStateException.class)
+  public ProblemDetail handleIllegalStateException(IllegalStateException ex)
+  {
+    if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("no particip"))
+    {
+      return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ProblemDetail handleValidationExceptions(MethodArgumentNotValidException ex)
+  {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "Error de validacion en los campos enviados");
+    Map<String, String> errors = new HashMap<>();
+    ex.getBindingResult().getAllErrors().forEach((error) -> {
+      String fieldName = ((FieldError) error).getField();
+      String errorMessage = error.getDefaultMessage();
+      errors.put(fieldName, errorMessage);
+    });
+    problemDetail.setProperty("errores", errors);
+    return problemDetail;
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ProblemDetail handleAllOtherExceptions(Exception ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+        "Ocurrio un error inesperado. Por favor, intente nuevamente mas tarde.");
   }
 }
