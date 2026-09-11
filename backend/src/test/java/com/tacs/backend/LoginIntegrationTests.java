@@ -7,27 +7,30 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.MediaType;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
+@SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
+@AutoConfigureMockMvc
+@Transactional
 class LoginIntegrationTests
 {
   private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
-  @LocalServerPort
-  private int port;
+  @Autowired
+  private MockMvc mockMvc;
 
   @Autowired
   private UsuarioRepository usuarioRepository;
@@ -35,12 +38,9 @@ class LoginIntegrationTests
   @Autowired
   private PasswordEncoder passwordEncoder;
 
-  private final HttpClient httpClient = HttpClient.newHttpClient();
-
   @BeforeEach
   void setUp()
   {
-    usuarioRepository.deleteAll();
     usuarioRepository.save(new Usuario(
         "santi",
         passwordEncoder.encode("password-segura"),
@@ -50,78 +50,63 @@ class LoginIntegrationTests
   @Test
   void loginCorrectoDevuelveUnJwtQuePermiteIdentificarAlUsuario() throws Exception
   {
-    HttpResponse<String> loginResponse = postLogin("santi", "password-segura");
+    MvcResult loginResult = postLogin("santi", "password-segura");
 
-    assertThat(loginResponse.statusCode()).isEqualTo(200);
-    assertThat(loginResponse.body()).contains("\"tokenType\":\"Bearer\"");
-    assertThat(loginResponse.body()).contains("\"expiresIn\":3600");
+    assertThat(loginResult.getResponse().getStatus()).isEqualTo(200);
+    String loginBody = loginResult.getResponse().getContentAsString();
+    assertThat(loginBody).contains("\"tokenType\":\"Bearer\"");
+    assertThat(loginBody).contains("\"expiresIn\":3600");
 
-    String token = extractToken(loginResponse.body());
+    String token = extractToken(loginBody);
     assertThat(token.split("\\.")).hasSize(3);
 
-    HttpRequest meRequest = HttpRequest.newBuilder()
-        .uri(uri("/api/auth/me"))
-        .header("Authorization", "Bearer " + token)
-        .GET()
-        .build();
+    MvcResult meResult = mockMvc.perform(get("/api/auth/me")
+            .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andReturn();
 
-    HttpResponse<String> meResponse = send(meRequest);
-
-    assertThat(meResponse.statusCode()).isEqualTo(200);
-    assertThat(meResponse.body()).contains("\"username\":\"santi\"");
-    assertThat(meResponse.body()).contains("\"rol\":\"USER\"");
-    assertThat(meResponse.body()).doesNotContain("password-segura");
+    String meBody = meResult.getResponse().getContentAsString();
+    assertThat(meBody).contains("\"username\":\"santi\"");
+    assertThat(meBody).contains("\"rol\":\"USER\"");
+    assertThat(meBody).doesNotContain("password-segura");
   }
 
   @Test
   void loginConPasswordIncorrectaDevuelveUnauthorized() throws Exception
   {
-    HttpResponse<String> response = postLogin("santi", "password-incorrecta");
+    MvcResult result = postLogin("santi", "password-incorrecta");
 
-    assertThat(response.statusCode()).isEqualTo(401);
-    assertThat(response.body()).isEqualTo("Credenciales invalidas");
+    assertThat(result.getResponse().getStatus()).isEqualTo(401);
+    assertThat(result.getResponse().getContentAsString()).contains("Credenciales invalidas");
   }
 
   @Test
   void loginConUsuarioInexistenteDevuelveElMismoError() throws Exception
   {
-    HttpResponse<String> response = postLogin("usuario-inexistente", "password-segura");
+    MvcResult result = postLogin("usuario-inexistente", "password-segura");
 
-    assertThat(response.statusCode()).isEqualTo(401);
-    assertThat(response.body()).isEqualTo("Credenciales invalidas");
+    assertThat(result.getResponse().getStatus()).isEqualTo(401);
+    assertThat(result.getResponse().getContentAsString()).contains("Credenciales invalidas");
   }
 
   @Test
   void loginConCamposVaciosDevuelveBadRequest() throws Exception
   {
-    HttpResponse<String> response = postLogin("", "");
+    MvcResult result = postLogin("", "");
 
-    assertThat(response.statusCode()).isEqualTo(400);
+    assertThat(result.getResponse().getStatus()).isEqualTo(400);
   }
 
-  private HttpResponse<String> postLogin(String username, String password) throws Exception
+  private MvcResult postLogin(String username, String password) throws Exception
   {
     String body = """
         {"username":"%s","password":"%s"}
         """.formatted(username, password).trim();
 
-    HttpRequest request = HttpRequest.newBuilder()
-        .uri(uri("/api/auth/login"))
-        .header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofString(body))
-        .build();
-
-    return send(request);
-  }
-
-  private HttpResponse<String> send(HttpRequest request) throws Exception
-  {
-    return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-  }
-
-  private URI uri(String path)
-  {
-    return URI.create("http://localhost:" + port + path);
+    return mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andReturn();
   }
 
   private String extractToken(String responseBody)

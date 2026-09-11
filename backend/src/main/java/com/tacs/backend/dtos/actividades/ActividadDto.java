@@ -11,7 +11,7 @@ public record ActividadDto(Long id,
                            String titulo,
                            String descripcion,
                            TipoActividad tipoActividad,
-                           Ubicacion ubicacion,
+                           UbicacionDto ubicacion,
                            LocalDateTime fecha,
                            int duracionEstimada,
                            int minimoParticipantes,
@@ -22,5 +22,6 @@ public record ActividadDto(Long id,
                            RangoReprogramacion rangoReprogramacion,
                            List<CambioFecha> cambiosFecha,
                            TipoEstadoActividad estadoActividad,
-                           ReglasClima reglasClima) {
+                           ReglasClima reglasClima)
+{
 }

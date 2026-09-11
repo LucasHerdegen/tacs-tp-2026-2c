@@ -1,22 +1,19 @@
 package com.tacs.backend.domain.actividad;
 
-import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import jakarta.validation.constraints.NotBlank;
-
-@Embeddable
+@EqualsAndHashCode
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Ubicacion
+public class Ubicacion implements java.io.Serializable
 {
-  @NotBlank(message = "El barrio es requerido")
   private String barrio;
-  private double latitud;
-  private double longitud;
+  private Double latitud;
+  private Double longitud;
 }

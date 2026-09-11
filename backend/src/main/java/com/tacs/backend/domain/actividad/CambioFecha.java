@@ -1,6 +1,6 @@
 package com.tacs.backend.domain.actividad;
 
-import jakarta.persistence.Embeddable;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,7 +8,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-@Embeddable
+
 @Getter
 @Setter
 @NoArgsConstructor

@@ -16,5 +16,6 @@ public record VotacionPostDto(@Min(value = 1, message = "El quorum minimo debe s
                               LocalDateTime fechaLimite,
                               @NotEmpty(message = "Debe proponerse al menos una alternativa")
                               @Valid
-                              List<AlternativaPostDto> alternativas) {
+                              List<AlternativaPostDto> alternativas)
+{
 }

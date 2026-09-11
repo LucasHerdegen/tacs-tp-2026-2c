@@ -1,15 +1,11 @@
 # Compiled class file
 *.class
-
 # Log file
 *.log
-
 # BlueJ files
 *.ctxt
-
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
-
 # Package Files #
 *.jar
 *.war
@@ -18,11 +14,9 @@
 *.zip
 *.tar.gz
 *.rar
-
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
-
 # Build systems (Maven & Gradle)
 target/
 build/
@@ -30,7 +24,6 @@ build/
 .gradle/
 **/build/
 !**/src/main/resources/**/build/
-
 # IDE specific files
 .settings/
 .classpath
@@ -41,7 +34,6 @@ build/
 *.iws
 .idea/
 .vscode/
-
 # Operating System files
 .DS_Store
 .DS_Store?
@@ -50,16 +42,8 @@ build/
 .Trashes
 ehthumbs.db
 Thumbs.db
-
 # Environment variables and secrets
 .env
 *.properties.local
 application-local.properties
 application-dev.properties
-
-# Claude Code
-CLAUDE.md
-
-.claude/
-
-AGENTS.md

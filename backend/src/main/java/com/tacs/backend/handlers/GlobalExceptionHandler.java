@@ -1,86 +1,140 @@
 package com.tacs.backend.handlers;
 
-import com.tacs.backend.exceptions.AlternativaNotFoundException;
-import com.tacs.backend.exceptions.ActividadNotFoundException;
-import com.tacs.backend.exceptions.CapacidadMaximaException;
-import com.tacs.backend.exceptions.EstadoInvalidoException;
-import com.tacs.backend.exceptions.InvalidCredentialsException;
-import com.tacs.backend.exceptions.NoParticipanteException;
-import com.tacs.backend.exceptions.UsuarioNotFoundException;
-import com.tacs.backend.exceptions.VotacionCerradaException;
-import com.tacs.backend.exceptions.VotacionNotFoundException;
-import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
+import com.tacs.backend.exceptions.*;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.FieldError;
+
+import java.util.Map;
+import java.util.HashMap;
+
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 
 @ControllerAdvice
 class GlobalExceptionHandler
 {
   @ExceptionHandler(EstadoInvalidoException.class)
-  public ResponseEntity<String> handleEstadoInvalidoException(EstadoInvalidoException ex)
+  public ProblemDetail handleEstadoInvalidoException(EstadoInvalidoException ex)
   {
-    return ResponseEntity.badRequest().body(ex.getMessage());
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
   @ExceptionHandler(UsuarioNotFoundException.class)
-  public ResponseEntity<String> handleUsuarioNotFoundException(UsuarioNotFoundException ex)
+  public ProblemDetail handleUsuarioNotFoundException(UsuarioNotFoundException ex)
   {
-    return ResponseEntity.notFound().build();
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 
-  @ExceptionHandler(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException.class)
-  public ResponseEntity<String> handleRangoReprogramacionInvalidoException(com.tacs.backend.exceptions.RangoReprogramacionInvalidoException ex)
+  @ExceptionHandler(RangoReprogramacionInvalidoException.class)
+  public ProblemDetail handleRangoReprogramacionInvalidoException(
+      RangoReprogramacionInvalidoException ex)
   {
-    return ResponseEntity.badRequest().body(ex.getMessage());
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
-  @ExceptionHandler(com.tacs.backend.exceptions.AccesoDenegadoException.class)
-  public ResponseEntity<String> handleAccesoDenegadoException(com.tacs.backend.exceptions.AccesoDenegadoException ex)
+  @ExceptionHandler(AccesoDenegadoException.class)
+  public ProblemDetail handleAccesoDenegadoException(AccesoDenegadoException ex)
   {
-    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(ex.getMessage());
+    return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
   }
 
   @ExceptionHandler(UsernameAlreadyExistsException.class)
-  public ResponseEntity<String> handleUsernameAlreadyExistsException(UsernameAlreadyExistsException ex)
+  public ProblemDetail handleUsernameAlreadyExistsException(UsernameAlreadyExistsException ex)
   {
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
 
   @ExceptionHandler(InvalidCredentialsException.class)
-  public ResponseEntity<String> handleInvalidCredentialsException(InvalidCredentialsException ex)
+  public ProblemDetail handleInvalidCredentialsException(InvalidCredentialsException ex)
   {
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+    return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
   }
 
   @ExceptionHandler(VotacionNotFoundException.class)
-  public ResponseEntity<String> handleVotacionNotFoundException(VotacionNotFoundException ex)
+  public ProblemDetail handleVotacionNotFoundException(VotacionNotFoundException ex)
   {
-    return ResponseEntity.notFound().build();
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 
   @ExceptionHandler(AlternativaNotFoundException.class)
-  public ResponseEntity<String> handleAlternativaNotFoundException(AlternativaNotFoundException ex)
+  public ProblemDetail handleAlternativaNotFoundException(AlternativaNotFoundException ex)
   {
-    return ResponseEntity.notFound().build();
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 
   @ExceptionHandler(VotacionCerradaException.class)
-  public ResponseEntity<String> handleVotacionCerradaException(VotacionCerradaException ex)
+  public ProblemDetail handleVotacionCerradaException(VotacionCerradaException ex)
   {
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
+
   @ExceptionHandler(ActividadNotFoundException.class)
-  public ResponseEntity<String> handleActividadNotFoundException(ActividadNotFoundException ex) {
-    return ResponseEntity.notFound().build();
+  public ProblemDetail handleActividadNotFoundException(ActividadNotFoundException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
   }
+
   @ExceptionHandler(CapacidadMaximaException.class)
-  public ResponseEntity<String> handleCapacidadMaximaException(CapacidadMaximaException ex) {
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+  public ProblemDetail handleCapacidadMaximaException(CapacidadMaximaException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
+
   @ExceptionHandler(NoParticipanteException.class)
-  public ResponseEntity<String> handleNoParticipanteException(NoParticipanteException ex) {
-    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
+  public ProblemDetail handleNoParticipanteException(NoParticipanteException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+  }
+
+  @ExceptionHandler(QuorumInvalidoException.class)
+  public ProblemDetail handleQuorumInvalidoException(QuorumInvalidoException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ProblemDetail handleIllegalArgumentException(IllegalArgumentException ex)
+  {
+    if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("no encontrad"))
+    {
+      return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+  }
+
+  @ExceptionHandler(IllegalStateException.class)
+  public ProblemDetail handleIllegalStateException(IllegalStateException ex)
+  {
+    if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("no particip"))
+    {
+      return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ProblemDetail handleValidationExceptions(MethodArgumentNotValidException ex)
+  {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "Error de validacion en los campos enviados");
+    Map<String, String> errors = new HashMap<>();
+    ex.getBindingResult().getAllErrors().forEach((error) -> {
+      String fieldName = ((FieldError) error).getField();
+      String errorMessage = error.getDefaultMessage();
+      errors.put(fieldName, errorMessage);
+    });
+    problemDetail.setProperty("errores", errors);
+    return problemDetail;
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ProblemDetail handleAllOtherExceptions(Exception ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+        "Ocurrio un error inesperado. Por favor, intente nuevamente mas tarde.");
   }
 }

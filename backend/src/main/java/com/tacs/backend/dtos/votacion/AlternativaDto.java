@@ -14,5 +14,6 @@ public record AlternativaDto(Long id,
                              ClimaDto clima,
                              int numeroAlternativa,
                              long cantidadVotos,
-                             Boolean cumpleReglasClima) {
+                             Boolean cumpleReglasClima)
+{
 }

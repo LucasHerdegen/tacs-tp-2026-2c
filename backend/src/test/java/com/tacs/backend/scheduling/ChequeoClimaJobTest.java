@@ -59,8 +59,8 @@ class ChequeoClimaJobTest
   void detectaActividadConClimaDesfavorableDentroDeLaVentana()
   {
     Actividad actividad = crearActividad(
-        LocalDateTime.now().plusHours(2), 
-        24,                               
+        LocalDateTime.now().plusHours(2),
+        24,
         new ReglasClima(30, 10, 30, 20));  // Max 30% de lluvia permitido
 
     Clima pronosticoMalo = new Clima(80, 20, 10); // 80% de probabilidad de lluvia
@@ -97,8 +97,8 @@ class ChequeoClimaJobTest
   void noEvaluaActividadesFueraDeLaVentanaDeAnticipacion()
   {
     Actividad actividad = crearActividad(
-        LocalDateTime.now().plusDays(10), 
-        24,                                 
+        LocalDateTime.now().plusDays(10),
+        24,
         new ReglasClima(30, 10, 30, 20));
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
@@ -128,7 +128,7 @@ class ChequeoClimaJobTest
         .thenReturn(pronosticoMalo);
 
     inicializarJob();
-    List<Actividad> resultado = job.detectarClimaDesfavorable(); // No propaga exception, devuelve false y permite continuar la evaluacion - 
+    List<Actividad> resultado = job.detectarClimaDesfavorable(); // No propaga exception, devuelve false y permite continuar la evaluacion -
 
     assertThat(resultado).containsExactly(actividadQueFunciona);
   }
@@ -278,9 +278,11 @@ class ChequeoClimaJobTest
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
-    when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividadQueFalla, actividadQueFunciona));
+    when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(
+        List.of(actividadQueFalla, actividadQueFunciona));
     when(proveedorClima.obtenerPronostico(eq(UBICACION), any())).thenReturn(pronosticoMalo);
-    when(votacionesService.abrirVotacionAutomatica(1L)).thenThrow(new RuntimeException("Fallo la apertura de la votacion!"));
+    when(votacionesService.abrirVotacionAutomatica(1L)).thenThrow(
+        new RuntimeException("Fallo la apertura de la votacion!"));
 
     inicializarJob();
     job.chequearClima(); // No propaga exception

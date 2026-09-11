@@ -92,7 +92,7 @@ class CierreVotacionJobTest
         .thenThrow(new RuntimeException("Fallo el cierre de la votacion!"));
 
     inicializarJob();
-    job.cerrarVotacionesVencidas(); 
+    job.cerrarVotacionesVencidas();
 
     verify(votacionesService).resolverVotacion(40L);
   }

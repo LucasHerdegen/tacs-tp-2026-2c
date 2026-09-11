@@ -3,25 +3,10 @@ package com.tacs.backend.domain.actividad;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.domain.usuario.Usuario;
-import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
-import com.tacs.backend.dtos.clima.ReglasClimaDto;
 
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,23 +15,37 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
 @Getter
 @Setter
 @NoArgsConstructor
 public class Actividad
 {
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  private Long version;
+
+  @Override
+  public boolean equals(Object o)
+  {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Actividad actividad = (Actividad) o;
+    return id != null && id.equals(actividad.id);
+  }
+
+  @Override
+  public int hashCode()
+  {
+    return getClass().hashCode();
+  }
 
   private String titulo;
   private String descripcion;
 
-  @Enumerated(EnumType.STRING)
+
   private TipoActividad tipo;
 
-  @Embedded
+
   private Ubicacion ubicacion;
 
   private LocalDateTime fechaCreacion;
@@ -57,30 +56,23 @@ public class Actividad
   private boolean recordatorioEnviado;
 
 
-  @ManyToOne
   private Usuario organizador;
 
-  @ManyToMany
-  @JoinTable(
-      name = "actividad_participantes",
-      joinColumns = @JoinColumn(name = "actividad_id"),
-      inverseJoinColumns = @JoinColumn(name = "usuario_id")
-  )
+
   private List<Usuario> participantes = new ArrayList<>();
 
-  private int horasAnticipacion;
+  private int horasAnticipacion = 24;
 
-  @Embedded
+
   private RangoReprogramacion rangoReprogramacion;
 
-  @ElementCollection
-  @CollectionTable(name = "actividad_cambios_fecha", joinColumns = @JoinColumn(name = "actividad_id"))
+
   private List<CambioFecha> cambiosFecha = new ArrayList<>();
 
-  @Enumerated(EnumType.STRING)
+
   private TipoEstadoActividad estado;
 
-  @Embedded
+
   private ReglasClima reglasClima;
 
   public Actividad(String titulo, String descripcion, TipoActividad tipoActividad, Ubicacion ubicacion,
@@ -103,7 +95,8 @@ public class Actividad
   /**
    * Marca que el recordatorio de inicio ya fue enviado para esta actividad.
    */
-  public void marcarRecordatorioEnviado() {
+  public void marcarRecordatorioEnviado()
+  {
     this.recordatorioEnviado = true;
   }
 
@@ -134,7 +127,12 @@ public class Actividad
       throw new CapacidadMaximaException("La actividad ha alcanzado la capacidad maxima de participantes");
 
     if (!this.participantes.contains(usuario))
+    {
       this.participantes.add(usuario);
+
+      if (this.estado == TipoEstadoActividad.PROPUESTA && this.participantes.size() >= this.minimoParticipantes)
+        this.estado = TipoEstadoActividad.CONFIRMADA;
+    }
   }
 
   /**
@@ -149,6 +147,9 @@ public class Actividad
       throw new AccesoDenegadoException("El organizador no puede bajarse de la actividad");
 
     this.participantes.remove(usuario);
+
+    if (this.estado == TipoEstadoActividad.CONFIRMADA && this.participantes.size() < this.minimoParticipantes)
+      this.estado = TipoEstadoActividad.PROPUESTA;
   }
 
   /**
@@ -162,10 +163,10 @@ public class Actividad
     CambioFecha cambio = new CambioFecha(LocalDateTime.now(), this.fechaRealizacion, date);
     this.cambiosFecha.add(cambio);
     this.fechaRealizacion = date;
-    
+
     if (this.estado != null)
       this.cambiarEstado(TipoEstadoActividad.REPROGRAMADA);
-      
+
     this.recordatorioEnviado = false;
   }
 
@@ -183,26 +184,25 @@ public class Actividad
       Estados.getEstado(this.estado).cambiarEstado(this, nuevoEstado);
   }
 
-  public void actualizarReglasClima(ReglasClimaDto dto)
+  public void actualizarReglasClima(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)
   {
     if (this.reglasClima == null)
       this.reglasClima = new ReglasClima();
 
-    this.reglasClima.actualizar(dto);
+    this.reglasClima.actualizar(maxProbabilidadLluvia, minTemperatura, maxTemperatura, maxViento);
   }
 
   public void actualizarHorasAnticipacion(Integer horas)
   {
-    if (horas != null) {
+    if (horas != null)
       this.horasAnticipacion = horas;
-    }
   }
 
-  public void actualizarRangoReprogramacion(RangoReprogramacionDto dto)
+  public void actualizarRangoReprogramacion(Integer dias, Integer horaInicio, Integer horaFinal)
   {
     if (this.rangoReprogramacion == null)
       this.rangoReprogramacion = new RangoReprogramacion();
 
-    this.rangoReprogramacion.actualizar(dto);
+    this.rangoReprogramacion.actualizar(dias, horaInicio, horaFinal);
   }
 }

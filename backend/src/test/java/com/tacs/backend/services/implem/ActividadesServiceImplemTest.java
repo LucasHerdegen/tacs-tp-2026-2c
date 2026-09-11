@@ -3,7 +3,6 @@ package com.tacs.backend.services.implem;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
@@ -28,6 +27,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.tacs.backend.dtos.clima.ReglasClimaDto;
+import com.tacs.backend.dtos.actividades.UbicacionDto;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
+import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -56,7 +61,7 @@ class ActividadesServiceImplemTest
   @BeforeEach
   void setUp()
   {
-    Ubicacion ubicacion = new Ubicacion("Palermo", -34.588, -58.430);
+    UbicacionDto ubicacion = new UbicacionDto("Palermo", -34.588, -58.430);
     actividadPostDto = new ActividadPostDto(
         "Partido 5v5",
         "Fútbol en las canchas de Salguero",
@@ -106,7 +111,7 @@ class ActividadesServiceImplemTest
   {
     // Arrange
     ActividadPostDto dtoInvalido = new ActividadPostDto(
-        "Partido 5v5", "Fútbol", TipoActividad.AIRE_LIBRE, new Ubicacion(),
+        "Partido 5v5", "Fútbol", TipoActividad.AIRE_LIBRE, new UbicacionDto(),
         LocalDateTime.now().plusDays(2), 2,
         10, // cantidadMinima
         5   // cantidadMaxima (menor a la mínima)
@@ -137,7 +142,6 @@ class ActividadesServiceImplemTest
   }
 
 
-
   @Test
   @DisplayName("Cancelar actividad exitosamente - Cambia estado a CANCELADA")
   void cancelarActividad_Success_ChangesStateToCancelada()
@@ -145,7 +149,7 @@ class ActividadesServiceImplemTest
     // Arrange
     Long actividadId = 100L;
     Long organizadorId = 1L;
-    
+
     actividadMock.setOrganizador(usuarioMock); // id 1L
     actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
     actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
@@ -153,7 +157,8 @@ class ActividadesServiceImplemTest
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
     // Act
-    actividadesService.cancelarActividad(actividadId, organizadorId);
+    actividadesService.cambiarEstado(actividadId, organizadorId,
+        TipoEstadoActividad.CANCELADA);
 
     // Assert
     assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
@@ -167,15 +172,16 @@ class ActividadesServiceImplemTest
     // Arrange
     Long actividadId = 100L;
     Long intrusoId = 999L;
-    
+
     actividadMock.setOrganizador(usuarioMock); // el organizador es 1L
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, intrusoId))
-        .isInstanceOf(com.tacs.backend.exceptions.AccesoDenegadoException.class)
-        .hasMessage("Solo el organizador puede cancelar la actividad");
+    assertThatThrownBy(() -> actividadesService.cambiarEstado(actividadId, intrusoId,
+        TipoEstadoActividad.CANCELADA))
+        .isInstanceOf(AccesoDenegadoException.class)
+        .hasMessage("Solo el organizador puede cambiar el estado de la actividad");
 
     verify(actividadesRepository, never()).save(any());
   }
@@ -187,12 +193,13 @@ class ActividadesServiceImplemTest
     // Arrange
     Long actividadId = 999L;
     Long organizadorId = 1L;
-    
+
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.empty());
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.cancelarActividad(actividadId, organizadorId))
-        .isInstanceOf(com.tacs.backend.exceptions.ActividadNotFoundException.class)
+    assertThatThrownBy(() -> actividadesService.cambiarEstado(actividadId, organizadorId,
+        TipoEstadoActividad.CANCELADA))
+        .isInstanceOf(ActividadNotFoundException.class)
         .hasMessage("Actividad no encontrada");
   }
 
@@ -205,8 +212,8 @@ class ActividadesServiceImplemTest
     Long organizadorId = 1L;
     actividadMock.setOrganizador(usuarioMock);
 
-    var reglasDto = new com.tacs.backend.dtos.clima.ReglasClimaDto(30.0, 15.0, 28.0, 20.0);
-    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(reglasDto, null, null);
+    var reglasDto = new ReglasClimaDto(30.0, 15.0, 28.0, 20.0);
+    var configDto = new ConfigurarCondicionesDto(reglasDto, null, null);
     ActividadDto expectedDto = mock(ActividadDto.class);
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
@@ -235,8 +242,8 @@ class ActividadesServiceImplemTest
     Long organizadorId = 1L;
     actividadMock.setOrganizador(usuarioMock);
 
-    var rangoDto = new com.tacs.backend.dtos.actividades.RangoReprogramacionDto(3, -10, 20);
-    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(null, null, rangoDto);
+    var rangoDto = new RangoReprogramacionDto(3, -10, 20);
+    var configDto = new ConfigurarCondicionesDto(null, null, rangoDto);
     ActividadDto expectedDto = mock(ActividadDto.class);
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
@@ -259,12 +266,12 @@ class ActividadesServiceImplemTest
     Long usuarioIntrusoId = 999L;
     actividadMock.setOrganizador(usuarioMock); // Organizador es 1L
 
-    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(null, 12, null);
+    var configDto = new ConfigurarCondicionesDto(null, 12, null);
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
     // Act & Assert
     assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, usuarioIntrusoId, configDto))
-        .isInstanceOf(com.tacs.backend.exceptions.AccesoDenegadoException.class)
+        .isInstanceOf(AccesoDenegadoException.class)
         .hasMessageContaining("Solo el organizador");
 
     verify(actividadesRepository, never()).save(any());
@@ -280,8 +287,8 @@ class ActividadesServiceImplemTest
     actividadMock.setOrganizador(usuarioMock);
 
     // Hora inicio 20hs, Hora final 10hs (invalido)
-    var rangoInvalidoDto = new com.tacs.backend.dtos.actividades.RangoReprogramacionDto(3, 20, 10);
-    var configDto = new com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto(null, null, rangoInvalidoDto);
+    var rangoInvalidoDto = new RangoReprogramacionDto(3, 20, 10);
+    var configDto = new ConfigurarCondicionesDto(null, null, rangoInvalidoDto);
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 

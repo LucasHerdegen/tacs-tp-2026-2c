@@ -32,19 +32,24 @@ class NotificacionDispatcher implements ServicioNotificaciones
   }
 
   @Override
-  public void notificarATodos(String contenido, Collection<Usuario> destinatarios) {
-    for (Usuario destinatario : destinatarios) {
+  public void notificarATodos(String contenido, Collection<Usuario> destinatarios)
+  {
+    for (Usuario destinatario : destinatarios)
+    {
       MedioContacto medio = destinatario.getMedioContacto();
 
-      if(medio == null) {
+      if (medio == null)
+      {
         log.warn("El usuario id={} no tiene medio de contacto asignado, no se le notifica",
-                destinatario.getId());
+            destinatario.getId());
         continue;
       }
 
-      try {
+      try
+      {
         notificar(contenido, medio);
-      } catch (Exception e) {
+      } catch (Exception e)
+      {
         log.error("Fallo notificando al usuario id={}", destinatario.getId(), e);
       }
     }

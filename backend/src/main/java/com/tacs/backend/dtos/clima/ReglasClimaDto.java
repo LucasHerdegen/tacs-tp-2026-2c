@@ -5,4 +5,6 @@ public record ReglasClimaDto(
     Double minTemperatura,
     Double maxTemperatura,
     Double maxViento
-) {}
+)
+{
+}

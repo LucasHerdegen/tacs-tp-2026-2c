@@ -7,5 +7,6 @@ import java.time.LocalDateTime;
 
 public record AlternativaPostDto(@NotNull(message = "La fecha de la alternativa es requerida")
                                  @Future(message = "La fecha debe ser futura")
-                                 LocalDateTime fecha) {
+                                 LocalDateTime fecha)
+{
 }
