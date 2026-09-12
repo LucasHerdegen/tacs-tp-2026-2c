@@ -3,17 +3,29 @@ import { MainLayout } from './layouts/MainLayout';
 import { Home } from './features/dashboard/views/Home';
 import { ActivitySearch } from './features/activities/views/ActivitySearch';
 import { ActivityDetail } from './features/activities/views/ActivityDetail';
+import { AuthProvider } from './features/auth/AuthProvider';
+import { GuestOnly, RequireAuth } from './features/auth/components/AuthRoute';
+import { Login } from './features/auth/views/Login';
+import { Register } from './features/auth/views/Register';
 
 function App() {
   return (
     <BrowserRouter>
-      <MainLayout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/activities" element={<ActivitySearch />} />
-          <Route path="/activities/:id" element={<ActivityDetail />} />
-        </Routes>
-      </MainLayout>
+      <AuthProvider>
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route element={<GuestOnly />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+            </Route>
+            <Route element={<RequireAuth />}>
+              <Route path="/activities" element={<ActivitySearch />} />
+              <Route path="/activities/:id" element={<ActivityDetail />} />
+            </Route>
+          </Routes>
+        </MainLayout>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
