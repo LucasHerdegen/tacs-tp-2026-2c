@@ -3,7 +3,7 @@ import { MainLayout } from './layouts/MainLayout';
 import { Home } from './features/dashboard/views/Home';
 import { ActivitySearch } from './features/activities/views/ActivitySearch';
 import { ActivityDetail } from './features/activities/views/ActivityDetail';
-import { WeatherConfig } from './features/activities/views/WeatherConfig';
+import { WeatherConfig } from './features/activities/views/ActivityWeatherConfig';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { GuestOnly, RequireAuth } from './features/auth/components/AuthRoute';
 import { Login } from './features/auth/views/Login';

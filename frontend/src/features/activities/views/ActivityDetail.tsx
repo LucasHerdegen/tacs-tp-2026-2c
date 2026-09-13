@@ -78,38 +78,49 @@ export const ActivityDetail: React.FC = () => {
                 ⛅ Estado del Clima
               </h2>
               
-              {!activity.isJoined ? (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-                  <p className="text-gray-600 mb-2">Sumate a la actividad para recibir alertas tempranas si el pronóstico empeora.</p>
-                  <p className="text-sm text-gray-500 italic">Podrás votar opciones de reprogramación si las condiciones no son óptimas.</p>
+        {!activity.isJoined ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+            <p className="text-gray-600 mb-2">
+              Sumate a la actividad para recibir alertas tempranas si el pronóstico empeora.
+            </p>
+            <p className="text-sm text-gray-500 italic">
+              Podrás votar opciones de reprogramación si las condiciones no son óptimas.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className={`rounded-lg p-6 border ${activity.weatherCondition === 'IDEAL' ? 'bg-green-50 border-green-200' : activity.weatherCondition === 'WARNING' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-lg font-bold ${activity.weatherCondition === 'IDEAL' ? 'text-green-800' : activity.weatherCondition === 'WARNING' ? 'text-yellow-800' : 'text-red-800'}`}>
+                    {activity.weatherCondition === 'IDEAL' ? 'Pronóstico Ideal' : activity.weatherCondition === 'WARNING' ? 'Probabilidad de Lluvias' : 'Condiciones Desfavorables'}
+                  </h3>
+                  <p className={`text-sm mt-1 ${activity.weatherCondition === 'IDEAL' ? 'text-green-700' : activity.weatherCondition === 'WARNING' ? 'text-yellow-700' : 'text-red-700'}`}>
+                    {activity.weatherCondition === 'IDEAL' ? 'Todo marcha perfecto para este evento.' : activity.weatherCondition === 'WARNING' ? 'Mantente atento a las notificaciones por si se requiere votación.' : 'Es muy probable que el organizador deba reprogramar.'}
+                  </p>
                 </div>
-              ) : (
-                <div className={`rounded-lg p-6 border ${activity.weatherCondition === 'IDEAL' ? 'bg-green-50 border-green-200' : activity.weatherCondition === 'WARNING' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className={`text-lg font-bold ${activity.weatherCondition === 'IDEAL' ? 'text-green-800' : activity.weatherCondition === 'WARNING' ? 'text-yellow-800' : 'text-red-800'}`}>
-                        {activity.weatherCondition === 'IDEAL' ? 'Pronóstico Ideal' : activity.weatherCondition === 'WARNING' ? 'Probabilidad de Lluvias' : 'Condiciones Desfavorables'}
-                      </h3>
-                      <p className={`text-sm mt-1 ${activity.weatherCondition === 'IDEAL' ? 'text-green-700' : activity.weatherCondition === 'WARNING' ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {activity.weatherCondition === 'IDEAL' ? 'Todo marcha perfecto para este evento.' : activity.weatherCondition === 'WARNING' ? 'Mantente atento a las notificaciones por si se requiere votación.' : 'Es muy probable que el organizador deba reprogramar.'}
-                      </p>
-                    </div>
-                    <div className="text-4xl">
-                      {activity.weatherCondition === 'IDEAL' ? '☀️' : activity.weatherCondition === 'WARNING' ? '🌦️' : '⛈️'}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex gap-4 text-sm font-medium">
-                    <span>Temp: 24°C</span>
-                    <span>Viento: 12 km/h</span>
-                    <span>Lluvia: {activity.weatherCondition === 'IDEAL' ? '0%' : activity.weatherCondition === 'WARNING' ? '60%' : '90%'}</span>
-                  </div>
+                <div className="text-4xl">
+                  {activity.weatherCondition === 'IDEAL' ? '☀️' : activity.weatherCondition === 'WARNING' ? '🌦️' : '⛈️'}
                 </div>
-                <Link to={`/activities/${activity.id}/weather-config`}>
-                  <Button variant="secondary" className="text-xs">
-                    ⚙️ Configurar clima
-                  </Button>
-                </Link>
-              )}
+              </div>
+
+              <div className="mt-4 flex gap-4 text-sm font-medium">
+                <span>Temp: 24°C</span>
+                <span>Viento: 12 km/h</span>
+                <span>
+                  Lluvia: {activity.weatherCondition === 'IDEAL' ? '0%' : activity.weatherCondition === 'WARNING' ? '60%' : '90%'}
+                </span>
+              </div>
+            </div>
+
+            <Link to={`/activities/${activity.id}/weather-config`}>
+              <Button variant="secondary" className="text-xs">
+                ⚙️ Configurar clima
+              </Button>
+            </Link>
+          </div>
+        )}
+
             </CardBody>
           </Card>
         </div>
