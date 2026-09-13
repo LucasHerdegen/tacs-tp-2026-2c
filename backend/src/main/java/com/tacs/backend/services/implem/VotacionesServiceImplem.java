@@ -118,10 +118,7 @@ class VotacionesServiceImplem implements VotacionesService
     if (resultado.favorables().isEmpty())
     {
       if (resultado.climaIndisponible())
-        // No pudimos evaluar ningun candidato porque el proveedor de clima
-        // fallo en todos: no es lo mismo que "no hay alternativas buenas", asi
-        // que no se cancela la actividad indebidamente por falta de dato — se
-        // reintenta en la proxima corrida del cron.
+        // No se cancela actividad si el fallo es debido a un error en la conexion con el proveedor
         return Optional.empty();
 
       cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico");
