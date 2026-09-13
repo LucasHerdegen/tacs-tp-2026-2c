@@ -96,6 +96,12 @@ class GlobalExceptionHandler
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
 
+  @ExceptionHandler(ProveedorClimaIndisponibleException.class)
+  public ProblemDetail handleProveedorClimaIndisponibleException(ProveedorClimaIndisponibleException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+  }
+
   @ExceptionHandler(IllegalArgumentException.class)
   public ProblemDetail handleIllegalArgumentException(IllegalArgumentException ex)
   {

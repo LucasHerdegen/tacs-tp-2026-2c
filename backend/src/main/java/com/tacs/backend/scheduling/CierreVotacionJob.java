@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +27,7 @@ public class CierreVotacionJob
    */
   @Scheduled(fixedRateString = "${votacion.cierre.intervalo-ms}")
   @SchedulerLock(name = "CierreVotacionJob_cerrarVotacionesVencidas", lockAtLeastFor = "1m", lockAtMostFor = "10m")
+  @Transactional
   public void cerrarVotacionesVencidas()
   {
     for (Votacion votacion : detectarVotacionesVencidas())

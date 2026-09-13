@@ -12,6 +12,7 @@ import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.NoParticipanteException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -20,6 +21,7 @@ import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,10 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ProveedorClima proveedorClima;
   private final ClimaMapper climaMapper;
   private final ServicioNotificaciones servicioNotificaciones;
+
+  @Value("${weatherapi.forecast.max-days}")
+  private int maxDiasForecast;
+
   private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
   /**
@@ -283,10 +289,23 @@ public class ActividadesServiceImplem implements ActividadesService
     }
 
     if (dto.horasAnticipacion() != null)
+    {
+      int maxHorasAnticipacion = maxDiasForecast * 24;
+      if (dto.horasAnticipacion() > maxHorasAnticipacion)
+        throw new IllegalArgumentException(
+            "horasAnticipacion no puede superar %d horas (%d dias): limitacion del plan de WeatherAPI contratado"
+                .formatted(maxHorasAnticipacion, maxDiasForecast));
+
       actividad.actualizarHorasAnticipacion(dto.horasAnticipacion());
+    }
 
     if (dto.rangoReprogramacion() != null)
     {
+      if (dto.rangoReprogramacion().dias() != null && dto.rangoReprogramacion().dias() > maxDiasForecast)
+        throw new RangoReprogramacionInvalidoException(
+            "El rango de reprogramacion no puede superar %d dias: limitacion del plan de WeatherAPI contratado"
+                .formatted(maxDiasForecast));
+
       actividad.actualizarRangoReprogramacion(
         dto.rangoReprogramacion().dias(),
         dto.rangoReprogramacion().horaInicio(),

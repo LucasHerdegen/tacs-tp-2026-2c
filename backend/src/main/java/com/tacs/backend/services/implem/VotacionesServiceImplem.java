@@ -11,6 +11,7 @@ import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
@@ -112,17 +113,24 @@ class VotacionesServiceImplem implements VotacionesService
 
     validarSinVotacionAbierta(actividadId);
 
-    List<Alternativa> alternativasFavorables = buscarAlternativasFavorables(actividad);
+    ResultadoBusquedaAlternativas resultado = buscarAlternativasFavorables(actividad);
 
-    if (alternativasFavorables.isEmpty())
+    if (resultado.favorables().isEmpty())
     {
+      if (resultado.climaIndisponible())
+        // No pudimos evaluar ningun candidato porque el proveedor de clima
+        // fallo en todos: no es lo mismo que "no hay alternativas buenas", asi
+        // que no se cancela la actividad indebidamente por falta de dato — se
+        // reintenta en la proxima corrida del cron.
+        return Optional.empty();
+
       cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico");
       actividadesRepository.save(actividad);
       return Optional.empty();
     }
 
     Votacion votacion = abrirVotacion(actividad, actividad.getMinimoParticipantes(), calcularFechaLimite(actividad),
-        alternativasFavorables);
+        resultado.favorables());
     return Optional.of(votacionMapper.votacionToVotacionDto(votacion));
   }
 
@@ -305,56 +313,87 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   /**
+   * Resultado de recorrer el rango de reprogramacion buscando alternativas.
+   * {@code climaIndisponible} distingue "no evaluamos ningun candidato porque
+   * el proveedor de clima fallo en todos" (no se debe cancelar la actividad,
+   * se reintenta en la proxima corrida del cron) de "evaluamos todo y
+   * ninguno cumple las reglas" o "no hay rango configurado" (ambos casos SI
+   * ameritan cancelar, ver abrirVotacionAutomatica).
+   */
+  private record ResultadoBusquedaAlternativas(List<Alternativa> favorables, boolean climaIndisponible) {}
+
+  /**
    * Busca, dentro de rangoReprogramacion (dias permitidos y franja horaria
    * horaInicio-horaFinal definidos por el organizador), todas las horas de
    * cada dia que cumplan las ReglasClima de la actividad: cada una se ofrece
    * como alternativa propia, no solo la de mejor pronostico del dia (elegir
    * entre varias opciones viables es trabajo de la votacion, no del sistema).
    * Sin rangoReprogramacion configurado no hay donde buscar, y se devuelve
-   * vacio (la actividad termina cancelandose, ver abrirVotacionAutomatica).
+   * vacio (la actividad termina cancelandose, ver abrirVotacionAutomatica) —
+   * esto no es indisponibilidad del proveedor, es falta de configuracion.
    */
-  private List<Alternativa> buscarAlternativasFavorables(Actividad actividad)
+  private ResultadoBusquedaAlternativas buscarAlternativasFavorables(Actividad actividad)
   {
     RangoReprogramacion rango = actividad.getRangoReprogramacion();
 
     if (rango == null)
-      return List.of();
+      return new ResultadoBusquedaAlternativas(List.of(), false);
 
     List<Alternativa> favorables = new ArrayList<>();
+    boolean algunaConsultaExitosa = false;
     int numero = 1;
 
     for (int dia = 1; dia <= rango.getDias(); dia++)
-      for (Alternativa alternativa : alternativasFavorablesDelDia(actividad, rango, dia))
+    {
+      ResultadoBusquedaDia resultadoDia = alternativasFavorablesDelDia(actividad, rango, dia);
+      algunaConsultaExitosa = algunaConsultaExitosa || resultadoDia.huboConsultaExitosa();
+
+      for (Alternativa alternativa : resultadoDia.favorables())
       {
         alternativa.setNumeroAltenativa(numero++);
         favorables.add(alternativa);
       }
+    }
 
-    return favorables;
+    return new ResultadoBusquedaAlternativas(favorables, !algunaConsultaExitosa);
   }
+
+  private record ResultadoBusquedaDia(List<Alternativa> favorables, boolean huboConsultaExitosa) {}
 
   /**
    * Recorre la franja horaInicio-horaFinal de ese dia cada
    * GRANULARIDAD_BUSQUEDA_HORAS horas y devuelve todas las alternativas que cumplen las
    * ReglasClima (numero sin asignar todavia, se numera al aplanar en
-   * buscarAlternativasFavorables). Vacia si ninguna cumple.
+   * buscarAlternativasFavorables). Vacia si ninguna cumple. Si el proveedor de
+   * clima esta indisponible para una hora puntual, esa hora se saltea (no
+   * cuenta como desfavorable, simplemente no hay dato) — pero se registra si
+   * hubo al menos una consulta exitosa en el dia (FR-007).
    */
-  private List<Alternativa> alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia)
+  private ResultadoBusquedaDia alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia)
   {
     LocalDateTime diaCandidato = actividad.getFechaRealizacion().plusDays(dia);
     List<Alternativa> favorablesDelDia = new ArrayList<>();
+    boolean huboConsultaExitosa = false;
 
     for (int hora = rango.getHoraInicio(); hora <= rango.getHoraFinal(); hora += GRANULARIDAD_BUSQUEDA_HORAS)
     {
       LocalDateTime fechaCandidata = diaCandidato.withHour(hora).withMinute(0).withSecond(0).withNano(0);
 
-      Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), fechaCandidata);
+      Clima pronostico;
+      try
+      {
+        pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), fechaCandidata);
+      } catch (ProveedorClimaIndisponibleException e)
+      {
+        continue; // Evalua proxima hora directo
+      }
 
+      huboConsultaExitosa = true;
       if (actividad.cumpleCondiciones(pronostico))
         favorablesDelDia.add(construirAlternativa(fechaCandidata, 0, pronostico));
     }
 
-    return favorablesDelDia;
+    return new ResultadoBusquedaDia(favorablesDelDia, huboConsultaExitosa);
   }
 
   private void cancelarActividad(Actividad actividad, String motivo)

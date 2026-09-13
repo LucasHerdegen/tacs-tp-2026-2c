@@ -11,3 +11,4 @@ services:
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET debe estar definida}"
       ADMIN_USERNAME: "${ADMIN_USERNAME:-}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+      WEATHERAPI_API_KEY: "${WEATHERAPI_API_KEY:?WEATHERAPI_API_KEY debe estar definida}"
