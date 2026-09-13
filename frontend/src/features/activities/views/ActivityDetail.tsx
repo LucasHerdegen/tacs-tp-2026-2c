@@ -104,6 +104,11 @@ export const ActivityDetail: React.FC = () => {
                     <span>Lluvia: {activity.weatherCondition === 'IDEAL' ? '0%' : activity.weatherCondition === 'WARNING' ? '60%' : '90%'}</span>
                   </div>
                 </div>
+                <Link to={`/activities/${activity.id}/weather-config`}>
+                  <Button variant="secondary" className="text-xs">
+                    ⚙️ Configurar clima
+                  </Button>
+                </Link>
               )}
             </CardBody>
           </Card>
