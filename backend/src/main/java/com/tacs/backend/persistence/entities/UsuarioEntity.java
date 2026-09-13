@@ -1,32 +1,26 @@
 package com.tacs.backend.persistence.entities;
 
-
 import com.tacs.backend.domain.usuario.TipoRol;
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Entity
-@Table(name = "usuarios")
+@Document(collection = "usuarios")
 @Getter
 @Setter
 @NoArgsConstructor
 public class UsuarioEntity
 {
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+  private String id;
 
-  @Column(nullable = false, unique = true)
   private String username;
 
-  @Column(nullable = false)
   private String password;
 
-  @Enumerated(EnumType.STRING)
   private TipoRol rol;
 
-  @Embedded
   private MedioContactoEntity medioContacto;
 }

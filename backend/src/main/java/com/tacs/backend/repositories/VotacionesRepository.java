@@ -8,19 +8,19 @@ import java.util.Optional;
 
 public interface VotacionesRepository
 {
-  List<Votacion> findByAbiertaAndActividadOrganizadorId(boolean abierta, Long organizadorId);
+  List<Votacion> findByAbiertaAndActividadOrganizadorId(boolean abierta, String organizadorId);
 
-  List<Votacion> findByAbiertaAndActividadParticipantesId(boolean abierta, Long usuarioId);
+  List<Votacion> findByAbiertaAndActividadParticipantesId(boolean abierta, String usuarioId);
 
-  Optional<Votacion> findByAbiertaTrueAndActividadId(Long actividadId);
+  Optional<Votacion> findByAbiertaTrueAndActividadId(String actividadId);
 
   List<Votacion> findByAbiertaTrueAndFechaLimiteBefore(LocalDateTime ahora);
 
-  List<Votacion> findByAbiertaYUsuarioInvolucrado(boolean abierta, Long usuarioId);
+  List<Votacion> findByAbiertaYUsuarioInvolucrado(boolean abierta, String usuarioId);
 
   Votacion save(Votacion votacion);
 
-  Optional<Votacion> findById(Long id);
+  Optional<Votacion> findById(String id);
 
   void delete(Votacion votacion);
 }

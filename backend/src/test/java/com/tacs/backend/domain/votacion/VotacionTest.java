@@ -15,12 +15,12 @@ class VotacionTest
   void cantidadVotosCuentaSoloLosVotosDeEsaAlternativa()
   {
     Votacion votacion = new Votacion();
-    Alternativa sabado = crearAlternativa(1L, 1);
-    Alternativa domingo = crearAlternativa(2L, 2);
+    Alternativa sabado = crearAlternativa("1", 1);
+    Alternativa domingo = crearAlternativa("2", 2);
 
-    votacion.registrarVoto(votoDe(crearUsuario(1L), sabado));
-    votacion.registrarVoto(votoDe(crearUsuario(2L), sabado));
-    votacion.registrarVoto(votoDe(crearUsuario(3L), domingo));
+    votacion.registrarVoto(votoDe(crearUsuario("1"), sabado));
+    votacion.registrarVoto(votoDe(crearUsuario("2"), sabado));
+    votacion.registrarVoto(votoDe(crearUsuario("3"), domingo));
 
     assertThat(votacion.cantidadVotos(sabado)).isEqualTo(2);
     assertThat(votacion.cantidadVotos(domingo)).isEqualTo(1);
@@ -38,14 +38,14 @@ class VotacionTest
   void alternativaMasVotadaDevuelveLaDeMasVotos()
   {
     Votacion votacion = new Votacion();
-    Alternativa sabado = crearAlternativa(1L, 1);
-    Alternativa domingo = crearAlternativa(2L, 2);
+    Alternativa sabado = crearAlternativa("1", 1);
+    Alternativa domingo = crearAlternativa("2", 2);
     votacion.agregarAlternativa(sabado);
     votacion.agregarAlternativa(domingo);
 
-    votacion.registrarVoto(votoDe(crearUsuario(1L), domingo));
-    votacion.registrarVoto(votoDe(crearUsuario(2L), domingo));
-    votacion.registrarVoto(votoDe(crearUsuario(3L), sabado));
+    votacion.registrarVoto(votoDe(crearUsuario("1"), domingo));
+    votacion.registrarVoto(votoDe(crearUsuario("2"), domingo));
+    votacion.registrarVoto(votoDe(crearUsuario("3"), sabado));
 
     assertThat(votacion.alternativaMasVotada()).contains(domingo);
   }
@@ -54,13 +54,13 @@ class VotacionTest
   void alternativaMasVotadaDesempataPorMenorNumeroDeAlternativa()
   {
     Votacion votacion = new Votacion();
-    Alternativa propuestaPrimero = crearAlternativa(1L, 1);
-    Alternativa propuestaDespues = crearAlternativa(2L, 2);
+    Alternativa propuestaPrimero = crearAlternativa("1", 1);
+    Alternativa propuestaDespues = crearAlternativa("2", 2);
     votacion.agregarAlternativa(propuestaDespues); // orden de insercion invertido a proposito
     votacion.agregarAlternativa(propuestaPrimero);
 
-    votacion.registrarVoto(votoDe(crearUsuario(1L), propuestaPrimero));
-    votacion.registrarVoto(votoDe(crearUsuario(2L), propuestaDespues));
+    votacion.registrarVoto(votoDe(crearUsuario("1"), propuestaPrimero));
+    votacion.registrarVoto(votoDe(crearUsuario("2"), propuestaDespues));
 
     Optional<Alternativa> ganadora = votacion.alternativaMasVotada();
 
@@ -71,7 +71,7 @@ class VotacionTest
   void cerrarConGanadoraDejaLaVotacionCerradaConLaAlternativaRegistrada()
   {
     Votacion votacion = new Votacion();
-    Alternativa ganadora = crearAlternativa(1L, 1);
+    Alternativa ganadora = crearAlternativa("1", 1);
 
     votacion.cerrar(ganadora);
 
@@ -93,7 +93,7 @@ class VotacionTest
   }
 
   /* Auxiliares */
-  private Alternativa crearAlternativa(Long id, int numero)
+  private Alternativa crearAlternativa(String id, int numero)
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId(id);
@@ -102,7 +102,7 @@ class VotacionTest
     return alternativa;
   }
 
-  private Usuario crearUsuario(Long id)
+  private Usuario crearUsuario(String id)
   {
     Usuario usuario = new Usuario("usuario" + id, "password", TipoRol.USER);
     usuario.setId(id);

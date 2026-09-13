@@ -47,7 +47,7 @@ import static org.mockito.Mockito.when;
 class ActividadesServiceImplemNotificacionesTest
 {
   private static final Ubicacion UBICACION = new Ubicacion("Palermo", -34.58, -58.43);
-  private static final Long ORGANIZADOR_ID = 999L;
+  private static final String ORGANIZADOR_ID = "999";
 
   @Mock
   private ActividadesRepository actividadesRepository;
@@ -75,9 +75,9 @@ class ActividadesServiceImplemNotificacionesTest
   {
     Actividad actividad = crearActividad();
 
-    when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
 
-    service.cambiarEstado(1L, ORGANIZADOR_ID, TipoEstadoActividad.CANCELADA);
+    service.cambiarEstado("1", ORGANIZADOR_ID, TipoEstadoActividad.CANCELADA);
 
     verify(servicioNotificaciones)
         .notificarATodos(contains(actividad.getTitulo()), eq(actividad.getParticipantes()));
@@ -88,9 +88,9 @@ class ActividadesServiceImplemNotificacionesTest
   {
     Actividad actividad = crearActividad();
 
-    when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
 
-    service.cambiarEstado(1L, ORGANIZADOR_ID, TipoEstadoActividad.CANCELADA);
+    service.cambiarEstado("1", ORGANIZADOR_ID, TipoEstadoActividad.CANCELADA);
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     verify(actividadesRepository).save(actividad);
@@ -103,10 +103,10 @@ class ActividadesServiceImplemNotificacionesTest
   {
     Actividad actividad = crearActividad();
 
-    when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
 
     assertThatThrownBy(
-        () -> service.cambiarEstado(1L, 123L, TipoEstadoActividad.CANCELADA))
+        () -> service.cambiarEstado("1", "123", TipoEstadoActividad.CANCELADA))
         .isInstanceOf(AccesoDenegadoException.class);
 
     verify(servicioNotificaciones, never()).notificarATodos(anyString(), any());
@@ -130,12 +130,12 @@ class ActividadesServiceImplemNotificacionesTest
         crearUsuarioConId(ORGANIZADOR_ID));
 
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
-    actividad.agregarParticipante(crearUsuarioConId(1L));
+    actividad.agregarParticipante(crearUsuarioConId("1"));
 
     return actividad;
   }
 
-  private Usuario crearUsuarioConId(Long id)
+  private Usuario crearUsuarioConId(String id)
   {
     Usuario usuario = new Usuario("usuario" + id, "password", TipoRol.USER);
     usuario.setId(id);

@@ -5,7 +5,7 @@ import com.tacs.backend.dtos.actividades.ActividadResumenDto;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public record VotacionDto(Long id,
+public record VotacionDto(String id,
                           LocalDateTime fechaApertura,
                           LocalDateTime fechaLimite,
                           LocalDateTime fechaCierre,

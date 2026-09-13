@@ -16,58 +16,62 @@ import java.util.stream.Collectors;
 public class VotacionesRepositoryImpl implements VotacionesRepository
 {
 
-  private final VotacionesJpaRepository jpaRepository;
+  private final VotacionesMongoRepository mongoRepository;
+  private final ActividadesMongoRepository actividadesMongoRepository;
   private final VotacionMapperEntity mapper;
 
   @Override
-  public List<Votacion> findByAbiertaAndActividadOrganizadorId(boolean abierta, Long organizadorId)
+  public List<Votacion> findByAbiertaAndActividadOrganizadorId(boolean abierta, String organizadorId)
   {
-    return jpaRepository.findByAbiertaAndActividadOrganizadorId(abierta, organizadorId).stream().map(mapper::toDomain)
+    List<org.bson.types.ObjectId> actividadIds = actividadesMongoRepository.findByOrganizadorId(organizadorId).stream().map(a -> new org.bson.types.ObjectId(a.getId())).collect(Collectors.toList());
+    return mongoRepository.findByAbiertaAndActividadIdIn(abierta, actividadIds).stream().map(mapper::toDomain)
         .collect(Collectors.toList());
   }
 
   @Override
-  public List<Votacion> findByAbiertaAndActividadParticipantesId(boolean abierta, Long usuarioId)
+  public List<Votacion> findByAbiertaAndActividadParticipantesId(boolean abierta, String usuarioId)
   {
-    return jpaRepository.findByAbiertaAndActividadParticipantesId(abierta, usuarioId).stream().map(mapper::toDomain)
+    List<org.bson.types.ObjectId> actividadIds = actividadesMongoRepository.findByParticipantesId(usuarioId).stream().map(a -> new org.bson.types.ObjectId(a.getId())).collect(Collectors.toList());
+    return mongoRepository.findByAbiertaAndActividadIdIn(abierta, actividadIds).stream().map(mapper::toDomain)
         .collect(Collectors.toList());
   }
 
   @Override
-  public Optional<Votacion> findByAbiertaTrueAndActividadId(Long actividadId)
+  public Optional<Votacion> findByAbiertaTrueAndActividadId(String actividadId)
   {
-    return jpaRepository.findByAbiertaTrueAndActividadId(actividadId).map(mapper::toDomain);
+    return mongoRepository.findByAbiertaTrueAndActividadId(new org.bson.types.ObjectId(actividadId)).map(mapper::toDomain);
   }
 
   @Override
   public List<Votacion> findByAbiertaTrueAndFechaLimiteBefore(LocalDateTime ahora)
   {
-    return jpaRepository.findByAbiertaTrueAndFechaLimiteBefore(ahora).stream().map(mapper::toDomain)
+    return mongoRepository.findByAbiertaTrueAndFechaLimiteBefore(ahora).stream().map(mapper::toDomain)
         .collect(Collectors.toList());
   }
 
   @Override
-  public List<Votacion> findByAbiertaYUsuarioInvolucrado(boolean abierta, Long usuarioId)
+  public List<Votacion> findByAbiertaYUsuarioInvolucrado(boolean abierta, String usuarioId)
   {
-    return jpaRepository.findByAbiertaYUsuarioInvolucrado(abierta, usuarioId).stream().map(mapper::toDomain)
+    List<org.bson.types.ObjectId> actividadIds = actividadesMongoRepository.findByOrganizadorIdOrParticipantesId(usuarioId, usuarioId).stream().map(a -> new org.bson.types.ObjectId(a.getId())).collect(Collectors.toList());
+    return mongoRepository.findByAbiertaAndActividadIdIn(abierta, actividadIds).stream().map(mapper::toDomain)
         .collect(Collectors.toList());
   }
 
   @Override
   public Votacion save(Votacion votacion)
   {
-    return mapper.toDomain(jpaRepository.save(mapper.toEntity(votacion)));
+    return mapper.toDomain(mongoRepository.save(mapper.toEntity(votacion)));
   }
 
   @Override
-  public Optional<Votacion> findById(Long id)
+  public Optional<Votacion> findById(String id)
   {
-    return jpaRepository.findById(id).map(mapper::toDomain);
+    return mongoRepository.findById(id).map(mapper::toDomain);
   }
 
   @Override
   public void delete(Votacion votacion)
   {
-    jpaRepository.delete(mapper.toEntity(votacion));
+    mongoRepository.delete(mapper.toEntity(votacion));
   }
 }

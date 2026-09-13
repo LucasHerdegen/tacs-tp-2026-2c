@@ -8,17 +8,17 @@ import java.util.Optional;
 
 public interface ActividadesRepository
 {
-  List<Actividad> findByOrganizadorId(Long organizadorId);
+  List<Actividad> findByOrganizadorId(String organizadorId);
 
-  List<Actividad> findByOrganizadorIdAndEstado(Long organizadorId, TipoEstadoActividad estado);
+  List<Actividad> findByOrganizadorIdAndEstado(String organizadorId, TipoEstadoActividad estado);
 
-  List<Actividad> findByParticipantesId(Long usuarioId);
+  List<Actividad> findByParticipantesId(String usuarioId);
 
-  List<Actividad> findByParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
+  List<Actividad> findByParticipantesIdAndEstado(String usuarioId, TipoEstadoActividad estado);
 
-  List<Actividad> findByOrganizadorIdOrParticipantesId(Long usuarioId);
+  List<Actividad> findByOrganizadorIdOrParticipantesId(String usuarioId);
 
-  List<Actividad> findByOrganizadorIdOrParticipantesIdAndEstado(Long usuarioId, TipoEstadoActividad estado);
+  List<Actividad> findByOrganizadorIdOrParticipantesIdAndEstado(String usuarioId, TipoEstadoActividad estado);
 
   long countByEstado(TipoEstadoActividad estado);
 
@@ -30,7 +30,7 @@ public interface ActividadesRepository
 
   Actividad save(Actividad actividad);
 
-  Optional<Actividad> findById(Long id);
+  Optional<Actividad> findById(String id);
 
   List<Actividad> findAll();
 

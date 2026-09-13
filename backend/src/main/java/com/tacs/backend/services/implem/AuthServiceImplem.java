@@ -66,7 +66,7 @@ class AuthServiceImplem implements AuthService
 
   @Override
   @Transactional
-  public UsuarioDto actualizarRol(Long usuarioId, TipoRol rol)
+  public UsuarioDto actualizarRol(String usuarioId, TipoRol rol)
   {
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -76,7 +76,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-  public UsuarioDto obtenerUsuario(Long usuarioId)
+  public UsuarioDto obtenerUsuario(String usuarioId)
   {
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -85,7 +85,7 @@ class AuthServiceImplem implements AuthService
 
   @Override
   @Transactional
-  public UsuarioDto actualizarContacto(Long usuarioId, MedioContacto medioContacto)
+  public UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto)
   {
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));

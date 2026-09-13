@@ -9,6 +9,7 @@ import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.http.MediaType;
 
 import java.time.LocalDateTime;
@@ -31,7 +32,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
 @AutoConfigureMockMvc
-@Transactional
 class VotacionesIntegrationTests
 {
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
@@ -55,9 +55,18 @@ class VotacionesIntegrationTests
     private Usuario otro;
     private String tokenYo;
 
+    @Autowired
+    private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
+
+    @AfterEach
+    void tearDown() {
+        mongoTemplate.getDb().drop();
+    }
+
     @BeforeEach
     void setUp() throws Exception
     {
+        mongoTemplate.getDb().drop();
         yo = usuarioRepository.save(new Usuario("yo", passwordEncoder.encode("password-segura"), TipoRol.USER));
         otro = usuarioRepository.save(new Usuario("otro", passwordEncoder.encode("password-segura"), TipoRol.USER));
 

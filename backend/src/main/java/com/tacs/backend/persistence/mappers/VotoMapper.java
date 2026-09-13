@@ -2,7 +2,7 @@ package com.tacs.backend.persistence.mappers;
 
 import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.persistence.entities.VotoEntity;
-import com.tacs.backend.persistence.repositories.UsuarioJpaRepository;
+import com.tacs.backend.persistence.repositories.UsuarioMongoRepository;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
@@ -11,14 +11,14 @@ public class VotoMapper
 {
   private final UsuarioMapper usuarioMapper;
   private final AlternativaMapper alternativaMapper;
-  private final UsuarioJpaRepository usuarioJpaRepository;
+  private final UsuarioMongoRepository usuarioMongoRepository;
 
   public VotoMapper(UsuarioMapper usuarioMapper, @Lazy AlternativaMapper alternativaMapper,
-                    UsuarioJpaRepository usuarioJpaRepository)
+                    UsuarioMongoRepository usuarioMongoRepository)
   {
     this.usuarioMapper = usuarioMapper;
     this.alternativaMapper = alternativaMapper;
-    this.usuarioJpaRepository = usuarioJpaRepository;
+    this.usuarioMongoRepository = usuarioMongoRepository;
   }
 
   public Voto toDomain(VotoEntity entity)
@@ -39,7 +39,7 @@ public class VotoMapper
     entity.setAlternativa(alternativaMapper.toEntity(domain.getAlternativa()));
     if (domain.getUsuario() != null && domain.getUsuario().getId() != null)
     {
-      entity.setUsuario(usuarioJpaRepository.getReferenceById(domain.getUsuario().getId()));
+      entity.setUsuario(usuarioMongoRepository.findById(domain.getUsuario().getId()).orElse(null));
     } else
     {
       entity.setUsuario(usuarioMapper.toEntity(domain.getUsuario()));

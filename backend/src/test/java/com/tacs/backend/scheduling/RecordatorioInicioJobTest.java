@@ -199,7 +199,7 @@ class RecordatorioInicioJobTest
         LocalDateTime.now(),
         2,
         10,
-        crearUsuarioConId(999L));
+        crearUsuarioConId("999"));
 
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
     actividad.setHorasAnticipacion(horasAnticipacion);
@@ -207,7 +207,7 @@ class RecordatorioInicioJobTest
     return actividad;
   }
 
-  private Usuario crearUsuarioConId(Long id)
+  private Usuario crearUsuarioConId(String id)
   {
     Usuario usuario = new Usuario("usuario" + id, "password", TipoRol.USER);
     usuario.setId(id);

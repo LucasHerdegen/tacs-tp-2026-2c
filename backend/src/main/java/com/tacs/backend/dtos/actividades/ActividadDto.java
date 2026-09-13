@@ -7,7 +7,7 @@ import com.tacs.backend.dtos.usuario.UsuarioDto;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public record ActividadDto(Long id,
+public record ActividadDto(String id,
                            String titulo,
                            String descripcion,
                            TipoActividad tipoActividad,

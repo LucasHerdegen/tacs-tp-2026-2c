@@ -37,7 +37,7 @@ public class CierreVotacionJob
     return votacionesRepository.findByAbiertaTrueAndFechaLimiteBefore(LocalDateTime.now());
   }
 
-  private void cerrarSinRomperElLoop(Long votacionId)
+  private void cerrarSinRomperElLoop(String votacionId)
   {
     try
     {
