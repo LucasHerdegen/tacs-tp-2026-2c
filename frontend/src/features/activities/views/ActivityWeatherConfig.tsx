@@ -1,163 +1,293 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { mockActivities } from '../../../utils/mockData';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
+import type { ConfigurarCondicionesDto } from '../../../types/activity.types';
+import { apiRequest, ApiError } from '../../../lib/api'; 
+import { useAuth } from '../../auth/authContext';
 
 export const WeatherConfig: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const activity = mockActivities.find(a => a.id === id);
+  useDocumentTitle('Configuración de Clima');
 
-  useDocumentTitle(
-    activity ? `Configuración de Clima - ${activity.title}` : 'Configurar Clima'
-  );
+  // 1. Horas de anticipación
+  const [horasAnticipacion, setHorasAnticipacion] = useState<number>(24);
 
-  const [rainThreshold, setRainThreshold] = useState<number>(50); 
-  const [maxWindSpeed, setMaxWindSpeed] = useState<number>(30);
-  const [autoCancel, setAutoCancel] = useState<boolean>(false);
-  const [allowPoll, setAllowPoll] = useState<boolean>(true);
-  const [isSaved, setIsSaved] = useState<boolean>(false);
+  // 2. Rango de Reprogramación (Días y Horarios)
+  const [diasReprogramacion, setDiasReprogramacion] = useState<number>(7);
+  const [horaInicio, setHoraInicio] = useState<number>(12);
+  const [horaFinal, setHoraFinal] = useState<number>(18);
 
-  if (!activity) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-gray-900">Actividad no encontrada</h2>
-        <Link to="/activities" className="text-indigo-600 hover:underline mt-4 inline-block font-medium">
-          Volver al buscador
-        </Link>
-      </div>
-    );
-  }
+  // 3. Reglas de Clima Aceptables (Permite null si no se ingresa nada)
+  const [maxProbabilidadLluvia, setMaxProbabilidadLluvia] = useState<number | null>(null);
+  const [minTemperatura, setMinTemperatura] = useState<number | null>(null);
+  const [maxTemperatura, setMaxTemperatura] = useState<number | null>(null);
+  const [maxViento, setMaxViento] = useState<number | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const { token } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaved(true);
-    setTimeout(() => {
-      navigate(`/activities/${activity.id}`);
-    }, 1500);
+    setIsSubmitting(true);
+    setMessage(null);
+
+    // Validación básica de horario
+    if (horaInicio >= horaFinal) {
+      setMessage({
+        type: 'error',
+        text: 'La hora de inicio debe ser menor que la hora final.'
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!token) {
+      setMessage({
+        type: 'error',
+        text: 'No estás autenticado.'
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Armado del DTO
+    const payload: ConfigurarCondicionesDto = {
+      horasAnticipacion,
+      rangoReprogramacion: {
+        dias: diasReprogramacion,
+        horaInicio,
+        horaFinal
+      },
+      reglasClima: {
+        maxProbabilidadLluvia:
+          maxProbabilidadLluvia !== null
+            ? Number(maxProbabilidadLluvia)
+            : null,
+        minTemperatura:
+          minTemperatura !== null
+            ? Number(minTemperatura)
+            : null,
+        maxTemperatura:
+          maxTemperatura !== null
+            ? Number(maxTemperatura)
+            : null,
+        maxViento:
+          maxViento !== null
+            ? Number(maxViento)
+            : null
+      }
+    };
+
+    try {
+      console.log('Payload a enviar:', payload);
+
+      await apiRequest(`/api/actividades/${id}/configuracion-clima`, {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify(payload),
+      });
+
+      setMessage({
+        type: 'success',
+        text: '¡Monitoreo de clima activado y configurado exitosamente!'
+      });
+
+      setTimeout(() => {
+        navigate(`/activities/${id}`);
+      }, 1500);
+
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text:
+          err instanceof ApiError
+            ? err.message
+            : 'Error al guardar la configuración del clima.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Botón Volver y Cabecera */}
       <div>
         <Link
-          to={`/activities/${activity.id}`}
+          to={`/activities/${id}`}
           className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-2"
         >
-          Volver a la actividad
+          ← Volver al detalle
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Configuración Climática de la Actividad
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          ⛅ Configurar Monitoreo de Clima
         </h1>
         <p className="text-gray-600 text-sm mt-1">
-          Ajustá los umbrales meteorológicos para <span className="font-semibold text-gray-800">{activity.title}</span>.
+          Habilitá el chequeo periódico del clima y reglas de reprogramación para la actividad.
         </p>
       </div>
 
-      {/* Alerta de guardado exitoso */}
-      {isSaved && (
-        <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl text-sm font-medium flex items-center gap-2">
-          <span>OK</span> Configuración de clima actualizada correctamente. Redirigiendo...
+      {message && (
+        <div className={`p-4 border rounded-xl text-sm font-medium flex items-center gap-2 ${
+          message.type === 'success' 
+            ? 'bg-green-50 border-green-200 text-green-800' 
+            : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          <span>{message.type === 'success' ? '✅' : '⚠️'}</span> {message.text}
         </div>
       )}
 
-      {/* Formulario de Configuración */}
       <form onSubmit={handleSubmit}>
-        <Card className="space-y-6">
-          <CardBody className="space-y-6">
+        <Card>
+          <CardBody className="space-y-8">
             
-            {/* Umbral de Lluvia */}
+            {/* 1. Anticipación de Aviso */}
             <div>
-              <label className="label-text flex justify-between items-center">
-                <span>Porcentaje de lluvia máximo tolerado</span>
-                <span className="font-bold text-indigo-600 text-base">{rainThreshold}%</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                value={rainThreshold}
-                onChange={(e) => setRainThreshold(Number(e.target.value))}
-                className="w-full accent-indigo-600 cursor-pointer h-2 bg-gray-200 rounded-lg"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Si la probabilidad de lluvia supera este valor, se notificará a los participantes.
-              </p>
+              <h3 className="text-md font-bold text-gray-900 mb-3 border-b pb-1">
+                ⏱️ Anticipación del Aviso
+              </h3>
+              <div>
+                <label className="label-text">Horas de anticipación para chequear el clima</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="72"
+                  value={horasAnticipacion}
+                  onChange={(e) => setHorasAnticipacion(Number(e.target.value))}
+                  className="input-field max-w-xs"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Con cuántas horas de anticipación se te avisara si el clima va a estar mal.
+                </p>
+              </div>
             </div>
 
-            {/* Umbral de Viento */}
+            {/* 2. Reglas y Límites del Clima (Opcionales / Nullable) */}
             <div>
-              <label className="label-text flex justify-between items-center">
-                <span>Velocidad de viento máxima tolerada</span>
-                <span className="font-bold text-indigo-600 text-base">{maxWindSpeed} km/h</span>
-              </label>
-              <input
-                type="range"
-                min="5"
-                max="80"
-                step="5"
-                value={maxWindSpeed}
-                onChange={(e) => setMaxWindSpeed(Number(e.target.value))}
-                className="w-full accent-indigo-600 cursor-pointer h-2 bg-gray-200 rounded-lg"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Recomendado para actividades al aire libre (OUTDOOR).
-              </p>
+              <h3 className="text-md font-bold text-gray-900 mb-3 border-b pb-1">
+                🌡️ Condiciones Climáticas Aceptables (Opcionales)
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label-text">Probabilidad Máxima de Lluvia (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={maxProbabilidadLluvia ?? ''}
+                    onChange={(e) => setMaxProbabilidadLluvia(e.target.value !== '' ? Number(e.target.value) : null)}
+                    className="input-field"
+                    placeholder="Sin límite"
+                  />
+                </div>
+
+                <div>
+                  <label className="label-text">Viento Máximo (km/h)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={maxViento ?? ''}
+                    onChange={(e) => setMaxViento(e.target.value !== '' ? Number(e.target.value) : null)}
+                    className="input-field"
+                    placeholder="Sin límite"
+                  />
+                </div>
+
+                <div>
+                  <label className="label-text">Temperatura Mínima Aceptable (°C)</label>
+                  <input
+                    type="number"
+                    min="-20"
+                    max="50"
+                    value={minTemperatura ?? ''}
+                    onChange={(e) => setMinTemperatura(e.target.value !== '' ? Number(e.target.value) : null)}
+                    className="input-field"
+                    placeholder="Sin límite"
+                  />
+                </div>
+
+                <div>
+                  <label className="label-text">Temperatura Máxima Aceptable (°C)</label>
+                  <input
+                    type="number"
+                    min="-20"
+                    max="50"
+                    value={maxTemperatura ?? ''}
+                    onChange={(e) => setMaxTemperatura(e.target.value !== '' ? Number(e.target.value) : null)}
+                    className="input-field"
+                    placeholder="Sin límite"
+                  />
+                </div>
+              </div>
             </div>
 
-            <hr className="border-gray-100" />
-
-            {/* Toggles / Opciones de Comportamiento */}
-            <div className="space-y-4">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allowPoll}
-                  onChange={(e) => setAllowPoll(e.target.checked)}
-                  className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300"
-                />
+            {/* 3. Ventana y Rango de Reprogramación */}
+            <div>
+              <h3 className="text-md font-bold text-gray-900 mb-3 border-b pb-1">
+                📅 Rango para Reprogramar
+              </h3>
+              
+              <div className="space-y-4">
                 <div>
-                  <span className="font-semibold text-gray-900 text-sm block">
-                    Habilitar votación automática de reprogramación
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Si el clima empeora, los participantes recibirán una encuesta para elegir fecha alternativa.
-                  </span>
+                  <label className="label-text">Rango Máximo de Días</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={diasReprogramacion}
+                    onChange={(e) => setDiasReprogramacion(Number(e.target.value))}
+                    className="input-field max-w-xs"
+                    required
+                  />
                 </div>
-              </label>
 
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoCancel}
-                  onChange={(e) => setAutoCancel(e.target.checked)}
-                  className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300"
-                />
-                <div>
-                  <span className="font-semibold text-gray-900 text-sm block">
-                    Cancelar actividad automáticamente ante alerta roja
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Cancela la actividad 3 horas antes si las condiciones meteorológicas son extremas.
-                  </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label-text">Hora de Inicio Permitida (0 a 23 hs)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={horaInicio}
+                      onChange={(e) => setHoraInicio(Number(e.target.value))}
+                      className="input-field"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label-text">Hora Final Permitida (0 a 23 hs)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={horaFinal}
+                      onChange={(e) => setHoraFinal(Number(e.target.value))}
+                      className="input-field"
+                      required
+                    />
+                  </div>
                 </div>
-              </label>
+              </div>
             </div>
 
-            {/* Acciones */}
+            {/* Botones de acción */}
             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
-              <Link to={`/activities/${activity.id}`}>
-                <Button variant="secondary" type="button">
+              <Link to={`/activities/${id}`}>
+                <Button variant="secondary" type="button" disabled={isSubmitting}>
                   Cancelar
                 </Button>
               </Link>
-              <Button variant="primary" type="submit">
-                Guardar Configuración
+              <Button variant="primary" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Guardando...' : 'Guardar Configuracion'}
               </Button>
             </div>
 

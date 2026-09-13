@@ -19,7 +19,7 @@ export const Home: React.FC = () => {
           Organizá asados, partidos o salidas. Nosotros monitoreamos el pronóstico por vos y te avisamos si hay que reprogramar.
         </p>
         <div className="mt-8 flex justify-center gap-4">
-          <Button variant="primary" className="text-lg px-8 py-3">
+          <Button variant="primary" className="text-lg px-8 py-3" onClick={() => navigate('/activities/new')}>
             Crear Actividad
           </Button>
           <Button variant="secondary" className="text-lg px-8 py-3" onClick={() => navigate('/activities')}>
