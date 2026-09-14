@@ -14,28 +14,28 @@ import java.util.List;
 
 public interface ActividadesService
 {
-  ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId);
+  ActividadDto createActividad(ActividadPostDto actividadPostDto, String usuarioId);
 
-  ActividadDto obtenerActividad(Long id);
+  ActividadDto obtenerActividad(String id);
 
   Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha,
                                        TipoEstadoActividad estado,
                                        Boolean cupoDisponible, Pageable pageable);
 
-  public void unirseActividad(Long actividadId, Long usuarioId);
+  public void unirseActividad(String actividadId, String usuarioId);
 
-  public void bajarseActividad(Long actividadId, Long usuarioId);
+  public void bajarseActividad(String actividadId, String usuarioId);
 
-  public PronosticoRespuestaDto obtenerClimaActividad(Long actividadId, Long usuarioId);
+  public PronosticoRespuestaDto obtenerClimaActividad(String actividadId, String usuarioId);
 
   //metodo para ver organizadas + participadas, separadas en 3 metodos por performance
-  List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado);
+  List<ActividadDto> actividadesOrganizadas(String usuarioId, TipoEstadoActividad estado);
 
-  List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado);
+  List<ActividadDto> actividadesParticipadas(String usuarioId, TipoEstadoActividad estado);
 
-  List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado);
+  List<ActividadDto> actividadesDelUsuario(String usuarioId, TipoEstadoActividad estado);
 
-  void cambiarEstado(Long actividadId, Long usuarioId, TipoEstadoActividad nuevoEstado);
+  void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado);
 
-  ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto);
+  ActividadDto actualizarConfiguracionClima(String actividadId, String usuarioId, ConfigurarCondicionesDto dto);
 }

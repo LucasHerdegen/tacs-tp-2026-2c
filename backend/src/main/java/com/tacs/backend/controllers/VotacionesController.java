@@ -35,7 +35,7 @@ public class VotacionesController
       @RequestParam(defaultValue = "true") boolean abierta,
       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(votacionesService.votaciones(usuarioId, abierta));
   }
 
@@ -46,7 +46,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PostMapping
   public ResponseEntity<VotacionDto> crearVotacion(
-      @RequestParam Long actividadId,
+      @RequestParam String actividadId,
       @RequestBody @Valid VotacionPostDto votacionPostDto)
   {
     VotacionDto votacion = votacionesService.crearVotacion(actividadId, votacionPostDto);
@@ -65,7 +65,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @GetMapping("/{id}")
-  public ResponseEntity<VotacionDto> getVotacion(@PathVariable Long id)
+  public ResponseEntity<VotacionDto> getVotacion(@PathVariable String id)
   {
     return ResponseEntity.ok(votacionesService.obtenerVotacion(id));
   }
@@ -77,7 +77,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @PostMapping("/{id}/alternativas")
   public ResponseEntity<VotacionDto> agregarAlternativa(
-      @PathVariable Long id,
+      @PathVariable String id,
       @RequestBody @Valid AlternativaPostDto alternativaPostDto)
   {
     return ResponseEntity.ok(votacionesService.agregarAlternativa(id, alternativaPostDto));
@@ -88,7 +88,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación o alternativa no encontrada", content = @Content)
   @DeleteMapping("/{id}/alternativas/{numeroAlternativa}")
-  public ResponseEntity<Void> eliminarAlternativa(@PathVariable Long id, @PathVariable int numeroAlternativa)
+  public ResponseEntity<Void> eliminarAlternativa(@PathVariable String id, @PathVariable int numeroAlternativa)
   {
     votacionesService.eliminarAlternativa(id, numeroAlternativa);
     return ResponseEntity.noContent().build();
@@ -100,10 +100,10 @@ public class VotacionesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @PostMapping("/{id}/votos")
-  public ResponseEntity<VotacionDto> votar(@PathVariable Long id, @RequestBody @Valid VotoPostDto votoPostDto,
+  public ResponseEntity<VotacionDto> votar(@PathVariable String id, @RequestBody @Valid VotoPostDto votoPostDto,
                                            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(votacionesService.votar(id, usuarioId, votoPostDto.numeroAlternativa()));
   }
 
@@ -112,7 +112,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @PostMapping("/{id}/cierre")
-  public ResponseEntity<VotacionDto> cerrarVotacion(@PathVariable Long id)
+  public ResponseEntity<VotacionDto> cerrarVotacion(@PathVariable String id)
   {
     return ResponseEntity.ok(votacionesService.resolverVotacion(id));
   }
@@ -123,7 +123,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "403", description = "No autorizado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> eliminarVotacion(@PathVariable Long id)
+  public ResponseEntity<Void> eliminarVotacion(@PathVariable String id)
   {
     votacionesService.eliminarVotacion(id);
     return ResponseEntity.noContent().build();

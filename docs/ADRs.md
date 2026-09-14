@@ -42,3 +42,16 @@ En este documento se registran las decisiones de arquitectura más importantes t
 **Decisión**: Se decide que los Mappers (`*Mapper`) son clases tontas de infraestructura y no deben contener lógica de negocio, ni lanzar excepciones sobre la consistencia de los datos. Toda regla de negocio (restricciones de fecha, validación de estado de actividad) debe validarse dentro de la capa de Dominio o, en su defecto, en la orquestación de los `Services`.
 
 **Consecuencias**: La validación queda encapsulada donde corresponde (Alta cohesión). Las capas de API quedan liberadas de conocer las reglas y solo se encargan de enrutar excepciones de dominio a errores HTTP a través del `GlobalExceptionHandler`.
+
+
+## ADR 5: Migracion de Base de Datos Relacional a MongoDB
+
+**Contexto**: Como parte de los requisitos de la Entrega 2, el sistema debe persistir los datos utilizando una base de datos NoSQL. Originalmente se utilizaba H2 en memoria con Spring Data JPA.
+
+**Decision**: 
+1. Migrar la capa de persistencia de Spring Data JPA a Spring Data MongoDB.
+2. Cambiar los identificadores (\id\) numericos autoincrementales (\Long\) por el estandar \ObjectId\ (\String\) de MongoDB en todo el sistema (Entidades, Dominio, DTOs).
+3. Aprovechar el mapeo orientado a documentos, embebiendo entidades dependientes (como \AlternativaEntity\ y \VotoEntity\ en \VotacionEntity\) y utilizando referencias (\@DocumentReference\) para relaciones independientes (como \UsuarioEntity\ en \ActividadEntity\).
+4. Reemplazar \JdbcTemplateLockProvider\ por \MongoLockProvider\ para que ShedLock siga funcionando sobre MongoDB.
+
+**Consecuencias**: El sistema pasa a estar puramente basado en documentos, mejorando el alineamiento con el paradigma NoSQL. Las busquedas complejas (que antes utilizaban JOINs en JPA) ahora se resuelven de forma mas nativa o a traves de filtrado en aplicacion para evitar \$lookup\ excesivos, respetando el modelo NoSQL.

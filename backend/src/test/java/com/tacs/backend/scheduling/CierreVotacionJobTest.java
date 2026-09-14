@@ -41,7 +41,7 @@ class CierreVotacionJobTest
   @Test
   void detectaVotacionesAbiertasConFechaLimiteVencida()
   {
-    Votacion vencida = crearVotacion(10L);
+    Votacion vencida = crearVotacion("10");
 
     when(votacionesRepository.findByAbiertaTrueAndFechaLimiteBefore(any()))
         .thenReturn(List.of(vencida));
@@ -55,8 +55,8 @@ class CierreVotacionJobTest
   @Test
   void cierraCadaVotacionVencidaLlamandoAResolverVotacion()
   {
-    Votacion vencida1 = crearVotacion(10L);
-    Votacion vencida2 = crearVotacion(20L);
+    Votacion vencida1 = crearVotacion("10");
+    Votacion vencida2 = crearVotacion("20");
 
     when(votacionesRepository.findByAbiertaTrueAndFechaLimiteBefore(any()))
         .thenReturn(List.of(vencida1, vencida2));
@@ -64,8 +64,8 @@ class CierreVotacionJobTest
     inicializarJob();
     job.cerrarVotacionesVencidas();
 
-    verify(votacionesService).resolverVotacion(10L);
-    verify(votacionesService).resolverVotacion(20L);
+    verify(votacionesService).resolverVotacion("10");
+    verify(votacionesService).resolverVotacion("20");
   }
 
   @Test
@@ -83,22 +83,22 @@ class CierreVotacionJobTest
   @Test
   void unaFallaCerrandoUnaVotacionNoImpideCerrarLasDemas()
   {
-    Votacion queFalla = crearVotacion(30L);
-    Votacion queFunciona = crearVotacion(40L);
+    Votacion queFalla = crearVotacion("30");
+    Votacion queFunciona = crearVotacion("40");
 
     when(votacionesRepository.findByAbiertaTrueAndFechaLimiteBefore(any()))
         .thenReturn(List.of(queFalla, queFunciona));
-    when(votacionesService.resolverVotacion(30L))
+    when(votacionesService.resolverVotacion("30"))
         .thenThrow(new RuntimeException("Fallo el cierre de la votacion!"));
 
     inicializarJob();
     job.cerrarVotacionesVencidas();
 
-    verify(votacionesService).resolverVotacion(40L);
+    verify(votacionesService).resolverVotacion("40");
   }
 
   /* Auxiliares */
-  private Votacion crearVotacion(Long id)
+  private Votacion crearVotacion(String id)
   {
     Actividad actividad = new Actividad(
         "Asado en el parque",

@@ -1,14 +1,10 @@
 package com.tacs.backend.persistence.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
@@ -17,30 +13,24 @@ import java.time.LocalDateTime;
  * con un chat de Telegram (deep-link {@code /start <token>}). Analogo a un
  * token de reseteo de contrasenia: vida corta, un solo uso.
  */
-@Entity
-@Table(name = "telegram_vinculacion")
+@Document(collection = "telegram_vinculacion")
 @Getter
 @Setter
 @NoArgsConstructor
 public class TelegramVinculacionEntity
 {
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+  private String id;
 
-  @Column(nullable = false, unique = true)
   private String token;
 
-  @Column(nullable = false)
-  private Long usuarioId;
+  private String usuarioId;
 
-  @Column(nullable = false)
   private LocalDateTime expiracion;
 
-  @Column(nullable = false)
   private boolean usado;
 
-  public TelegramVinculacionEntity(String token, Long usuarioId, LocalDateTime expiracion)
+  public TelegramVinculacionEntity(String token, String usuarioId, LocalDateTime expiracion)
   {
     this.token = token;
     this.usuarioId = usuarioId;

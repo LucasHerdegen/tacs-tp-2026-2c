@@ -20,19 +20,20 @@ Antes de levantar el entorno, podés configurar el archivo `.env` en la raíz de
 - `JWT_SECRET`: (Requerida) Clave secreta para la validación de tokens JWT.
 - `ADMIN_USERNAME`: (Opcional) Usuario para la cuenta de administrador.
 - `ADMIN_PASSWORD`: (Opcional) Contraseña para la cuenta de administrador.
+- `MONGODB_URI`: (Opcional) URI de conexión a MongoDB. Por defecto usa la generada por Docker Compose.
 
 ### 2. Ejecutar la Aplicación (Docker)
 
-Para iniciar el backend junto con su red de forma aislada, tal como exige la rúbrica:
+Para iniciar el backend junto con su red de forma aislada y su base de datos, tal como exige la rúbrica:
 
 ```bash
 docker compose up --build -d
 ```
 *(Usamos `--build` para asegurarnos de que la imagen se recompile con los últimos cambios en el código, y `-d` para que corra en segundo plano).*
 
-Esto levantará la aplicación en el puerto `8080`. 
+Esto levantará la aplicación en el puerto `8080` y una instancia de MongoDB.
 
-> **Nota sobre Base de Datos (Entrega 1):** Según los requerimientos de la primera entrega, el modelo funciona *en memoria*. Para facilitar el desarrollo y algunas consultas manuales temporales se incluyó **H2 Database**. En la Entrega 2, esto será reemplazado por persistencia real en una base de datos NoSQL.
+> **Nota sobre Base de Datos (Entrega 2):** El proyecto ha sido migrado a MongoDB para cumplir con el requerimiento de una base de datos NoSQL. Docker Compose inicializará automáticamente el servicio de persistencia y la aplicación se conectará usando Spring Data MongoDB.
 
 ### 3. Documentación de la API (OpenAPI / Swagger)
 

@@ -1,20 +1,17 @@
 package com.tacs.backend.persistence.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
  * Fila unica (id fijo = 1) que persiste el ultimo update_id de Telegram ya
  * procesado por {@code TelegramUpdatePoller}, para sobrevivir a un restart
  * del proceso sin reprocesar ni perder updates (ver research.md Unknown 2).
  */
-@Entity
-@Table(name = "telegram_update_offset")
+@Document(collection = "telegram_update_offset")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,7 +22,6 @@ public class TelegramUpdateOffsetEntity
   @Id
   private Long id;
 
-  @Column(name = "ultimo_update_id")
   private long ultimoUpdateId;
 
   public TelegramUpdateOffsetEntity(long ultimoUpdateId)

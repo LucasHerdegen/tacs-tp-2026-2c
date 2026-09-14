@@ -12,7 +12,7 @@ public interface UsuarioRepository
 
   Usuario save(Usuario usuario);
 
-  Optional<Usuario> findById(Long id);
+  Optional<Usuario> findById(String id);
 
-  boolean existsById(Long id);
+  boolean existsById(String id);
 }

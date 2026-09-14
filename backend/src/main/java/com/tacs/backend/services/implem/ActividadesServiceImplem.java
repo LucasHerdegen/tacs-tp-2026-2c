@@ -58,7 +58,7 @@ public class ActividadesServiceImplem implements ActividadesService
    */
   @Override
   @Transactional
-  public ActividadDto createActividad(ActividadPostDto actividadPostDto, Long usuarioId)
+  public ActividadDto createActividad(ActividadPostDto actividadPostDto, String usuarioId)
   {
     if (actividadPostDto.cantidadMinima() > actividadPostDto.cantidadMaxima())
       throw new IllegalArgumentException("La cantidad mínima no puede ser mayor a la máxima");
@@ -76,7 +76,7 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public List<ActividadDto> actividadesDelUsuario(Long usuarioId, TipoEstadoActividad estado)
+  public List<ActividadDto> actividadesDelUsuario(String usuarioId, TipoEstadoActividad estado)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -90,7 +90,7 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public List<ActividadDto> actividadesOrganizadas(Long usuarioId, TipoEstadoActividad estado)
+  public List<ActividadDto> actividadesOrganizadas(String usuarioId, TipoEstadoActividad estado)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -104,7 +104,7 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public List<ActividadDto> actividadesParticipadas(Long usuarioId, TipoEstadoActividad estado)
+  public List<ActividadDto> actividadesParticipadas(String usuarioId, TipoEstadoActividad estado)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -117,14 +117,14 @@ public class ActividadesServiceImplem implements ActividadesService
         .toList();
   }
 
-  private void validarExistenciaUsuario(Long usuarioId)
+  private void validarExistenciaUsuario(String usuarioId)
   {
     if (!usuarioRepository.existsById(usuarioId))
       throw new UsuarioNotFoundException("El usuario con id: " + usuarioId + " no existe");
   }
 
   @Override
-  public ActividadDto obtenerActividad(Long id)
+  public ActividadDto obtenerActividad(String id)
   {
     Actividad actividad = actividadesRepository.findById(id)
         .orElseThrow(() -> new ActividadNotFoundException(
@@ -166,7 +166,7 @@ public class ActividadesServiceImplem implements ActividadesService
    */
   @Override
   @Transactional
-  public void unirseActividad(Long actividadId, Long usuarioId)
+  public void unirseActividad(String actividadId, String usuarioId)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -193,7 +193,7 @@ public class ActividadesServiceImplem implements ActividadesService
    */
   @Override
   @Transactional
-  public void bajarseActividad(Long actividadId, Long usuarioId)
+  public void bajarseActividad(String actividadId, String usuarioId)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -208,7 +208,7 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public PronosticoRespuestaDto obtenerClimaActividad(Long actividadId, Long usuarioId)
+  public PronosticoRespuestaDto obtenerClimaActividad(String actividadId, String usuarioId)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -238,7 +238,7 @@ public class ActividadesServiceImplem implements ActividadesService
    */
   @Override
   @Transactional
-  public void cambiarEstado(Long actividadId, Long usuarioId, TipoEstadoActividad nuevoEstado)
+  public void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado)
   {
     var actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
@@ -270,7 +270,7 @@ public class ActividadesServiceImplem implements ActividadesService
    */
   @Override
   @Transactional
-  public ActividadDto actualizarConfiguracionClima(Long actividadId, Long usuarioId, ConfigurarCondicionesDto dto)
+  public ActividadDto actualizarConfiguracionClima(String actividadId, String usuarioId, ConfigurarCondicionesDto dto)
   {
     Actividad actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));

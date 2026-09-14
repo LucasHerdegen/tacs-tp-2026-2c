@@ -5,6 +5,8 @@ import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.clima.ReglasClima;
+import com.tacs.backend.domain.usuario.MedioContacto;
+import com.tacs.backend.domain.usuario.TipoMedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
@@ -59,5 +61,41 @@ class ActividadesMapperTest
     assertThat(dto.reglasClima()).isEqualTo(reglasClima);
     assertThat(dto.horasAnticipacion()).isEqualTo(6);
     assertThat(dto.rangoReprogramacion()).isEqualTo(rango);
+  }
+
+  // Regresion: medioContacto (ej. chat_id de Telegram) es informacion privada.
+  // ActividadDto.organizador/participantes es visible para cualquiera que
+  // pueda ver la actividad (no solo el propio usuario), asi que no puede
+  // llevar el medioContacto de nadie. Se detecto recien auditando los fixes
+  // del dia, ningun test lo cubria hasta ahora.
+  @Test
+  void usuarioToUsuarioDtoNoExponeElMedioDeContacto()
+  {
+    Usuario usuario = new Usuario("organizador", "pass", TipoRol.USER);
+    usuario.setMedioContacto(new MedioContacto("123456789", TipoMedioContacto.TELEGRAM));
+
+    var dto = mapper.usuarioToUsuarioDto(usuario);
+
+    assertThat(dto.medioContacto()).isNull();
+  }
+
+  @Test
+  void actividadToActividadDtoNoExponeElMedioDeContactoDelOrganizadorNiDeLosParticipantes()
+  {
+    Usuario organizador = new Usuario("organizador", "pass", TipoRol.USER);
+    organizador.setMedioContacto(new MedioContacto("111", TipoMedioContacto.TELEGRAM));
+
+    Actividad actividad = new Actividad(
+        "Asado", "desc", TipoActividad.AIRE_LIBRE, UBICACION,
+        LocalDateTime.now().plusDays(1), 2, LocalDateTime.now(), 2, 10, organizador);
+
+    Usuario participante = new Usuario("participante", "pass", TipoRol.USER);
+    participante.setMedioContacto(new MedioContacto("222", TipoMedioContacto.TELEGRAM));
+    actividad.agregarParticipante(participante);
+
+    ActividadDto dto = mapper.actividadToActividadDto(actividad);
+
+    assertThat(dto.organizador().medioContacto()).isNull();
+    assertThat(dto.participantes()).allSatisfy(p -> assertThat(p.medioContacto()).isNull());
   }
 }

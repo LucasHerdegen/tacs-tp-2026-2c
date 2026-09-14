@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * (no aplica, ej. actividad techada); true/false cuando si las tiene, indicando
  * si el pronostico de esta alternativa las cumple.
  */
-public record AlternativaDto(Long id,
+public record AlternativaDto(String id,
                              LocalDateTime fecha,
                              ClimaDto clima,
                              int numeroAlternativa,

@@ -20,7 +20,7 @@ import java.util.List;
 @NoArgsConstructor
 public class Actividad
 {
-  private Long id;
+  private String id;
 
   private Long version;
 

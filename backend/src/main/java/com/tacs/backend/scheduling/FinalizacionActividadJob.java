@@ -2,7 +2,7 @@ package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.persistence.entities.ActividadEntity;
-import com.tacs.backend.persistence.repositories.ActividadesJpaRepository;
+import com.tacs.backend.persistence.repositories.ActividadesMongoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -17,7 +17,7 @@ import java.util.List;
 @Slf4j
 public class FinalizacionActividadJob
 {
-  private final ActividadesJpaRepository actividadesRepository;
+  private final ActividadesMongoRepository actividadesRepository;
 
   @Scheduled(fixedRate = 300000) // cada 5 min
   @SchedulerLock(name = "finalizacionActividadJob", lockAtMostFor = "4m", lockAtLeastFor = "1m")
@@ -26,7 +26,7 @@ public class FinalizacionActividadJob
   {
     log.info("Iniciando chequeo de finalización de actividades pasadas...");
 
-    List<ActividadEntity> candidatas = actividadesRepository.findCandidatasParaFinalizacion();
+    List<ActividadEntity> candidatas = actividadesRepository.findCandidatasParaFinalizacion(java.time.LocalDateTime.now());
 
     for (ActividadEntity entidad : candidatas)
     {

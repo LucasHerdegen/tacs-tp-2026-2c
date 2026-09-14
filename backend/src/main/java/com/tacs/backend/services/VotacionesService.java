@@ -9,9 +9,9 @@ import java.util.Optional;
 
 public interface VotacionesService
 {
-  List<VotacionDto> votaciones(Long usuarioId, boolean abierta);
+  List<VotacionDto> votaciones(String usuarioId, boolean abierta);
 
-  VotacionDto crearVotacion(Long actividadId, VotacionPostDto votacionPostDto);
+  VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto);
 
   /**
    * Busca fechas con clima favorable para la actividad en los proximos dias
@@ -22,19 +22,19 @@ public interface VotacionesService
    * Lanza IllegalStateException (igual que crearVotacion) si la actividad
    * ya tiene una votacion abierta.
    */
-  Optional<VotacionDto> abrirVotacionAutomatica(Long actividadId);
+  Optional<VotacionDto> abrirVotacionAutomatica(String actividadId);
 
-  VotacionDto obtenerVotacion(Long votacionId);
+  VotacionDto obtenerVotacion(String votacionId);
 
-  VotacionDto agregarAlternativa(Long votacionId, AlternativaPostDto alternativaPostDto);
+  VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto);
 
-  void eliminarAlternativa(Long votacionId, int numeroAlternativa);
+  void eliminarAlternativa(String votacionId, int numeroAlternativa);
 
   /**
    * Registra (o actualiza, si ya habia votado antes) el voto de un participante.
    * Solo pueden votar quienes participan de la actividad asociada.
    */
-  VotacionDto votar(Long votacionId, Long usuarioId, int numeroAlternativa);
+  VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa);
 
   /**
    * Cierra la votacion y resuelve la actividad asociada: si la alternativa
@@ -42,7 +42,7 @@ public interface VotacionesService
    * si no, la cancela. Puede dispararse manualmente o desde el cron de
    * cierre automatico por fechaLimite vencida.
    */
-  VotacionDto resolverVotacion(Long votacionId);
+  VotacionDto resolverVotacion(String votacionId);
 
-  void eliminarVotacion(Long votacionId);
+  void eliminarVotacion(String votacionId);
 }

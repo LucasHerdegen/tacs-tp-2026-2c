@@ -36,7 +36,7 @@ class UsuariosController
   @ApiResponse(responseCode = "404", description = "Usuario no encontrado", content = @Content)
   @PatchMapping("/{usuarioId}/rol")
   public ResponseEntity<UsuarioDto> actualizarRol(
-      @PathVariable Long usuarioId,
+      @PathVariable String usuarioId,
       @RequestBody @Valid ActualizarRolRequest request)
   {
     return ResponseEntity.ok(authService.actualizarRol(usuarioId, request.rol()));
@@ -49,7 +49,7 @@ class UsuariosController
   public ResponseEntity<UsuarioDto> obtenerMiUsuario(
       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.obtenerUsuario(usuarioId));
   }
 
@@ -62,7 +62,7 @@ class UsuariosController
       @RequestBody @Valid ActualizarContactoDto dto,
       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.actualizarContacto(usuarioId, dto.medioContacto()));
   }
 }

@@ -68,7 +68,7 @@ class VotacionMapperTest
   private Alternativa crearAlternativa(Clima clima)
   {
     Alternativa alternativa = new Alternativa();
-    alternativa.setId(1L);
+    alternativa.setId("1");
     alternativa.setNumeroAltenativa(1);
     alternativa.setFecha(LocalDateTime.now().plusDays(2));
     alternativa.setClima(clima);

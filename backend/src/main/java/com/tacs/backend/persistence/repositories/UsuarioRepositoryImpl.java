@@ -12,36 +12,36 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UsuarioRepositoryImpl implements UsuarioRepository
 {
-  private final UsuarioJpaRepository jpaRepository;
+  private final UsuarioMongoRepository mongoRepository;
   private final UsuarioMapper mapper;
 
   @Override
   public Optional<Usuario> findByUsername(String username)
   {
-    return jpaRepository.findByUsername(username).map(mapper::toDomain);
+    return mongoRepository.findByUsername(username).map(mapper::toDomain);
   }
 
   @Override
   public boolean existsByUsername(String username)
   {
-    return jpaRepository.existsByUsername(username);
+    return mongoRepository.existsByUsername(username);
   }
 
   @Override
   public Usuario save(Usuario usuario)
   {
-    return mapper.toDomain(jpaRepository.save(mapper.toEntity(usuario)));
+    return mapper.toDomain(mongoRepository.save(mapper.toEntity(usuario)));
   }
 
   @Override
-  public Optional<Usuario> findById(Long id)
+  public Optional<Usuario> findById(String id)
   {
-    return jpaRepository.findById(id).map(mapper::toDomain);
+    return mongoRepository.findById(id).map(mapper::toDomain);
   }
 
   @Override
-  public boolean existsById(Long id)
+  public boolean existsById(String id)
   {
-    return jpaRepository.existsById(id);
+    return mongoRepository.existsById(id);
   }
 }

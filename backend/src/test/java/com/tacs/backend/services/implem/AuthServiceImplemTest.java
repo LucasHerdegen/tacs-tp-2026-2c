@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplemTest
 {
-  private static final Long USUARIO_ID = 1L;
+  private static final String USUARIO_ID = "1";
 
   @Mock
   private UsuarioRepository usuarioRepository;

@@ -1,10 +1,10 @@
 package com.tacs.backend.persistence.repositories;
 
 import com.tacs.backend.persistence.entities.TelegramUpdateOffsetEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface TelegramUpdateOffsetJpaRepository extends JpaRepository<TelegramUpdateOffsetEntity, Long>
+public interface TelegramUpdateOffsetMongoRepository extends MongoRepository<TelegramUpdateOffsetEntity, Long>
 {
 }
