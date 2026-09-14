@@ -11,3 +11,7 @@ export const isParticipant = (actividad: Actividad | null, user: User | null): b
   if (!actividad || !user) return false;
   return actividad.participantes.some((p) => p.id === user.id);
 };
+
+export function isActivityCanceled(activity: Actividad | null): boolean {
+  return activity?.estadoActividad === 'CANCELADA';
+}

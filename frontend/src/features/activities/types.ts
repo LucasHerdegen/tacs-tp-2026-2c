@@ -28,10 +28,10 @@ export interface CambioFecha {
 }
 
 export interface ReglasClima {
-  maxProbabilidadLluvia: number;
-  minTemperatura: number;
-  maxTemperatura: number;
-  maxViento: number;
+  maxProbabilidadLluvia: number | null;
+  minTemperatura: number | null;
+  maxTemperatura: number | null;
+  maxViento: number | null;
 }
 
 export interface Clima {
@@ -62,4 +62,21 @@ export interface Actividad {
   cambiosFecha: CambioFecha[];
   estadoActividad: TipoEstadoActividad;
   reglasClima: ReglasClima | null;
+}
+
+export interface ActividadPost {
+  titulo: string;
+  descripcion?: string;
+  tipoActividad: TipoActividad;
+  ubicacion: Ubicacion;
+  fecha: string;
+  duracionEstimada: number;
+  cantidadMinima: number;
+  cantidadMaxima: number;
+}
+
+export interface ConfigurarCondiciones {
+  horasAnticipacion: number;
+  rangoReprogramacion: RangoReprogramacion;
+  reglasClima: ReglasClima;
 }

@@ -1,11 +1,18 @@
 import { apiRequest } from '../../lib/api';
-import type { Actividad, PronosticoRespuesta } from './types';
+import type { Actividad, ActividadPost, PronosticoRespuesta, ConfigurarCondiciones } from './types';
 
 export const activitiesApi = {
   async obtener(id: number, token: string): Promise<Actividad | null> {
     const actividades = await apiRequest<Actividad[]>('/api/actividades', { token });
     return actividades.find((a) => a.id === id) ?? null;
   },
+
+  crear(actividad: ActividadPost, token: string) { 
+    return apiRequest<void>(
+      '/api/actividades',
+      { method: 'POST', token, body: JSON.stringify(actividad) }
+      ); 
+    },
 
   unirse(actividadId: number, usuarioId: number, token: string) {
     return apiRequest<void>(
@@ -34,4 +41,16 @@ export const activitiesApi = {
       { method: 'POST', token },
     );
   },
+
+  configurarClima(
+    actividadId: number,
+    configuracion: ConfigurarCondiciones,
+    token: string,
+  ) {
+    return apiRequest<void>(
+      `/api/actividades/${actividadId}/configuracion-clima`,
+      { method: 'PATCH', token, body: JSON.stringify(configuracion) },
+    );
+  },
+
 };

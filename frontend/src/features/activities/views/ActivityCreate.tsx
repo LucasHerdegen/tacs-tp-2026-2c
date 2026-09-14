@@ -7,10 +7,11 @@ import 'leaflet/dist/leaflet.css';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
-import type { ActividadPostDto } from '../../../types/activity.types';
-import { TipoActividad } from '../../../types/activity.types';
-import { apiRequest, ApiError } from '../../../lib/api';
+import type { ActividadPost } from '../types';
+import type { TipoActividad } from '../types';
+import { ApiError } from '../../../lib/api';
 import { useAuth } from '../../auth/authContext';
+import { activitiesApi } from '../activitiesApi';
 
 // Fix para los íconos por defecto de Leaflet en React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -20,7 +21,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para capturar el click en el mapa y manejar la posición
 const LocationMarker: React.FC<{
   position: { lat: number; lng: number };
   setPosition: (lat: number, lng: number) => void;
@@ -30,7 +30,6 @@ const LocationMarker: React.FC<{
   useMapEvents({
     click(e) {
       setPosition(e.latlng.lat, e.latlng.lng);
-      // Opcional: Centrar suavemente al hacer click directo
       map.flyTo(e.latlng, map.getZoom());
     },
   });
@@ -38,11 +37,9 @@ const LocationMarker: React.FC<{
   return <Marker position={[position.lat, position.lng]} />;
 };
 
-// Componente auxiliar para cambiar el centro del mapa cuando se busca una dirección
 const MapController: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom = 15 }) => {
   const map = useMap();
   React.useEffect(() => {
-    // flyTo desplaza el mapa con una animación fluida hacia el punto especificado
     map.flyTo(center, zoom, { duration: 1.5 });
   }, [center, zoom, map]);
 
@@ -53,10 +50,10 @@ export const CreateActivity: React.FC = () => {
   useDocumentTitle('Crear Nueva Actividad');
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState<ActividadPostDto>({
+  const [formData, setFormData] = useState<ActividadPost>({
     titulo: '',
     descripcion: '',
-    tipoActividad: TipoActividad.AIRE_LIBRE,
+    tipoActividad: 'AIRE_LIBRE',
     ubicacion: {
       barrio: '',
       latitud: -34.6037, // Valor default CABA
@@ -75,9 +72,15 @@ export const CreateActivity: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]:
+        name === 'duracionEstimada' ||
+        name === 'cantidadMinima' ||
+        name === 'cantidadMaxima'
+          ? Number(value)
+          : value
     }));
   };
 
@@ -104,7 +107,6 @@ export const CreateActivity: React.FC = () => {
     }));
   };
 
-  // Búsqueda de dirección con la API gratuita Nominatim
   const handleSearchAddress = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -154,11 +156,7 @@ export const CreateActivity: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await apiRequest('/api/actividades', {
-        method: 'POST',
-        token,
-        body: JSON.stringify(formData),
-      });
+      await activitiesApi.crear(formData, token);
 
       navigate('/activities');
     } catch (err) {
@@ -231,9 +229,9 @@ export const CreateActivity: React.FC = () => {
                   onChange={handleChange}
                   className="input-field bg-white"
                 >
-                  <option value={TipoActividad.AIRE_LIBRE}>Aire Libre</option>
-                  <option value={TipoActividad.TECHADA}>Techada</option>
-                  <option value={TipoActividad.MIXTA}>Mixta</option>
+                  <option value={'AIRE_LIBRE'}>Aire Libre</option>
+                  <option value={'TECHADA'}>Techada</option>
+                  <option value={'MIXTA'}>Mixta</option>
                 </select>
               </div>
 

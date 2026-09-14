@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
-import type { ConfigurarCondicionesDto } from '../../../types/activity.types';
-import { apiRequest, ApiError } from '../../../lib/api'; 
+import type { ConfigurarCondiciones } from '../types';
+import { ApiError } from '../../../lib/api'; 
 import { useAuth } from '../../auth/authContext';
+import { activitiesApi } from '../activitiesApi';
 
 export const WeatherConfig: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +58,7 @@ export const WeatherConfig: React.FC = () => {
     }
 
     // Armado del DTO
-    const payload: ConfigurarCondicionesDto = {
+    const payload: ConfigurarCondiciones = {
       horasAnticipacion,
       rangoReprogramacion: {
         dias: diasReprogramacion,
@@ -87,11 +88,7 @@ export const WeatherConfig: React.FC = () => {
     try {
       console.log('Payload a enviar:', payload);
 
-      await apiRequest(`/api/actividades/${id}/configuracion-clima`, {
-        method: 'PATCH',
-        token,
-        body: JSON.stringify(payload),
-      });
+      await activitiesApi.configurarClima(Number(id), payload, token);
 
       setMessage({
         type: 'success',

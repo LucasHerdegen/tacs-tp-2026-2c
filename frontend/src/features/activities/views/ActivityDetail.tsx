@@ -9,7 +9,7 @@ import { ApiError } from '../../../lib/api';
 import { activitiesApi } from '../activitiesApi';
 import { VotingSection } from '../../voting/components/VotingSection';
 import type { Actividad, PronosticoRespuesta } from '../types';
-import { canManageActivity, isParticipant } from '../activityPermissions';
+import { canManageActivity, isParticipant, isActivityCanceled } from '../activityPermissions';
 
 export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,15 +23,16 @@ export const ActivityDetail: React.FC = () => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Estados para la eliminación de la actividad
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // Estados para el modal de cancelación
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
   useDocumentTitle(activity ? activity.titulo : 'Detalle de Actividad');
 
-  // Evaluación de permisos delegada a la capa de utilidades/roles
+  // Evaluación de permisos y estado
   const esParticipante = isParticipant(activity, user);
   const esOrganizador = canManageActivity(activity, user);
+  const estaCancelada = isActivityCanceled(activity);
 
   const cargarTodo = useCallback(async () => {
     if (Number.isNaN(actividadId)) {
@@ -46,7 +47,7 @@ export const ActivityDetail: React.FC = () => {
       setActivity(actividadEncontrada);
 
       const yaParticipa = actividadEncontrada?.participantes.some((p) => p.id === user.id);
-      if (actividadEncontrada && yaParticipa) {
+      if (actividadEncontrada && yaParticipa && actividadEncontrada.estadoActividad !== 'CANCELADA') {
         const clima = await activitiesApi.clima(actividadId, user.id, token);
         setPronostico(clima);
       }
@@ -62,7 +63,7 @@ export const ActivityDetail: React.FC = () => {
   }, [cargarTodo]);
 
   async function handleJoinLeave() {
-    if (!token || !user || !activity) return;
+    if (!token || !user || !activity || estaCancelada) return;
     setBusy(true);
     setError('');
     try {
@@ -79,20 +80,36 @@ export const ActivityDetail: React.FC = () => {
     }
   }
 
-  async function handleDeleteActivity() {
-    if (!token || !activity) return;
-    setDeleting(true);
+  async function handleCancelActivity() {
+    if (!token || !activity || estaCancelada) return;
+    setCanceling(true);
     setError('');
     try {
       await activitiesApi.cancelar(activity.id, token);
-      navigate('/activities');
+      setShowCancelModal(false);
+      await cargarTodo(); // Recargamos para actualizar el estado a CANCELADA
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cancelar la actividad.');
-      setShowDeleteModal(false);
+      setShowCancelModal(false);
     } finally {
-      setDeleting(false);
+      setCanceling(false);
     }
   }
+
+  // 🔹 Estado declarativo para el botón de Acción de Participación
+  const getParticipationButtonConfig = () => {
+    if (estaCancelada) {
+      return { text: 'Actividad Cancelada', disabled: true, variant: 'secondary' as const };
+    }
+    if (esParticipante) {
+      return { text: 'Bajarme de la actividad', disabled: busy, variant: 'danger' as const };
+    }
+    const isFull = activity ? activity.participantes.length >= activity.maximoParticipantes : false;
+    if (isFull) {
+      return { text: 'Actividad Llena', disabled: true, variant: 'primary' as const };
+    }
+    return { text: 'Sumarme a la actividad', disabled: busy, variant: 'primary' as const };
+  };
 
   if (loading) {
     return <p className="text-center py-20 text-gray-500">Cargando actividad…</p>;
@@ -108,6 +125,7 @@ export const ActivityDetail: React.FC = () => {
   }
 
   const isFull = activity.participantes.length >= activity.maximoParticipantes;
+  const participationBtn = getParticipationButtonConfig();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -118,11 +136,27 @@ export const ActivityDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Cartel Informativo si está Cancelada */}
+      {estaCancelada && (
+        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-center gap-3">
+          <span className="text-2xl">🚫</span>
+          <div>
+            <h4 className="font-bold">Actividad Cancelada</h4>
+            <p className="text-sm">El organizador ha cancelado esta actividad. No se permiten nuevas inscripciones ni modificaciones.</p>
+          </div>
+        </div>
+      )}
+
       {/* Header Info */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 flex items-center gap-2">
-          <Badge variant="info" className="px-3 py-1">{activity.tipoActividad}</Badge>
-          {esOrganizador && (
+          {estaCancelada ? (
+            <Badge variant="error" className="px-3 py-1">CANCELADA</Badge>
+          ) : (
+            <Badge variant="info" className="px-3 py-1">{activity.tipoActividad}</Badge>
+          )}
+
+          {esOrganizador && !estaCancelada && (
             <Link to={`/activities/${activity.id}/weather-config`}>
               <Button variant="secondary" className="text-xs py-1 px-3">
                 ⚙️ Configurar clima
@@ -130,7 +164,10 @@ export const ActivityDetail: React.FC = () => {
             </Link>
           )}
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{activity.titulo}</h1>
+        
+        <h1 className={`text-3xl font-bold mb-2 text-gray-900`}>
+          {activity.titulo}
+        </h1>
         <p className="text-gray-600 text-lg mb-6">{activity.descripcion}</p>
 
         <div className="flex flex-col sm:flex-row gap-6 text-gray-700">
@@ -153,7 +190,7 @@ export const ActivityDetail: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* Columna Izquierda: Clima + Votación (US8-US11) */}
+        {/* Columna Izquierda: Clima + Votación */}
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardBody>
@@ -161,14 +198,16 @@ export const ActivityDetail: React.FC = () => {
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   ⛅ Estado del Clima
                 </h2>
-                {esOrganizador && (
+                {esOrganizador && !estaCancelada && (
                   <Link to={`/activities/${activity.id}/weather-config`} className="text-xs text-indigo-600 hover:underline font-medium">
                     Ajustar parámetros
                   </Link>
                 )}
               </div>
 
-              {!esParticipante ? (
+              {estaCancelada ? (
+                <p className="text-sm text-gray-500 italic">El pronóstico no está disponible para actividades canceladas.</p>
+              ) : !esParticipante ? (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                   <p className="text-gray-600 mb-2">Sumate a la actividad para ver el pronóstico y participar de votaciones si el clima empeora.</p>
                 </div>
@@ -186,7 +225,8 @@ export const ActivityDetail: React.FC = () => {
             </CardBody>
           </Card>
 
-          {(esParticipante || esOrganizador) && (
+          {/* Sección de votaciones desactivada si la actividad está cancelada */}
+          {!estaCancelada && (esParticipante || esOrganizador) && (
             <VotingSection actividadId={activity.id} organizadorId={activity.organizador.id} />
           )}
         </div>
@@ -198,7 +238,7 @@ export const ActivityDetail: React.FC = () => {
               <h3 className="text-lg font-bold text-gray-900 mb-2">Cupos</h3>
               <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                 <div
-                  className={`h-2.5 rounded-full ${isFull ? 'bg-red-500' : 'bg-indigo-600'}`}
+                  className={`h-2.5 rounded-full ${estaCancelada ? 'bg-gray-400' : isFull ? 'bg-red-500' : 'bg-indigo-600'}`}
                   style={{ width: `${(activity.participantes.length / activity.maximoParticipantes) * 100}%` }}
                 ></div>
               </div>
@@ -206,51 +246,45 @@ export const ActivityDetail: React.FC = () => {
                 {activity.participantes.length} de {activity.maximoParticipantes} lugares ocupados
               </p>
 
-              {/* LÓGICA DE BOTONES SEGÚN EL ROL DE USUARIO */}
-              {esOrganizador ? (
-                <Button
-                  variant="danger"
-                  type="button"
-                  onClick={() => setShowDeleteModal(true)}
-                  className="w-full text-base py-3"
-                >
-                  🗑️ Cancelar actividad
-                </Button>
-              ) : esParticipante ? (
-                <Button
-                  variant="danger"
-                  onClick={handleJoinLeave}
-                  disabled={busy}
-                  className="w-full text-base py-3"
-                >
-                  Bajarme de la actividad
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  onClick={handleJoinLeave}
-                  disabled={busy || isFull}
-                  className="w-full text-base py-3"
-                >
-                  {isFull ? 'Actividad Llena' : 'Sumarme a la actividad'}
-                </Button>
-              )}
+              {/* Botón principal accionado dinámicamente según el estado */}
+              <Button
+                variant={participationBtn.variant}
+                onClick={handleJoinLeave}
+                disabled={participationBtn.disabled}
+                className="w-full text-base py-3"
+              >
+                {participationBtn.text}
+              </Button>
 
               <p className="text-xs text-gray-500 mt-4 text-center">
                 Mínimo requerido para confirmar: {activity.minimoParticipantes}
               </p>
+
+              {/* Botón de Cancelar Actividad (solo visible si es organizador y NO está cancelada aún) */}
+              {esOrganizador && !estaCancelada && (
+                <div className="mt-6 pt-4 border-t border-gray-100">
+                  <Button
+                    variant="danger"
+                    type="button"
+                    onClick={() => setShowCancelModal(true)}
+                    className="w-full text-sm"
+                  >
+                    🚫 Cancelar actividad
+                  </Button>
+                </div>
+              )}
             </CardBody>
           </Card>
         </div>
 
       </div>
 
-      {/* Cartel / Modal de Confirmación para Cancelacion */}
-      {showDeleteModal && (
+      {/* Modal de Confirmación de Cancelación */}
+      {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
             <h3 className="text-lg font-bold text-gray-900">
-              Desea cancelar esta actividad?
+              ¿Cancelar esta actividad?
             </h3>
             <p className="text-sm text-gray-600">
               Esta acción no se puede deshacer. Se borrará la actividad <strong>"{activity.titulo}"</strong> y se notificara a los participantes.
@@ -260,18 +294,18 @@ export const ActivityDetail: React.FC = () => {
               <Button
                 variant="secondary"
                 type="button"
-                disabled={deleting}
-                onClick={() => setShowDeleteModal(false)}
+                disabled={canceling}
+                onClick={() => setShowCancelModal(false)}
               >
-                Regresar
+                Volver
               </Button>
               <Button
                 variant="danger"
                 type="button"
-                disabled={deleting}
-                onClick={handleDeleteActivity}
+                disabled={canceling}
+                onClick={handleCancelActivity}
               >
-                {deleting ? 'Eliminando...' : 'Sí, cancelar'}
+                {canceling ? 'Cancelando...' : 'Sí, cancelar actividad'}
               </Button>
             </div>
           </div>
