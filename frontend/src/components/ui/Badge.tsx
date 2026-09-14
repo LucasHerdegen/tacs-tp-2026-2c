@@ -1,6 +1,6 @@
 import React from 'react';
 
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info';
+export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 interface BadgeProps {
   variant: BadgeVariant;
@@ -22,6 +22,9 @@ export const Badge: React.FC<BadgeProps> = ({ variant, children, className = '' 
       break;
     case 'info':
       colorClass = 'bg-indigo-100 text-indigo-800';
+      break;
+    case 'neutral':
+      colorClass = 'bg-gray-100 text-gray-700';
       break;
   }
 

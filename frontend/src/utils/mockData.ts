@@ -1,3 +1,5 @@
+export type EstadoActividad = 'PROPUESTA' | 'CONFIRMADA' | 'REPROGRAMADA' | 'CANCELADA' | 'FINALIZADA';
+
 export interface Activity {
   id: string;
   title: string;
@@ -9,7 +11,9 @@ export interface Activity {
   maxParticipants: number;
   currentParticipants: number;
   weatherCondition: 'IDEAL' | 'WARNING' | 'BAD';
+  estado: EstadoActividad;
   isJoined: boolean; // Simula si el usuario actual ya está anotado
+  isOrganizer: boolean;
 }
 
 export const mockActivities: Activity[] = [
@@ -24,7 +28,9 @@ export const mockActivities: Activity[] = [
     maxParticipants: 20,
     currentParticipants: 12,
     weatherCondition: 'IDEAL',
-    isJoined: true,
+    estado: 'CONFIRMADA',
+    isJoined: false,
+    isOrganizer: true,
   },
   {
     id: '2',
@@ -37,7 +43,9 @@ export const mockActivities: Activity[] = [
     maxParticipants: 10,
     currentParticipants: 9,
     weatherCondition: 'WARNING',
-    isJoined: false,
+    estado: 'REPROGRAMADA',
+    isJoined: true,
+    isOrganizer: false,
   },
   {
     id: '3',
@@ -50,7 +58,9 @@ export const mockActivities: Activity[] = [
     maxParticipants: 6,
     currentParticipants: 3,
     weatherCondition: 'BAD',
+    estado: 'PROPUESTA',
     isJoined: false,
+    isOrganizer: true,
   },
   {
     id: '4',
@@ -63,6 +73,68 @@ export const mockActivities: Activity[] = [
     maxParticipants: 15,
     currentParticipants: 15,
     weatherCondition: 'IDEAL',
-    isJoined: false,
+    estado: 'FINALIZADA',
+    isJoined: true,
+    isOrganizer: false,
+  },
+  {
+    id: '5',
+    title: 'Cena de Egresados',
+    description: 'Cena de despedida para los que terminan la carrera este cuatrimestre.',
+    type: 'INDOOR',
+    location: 'Palermo Soho, CABA',
+    date: '2026-10-30T21:00:00',
+    minParticipants: 8,
+    maxParticipants: 25,
+    currentParticipants: 6,
+    weatherCondition: 'BAD',
+    estado: 'CANCELADA',
+    isJoined: true,
+    isOrganizer: false,
   }
+];
+
+export interface Votacion {
+  id: string;
+  actividadId: string; // debe matchear un id existente en mockActivities
+  actividadTitulo: string;
+  fechaLimite: string; // ISO
+  abierta: boolean;
+  alternativas: { fecha: string; votos: number }[];
+}
+
+export const mockVotaciones: Votacion[] = [
+  {
+    id: 'v1',
+    actividadId: '2',
+    actividadTitulo: 'Partido Fútbol 5',
+    fechaLimite: '2026-11-15T23:59:00',
+    abierta: true,
+    alternativas: [
+      { fecha: '2026-11-18T20:00:00', votos: 5 },
+      { fecha: '2026-11-19T20:00:00', votos: 3 },
+    ],
+  },
+  {
+    id: 'v2',
+    actividadId: '3',
+    actividadTitulo: 'Juegos de Mesa',
+    fechaLimite: '2026-11-18T23:59:00',
+    abierta: true,
+    alternativas: [
+      { fecha: '2026-11-21T19:00:00', votos: 1 },
+      { fecha: '2026-11-22T19:00:00', votos: 2 },
+    ],
+  },
+  {
+    id: 'v3',
+    actividadId: '1',
+    actividadTitulo: 'Asado de Fin de Año',
+    fechaLimite: '2026-11-10T23:59:00',
+    abierta: false,
+    alternativas: [
+      { fecha: '2026-11-14T12:30:00', votos: 10 },
+      { fecha: '2026-11-15T12:30:00', votos: 2 },
+    ],
+  },
 ];

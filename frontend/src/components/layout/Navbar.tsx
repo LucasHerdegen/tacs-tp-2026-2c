@@ -18,9 +18,9 @@ export const Navbar: React.FC = () => {
                 <Link to="/activities" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                   Buscar Actividades
                 </Link>
-                <button className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                <Link to="/my-activities" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                   Mis Actividades
-                </button>
+                </Link>
                 <span className="hidden border-l border-indigo-400 pl-4 text-sm sm:inline">
                   {user?.username}
                   {user?.rol === 'ADMIN' && (
