@@ -24,9 +24,14 @@ export const ActivityDetail: React.FC = () => {
   useDocumentTitle(activity ? activity.titulo : 'Detalle de Actividad');
 
   const esParticipante = !!activity && !!user && activity.participantes.some((p) => p.id === user.id);
+  const esOrganizador = !!activity && !!user && activity.organizador.id === user.id;
 
   const cargarTodo = useCallback(async () => {
-    if (!token || !user || Number.isNaN(actividadId)) return;
+    if (Number.isNaN(actividadId)) {
+      setLoading(false);
+      return;
+    }
+    if (!token || !user) return;
     setLoading(true);
     setError('');
     try {
@@ -93,8 +98,15 @@ export const ActivityDetail: React.FC = () => {
 
       {/* Header Info */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4">
+        <div className="absolute top-0 right-0 p-4 flex items-center gap-2">
           <Badge variant="info" className="px-3 py-1">{activity.tipoActividad}</Badge>
+          {esOrganizador && (
+            <Link to={`/activities/${activity.id}/weather-config`}>
+              <Button variant="secondary" className="text-xs py-1 px-3">
+                ⚙️ Configurar clima
+              </Button>
+            </Link>
+          )}
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{activity.titulo}</h1>
         <p className="text-gray-600 text-lg mb-6">{activity.descripcion}</p>
@@ -123,9 +135,16 @@ export const ActivityDetail: React.FC = () => {
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardBody>
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                ⛅ Estado del Clima
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  ⛅ Estado del Clima
+                </h2>
+                {esOrganizador && (
+                  <Link to={`/activities/${activity.id}/weather-config`} className="text-xs text-indigo-600 hover:underline font-medium">
+                    Ajustar parámetros
+                  </Link>
+                )}
+              </div>
 
               {!esParticipante ? (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
@@ -145,7 +164,7 @@ export const ActivityDetail: React.FC = () => {
             </CardBody>
           </Card>
 
-          {esParticipante && (
+          {(esParticipante || esOrganizador) && (
             <VotingSection actividadId={activity.id} organizadorId={activity.organizador.id} />
           )}
         </div>
