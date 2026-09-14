@@ -27,4 +27,11 @@ export const activitiesApi = {
       { token },
     );
   },
+
+  cancelar(actividadId: number, token: string) {
+    return apiRequest<void>(
+      `/api/actividades/${actividadId}/cancelaciones`,
+      { method: 'POST', token },
+    );
+  },
 };

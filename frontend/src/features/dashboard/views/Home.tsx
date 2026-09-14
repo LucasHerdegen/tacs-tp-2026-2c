@@ -75,7 +75,7 @@ export const Home: React.FC = () => {
               <span className="text-3xl mb-2">📥</span>
               <h3 className="text-md font-semibold text-gray-900 mb-1">¿Tenés un plan?</h3>
               <p className="text-sm text-gray-500 mb-4">Invitá a tus amigos y dejá que el sistema controle el clima.</p>
-              <button className="text-indigo-600 font-semibold hover:text-indigo-800 text-sm cursor-pointer">
+              <button className="text-indigo-600 font-semibold hover:text-indigo-800 text-sm cursor-pointer" onClick={() => navigate('/activities/new')}>
                 + Nueva actividad
               </button>
             </CardBody>

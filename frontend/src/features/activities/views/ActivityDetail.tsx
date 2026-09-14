@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -9,11 +9,13 @@ import { ApiError } from '../../../lib/api';
 import { activitiesApi } from '../activitiesApi';
 import { VotingSection } from '../../voting/components/VotingSection';
 import type { Actividad, PronosticoRespuesta } from '../types';
+import { canManageActivity, isParticipant } from '../activityPermissions';
 
 export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const actividadId = Number(id);
   const { user, token } = useAuth();
+  const navigate = useNavigate();
 
   const [activity, setActivity] = useState<Actividad | null>(null);
   const [pronostico, setPronostico] = useState<PronosticoRespuesta | null>(null);
@@ -21,10 +23,15 @@ export const ActivityDetail: React.FC = () => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Estados para la eliminación de la actividad
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useDocumentTitle(activity ? activity.titulo : 'Detalle de Actividad');
 
-  const esParticipante = !!activity && !!user && activity.participantes.some((p) => p.id === user.id);
-  const esOrganizador = !!activity && !!user && activity.organizador.id === user.id;
+  // Evaluación de permisos delegada a la capa de utilidades/roles
+  const esParticipante = isParticipant(activity, user);
+  const esOrganizador = canManageActivity(activity, user);
 
   const cargarTodo = useCallback(async () => {
     if (Number.isNaN(actividadId)) {
@@ -69,6 +76,21 @@ export const ActivityDetail: React.FC = () => {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos actualizar tu participación.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleDeleteActivity() {
+    if (!token || !activity) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await activitiesApi.cancelar(activity.id, token);
+      navigate('/activities');
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cancelar la actividad.');
+      setShowDeleteModal(false);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -184,14 +206,35 @@ export const ActivityDetail: React.FC = () => {
                 {activity.participantes.length} de {activity.maximoParticipantes} lugares ocupados
               </p>
 
-              <Button
-                variant={esParticipante ? 'danger' : 'primary'}
-                onClick={handleJoinLeave}
-                disabled={busy || (!esParticipante && isFull)}
-                className="w-full text-base py-3"
-              >
-                {esParticipante ? 'Bajarme de la actividad' : isFull ? 'Actividad Llena' : 'Sumarme a la actividad'}
-              </Button>
+              {/* LÓGICA DE BOTONES SEGÚN EL ROL DE USUARIO */}
+              {esOrganizador ? (
+                <Button
+                  variant="danger"
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="w-full text-base py-3"
+                >
+                  🗑️ Cancelar actividad
+                </Button>
+              ) : esParticipante ? (
+                <Button
+                  variant="danger"
+                  onClick={handleJoinLeave}
+                  disabled={busy}
+                  className="w-full text-base py-3"
+                >
+                  Bajarme de la actividad
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={handleJoinLeave}
+                  disabled={busy || isFull}
+                  className="w-full text-base py-3"
+                >
+                  {isFull ? 'Actividad Llena' : 'Sumarme a la actividad'}
+                </Button>
+              )}
 
               <p className="text-xs text-gray-500 mt-4 text-center">
                 Mínimo requerido para confirmar: {activity.minimoParticipantes}
@@ -201,6 +244,39 @@ export const ActivityDetail: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Cartel / Modal de Confirmación para Cancelacion */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">
+              Desea cancelar esta actividad?
+            </h3>
+            <p className="text-sm text-gray-600">
+              Esta acción no se puede deshacer. Se borrará la actividad <strong>"{activity.titulo}"</strong> y se notificara a los participantes.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                type="button"
+                disabled={deleting}
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Regresar
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                disabled={deleting}
+                onClick={handleDeleteActivity}
+              >
+                {deleting ? 'Eliminando...' : 'Sí, cancelar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
