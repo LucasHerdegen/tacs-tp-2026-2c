@@ -13,7 +13,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Voto
 {
-  private Long id;
+  private String id;
   private Alternativa alternativa;
   private Usuario usuario;
 }

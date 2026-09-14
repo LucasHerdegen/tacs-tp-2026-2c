@@ -3,6 +3,7 @@ package com.tacs.backend;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.UsuarioRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.http.MediaType;
 
 import java.util.regex.Matcher;
@@ -24,7 +25,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
 @AutoConfigureMockMvc
-@Transactional
 class LoginIntegrationTests
 {
   private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
@@ -38,9 +38,18 @@ class LoginIntegrationTests
   @Autowired
   private PasswordEncoder passwordEncoder;
 
+  @Autowired
+  private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
+
+  @AfterEach
+  void tearDown() {
+    mongoTemplate.getDb().drop();
+  }
+
   @BeforeEach
   void setUp()
   {
+    mongoTemplate.getDb().drop();
     usuarioRepository.save(new Usuario(
         "santi",
         passwordEncoder.encode("password-segura"),

@@ -5,6 +5,7 @@ import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +14,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.http.MediaType;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
+import org.springframework.http.MediaType;
 import java.time.LocalDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
 @AutoConfigureMockMvc
-@Transactional
+
 class EstadisticasIntegrationTests
 {
   private static final Pattern TOKEN_PATTERN = Pattern.compile("\"token\":\"([^\"]+)\"");
@@ -46,23 +44,22 @@ class EstadisticasIntegrationTests
   @Autowired
   private PasswordEncoder passwordEncoder;
 
-  @Autowired
-  private DataSource dataSource;
-
   private Usuario admin;
   private String tokenAdmin;
   private String tokenUser;
 
+  @Autowired
+  private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
+
+  @AfterEach
+  void tearDown() {
+    mongoTemplate.getDb().drop();
+  }
+
   @BeforeEach
   void setUp() throws Exception
   {
-    try (Connection connection = dataSource.getConnection())
-    {
-      String url = connection.getMetaData().getURL();
-      assertThat(url).as("La suite de tests solo puede correr contra H2 en memoria")
-          .startsWith("jdbc:h2:mem:");
-    }
-
+    mongoTemplate.getDb().drop();
     admin = usuarioRepository.save(new Usuario("admin", passwordEncoder.encode("password-segura"), TipoRol.ADMIN));
     usuarioRepository.save(new Usuario("user", passwordEncoder.encode("password-segura"), TipoRol.USER));
 

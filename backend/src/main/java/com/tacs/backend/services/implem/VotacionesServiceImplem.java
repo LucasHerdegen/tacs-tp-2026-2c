@@ -51,7 +51,7 @@ class VotacionesServiceImplem implements VotacionesService
   // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
   @Override
-  public List<VotacionDto> votaciones(Long usuarioId, boolean abierta)
+  public List<VotacionDto> votaciones(String usuarioId, boolean abierta)
   {
     validarExistenciaUsuario(usuarioId);
 
@@ -75,7 +75,7 @@ class VotacionesServiceImplem implements VotacionesService
    */
   @Override
   @Transactional
-  public VotacionDto crearVotacion(Long actividadId, VotacionPostDto votacionPostDto)
+  public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto)
   {
     Actividad actividad = buscarActividad(actividadId);
 
@@ -106,7 +106,7 @@ class VotacionesServiceImplem implements VotacionesService
    */
   @Override
   @Transactional
-  public Optional<VotacionDto> abrirVotacionAutomatica(Long actividadId)
+  public Optional<VotacionDto> abrirVotacionAutomatica(String actividadId)
   {
     Actividad actividad = buscarActividad(actividadId);
 
@@ -127,14 +127,14 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  public VotacionDto obtenerVotacion(Long votacionId)
+  public VotacionDto obtenerVotacion(String votacionId)
   {
     return votacionMapper.votacionToVotacionDto(buscarVotacion(votacionId));
   }
 
   @Override
   @Transactional
-  public VotacionDto agregarAlternativa(Long votacionId, AlternativaPostDto alternativaPostDto)
+  public VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto)
   {
     Votacion votacion = buscarVotacion(votacionId);
     validarVotacionAbierta(votacion);
@@ -153,7 +153,7 @@ class VotacionesServiceImplem implements VotacionesService
 
   @Override
   @Transactional
-  public void eliminarAlternativa(Long votacionId, int numeroAlternativa)
+  public void eliminarAlternativa(String votacionId, int numeroAlternativa)
   {
     Votacion votacion = buscarVotacion(votacionId);
     validarVotacionAbierta(votacion);
@@ -178,7 +178,7 @@ class VotacionesServiceImplem implements VotacionesService
    */
   @Override
   @Transactional
-  public VotacionDto votar(Long votacionId, Long usuarioId, int numeroAlternativa)
+  public VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa)
   {
     Votacion votacion = buscarVotacion(votacionId);
     validarVotacionAbierta(votacion);
@@ -216,7 +216,7 @@ class VotacionesServiceImplem implements VotacionesService
    */
   @Override
   @Transactional
-  public VotacionDto resolverVotacion(Long votacionId)
+  public VotacionDto resolverVotacion(String votacionId)
   {
     Votacion votacion = buscarVotacion(votacionId);
     validarVotacionAbierta(votacion);
@@ -246,26 +246,26 @@ class VotacionesServiceImplem implements VotacionesService
 
   @Override
   @Transactional
-  public void eliminarVotacion(Long votacionId)
+  public void eliminarVotacion(String votacionId)
   {
     votacionesRepository.delete(buscarVotacion(votacionId));
   }
 
   // ==================== Metodos auxiliares ====================
 
-  private void validarExistenciaUsuario(Long usuarioId)
+  private void validarExistenciaUsuario(String usuarioId)
   {
     if (!usuarioRepository.existsById(usuarioId))
       throw new UsuarioNotFoundException("El usuario con id: " + usuarioId + " no existe");
   }
 
-  private Actividad buscarActividad(Long actividadId)
+  private Actividad buscarActividad(String actividadId)
   {
     return actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
   }
 
-  private void validarSinVotacionAbierta(Long actividadId)
+  private void validarSinVotacionAbierta(String actividadId)
   {
     if (votacionesRepository.findByAbiertaTrueAndActividadId(actividadId).isPresent())
       throw new IllegalStateException("La actividad ya tiene una votacion abierta");
@@ -400,7 +400,7 @@ class VotacionesServiceImplem implements VotacionesService
     return ahora.plus(restante.dividedBy(2));
   }
 
-  private Votacion buscarVotacion(Long votacionId)
+  private Votacion buscarVotacion(String votacionId)
   {
     return votacionesRepository.findById(votacionId)
         .orElseThrow(() -> new VotacionNotFoundException("Votacion no encontrada"));

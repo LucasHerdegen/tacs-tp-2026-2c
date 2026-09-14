@@ -52,7 +52,7 @@ class ActividadTest
   @Test
   void elOrganizadorQuedaComoParticipanteAlCrearLaActividad()
   {
-    Usuario organizador = crearUsuarioConId(999L);
+    Usuario organizador = crearUsuarioConId("999");
 
     Actividad actividad = new Actividad(
         "Asado en el parque", "Actividad de prueba", TipoActividad.AIRE_LIBRE, UBICACION,
@@ -82,14 +82,14 @@ class ActividadTest
         LocalDateTime.now(),
         2,
         10,
-        crearUsuarioConId(999L));
+        crearUsuarioConId("999"));
 
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
 
     return actividad;
   }
 
-  private Usuario crearUsuarioConId(Long id)
+  private Usuario crearUsuarioConId(String id)
   {
     Usuario usuario = new Usuario("usuario" + id, "password", TipoRol.USER);
     usuario.setId(id);

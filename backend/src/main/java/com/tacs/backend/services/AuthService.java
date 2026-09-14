@@ -15,9 +15,9 @@ public interface AuthService
 
   UsuarioDto buscarPorUsername(String username);
 
-  UsuarioDto actualizarRol(Long usuarioId, TipoRol rol);
+  UsuarioDto actualizarRol(String usuarioId, TipoRol rol);
 
-  UsuarioDto obtenerUsuario(Long usuarioId);
+  UsuarioDto obtenerUsuario(String usuarioId);
 
-  UsuarioDto actualizarContacto(Long usuarioId, MedioContacto medioContacto);
+  UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto);
 }

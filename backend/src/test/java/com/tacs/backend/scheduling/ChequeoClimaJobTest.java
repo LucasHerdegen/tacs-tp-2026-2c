@@ -233,7 +233,7 @@ class ChequeoClimaJobTest
         LocalDateTime.now().plusHours(2),
         24,
         new ReglasClima(30, 10, 30, 20));
-    actividad.setId(99L);
+    actividad.setId("99");
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
@@ -243,7 +243,7 @@ class ChequeoClimaJobTest
     inicializarJob();
     job.chequearClima();
 
-    verify(votacionesService).abrirVotacionAutomatica(99L);
+    verify(votacionesService).abrirVotacionAutomatica("99");
   }
 
   @Test
@@ -270,24 +270,24 @@ class ChequeoClimaJobTest
   {
     Actividad actividadQueFalla = crearActividad(
         LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
-    actividadQueFalla.setId(1L);
+    actividadQueFalla.setId("1");
 
     Actividad actividadQueFunciona = crearActividad(
         LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
-    actividadQueFunciona.setId(2L);
+    actividadQueFunciona.setId("2");
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(
         List.of(actividadQueFalla, actividadQueFunciona));
     when(proveedorClima.obtenerPronostico(eq(UBICACION), any())).thenReturn(pronosticoMalo);
-    when(votacionesService.abrirVotacionAutomatica(1L)).thenThrow(
+    when(votacionesService.abrirVotacionAutomatica("1")).thenThrow(
         new RuntimeException("Fallo la apertura de la votacion!"));
 
     inicializarJob();
     job.chequearClima(); // No propaga exception
 
-    verify(votacionesService).abrirVotacionAutomatica(2L);
+    verify(votacionesService).abrirVotacionAutomatica("2");
   }
 
   /* Auxiliares */
@@ -317,7 +317,7 @@ class ChequeoClimaJobTest
   private Usuario crearOrganizador()
   {
     Usuario organizador = new Usuario("organizador", "password", TipoRol.USER);
-    organizador.setId(1L);
+    organizador.setId("1");
     return organizador;
   }
 

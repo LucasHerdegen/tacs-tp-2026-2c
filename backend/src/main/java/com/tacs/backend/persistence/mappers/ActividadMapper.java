@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
-import com.tacs.backend.persistence.repositories.UsuarioJpaRepository;
+import com.tacs.backend.persistence.repositories.UsuarioMongoRepository;
 import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.persistence.entities.UbicacionEntity;
 
@@ -21,13 +21,13 @@ import com.tacs.backend.persistence.entities.UbicacionEntity;
 public class ActividadMapper
 {
   private final UsuarioMapper usuarioMapper;
-  private final UsuarioJpaRepository usuarioJpaRepository;
+  private final UsuarioMongoRepository usuarioMongoRepository;
 
   public ActividadMapper(UsuarioMapper usuarioMapper,
-                         UsuarioJpaRepository usuarioJpaRepository)
+                         UsuarioMongoRepository usuarioMongoRepository)
   {
     this.usuarioMapper = usuarioMapper;
-    this.usuarioJpaRepository = usuarioJpaRepository;
+    this.usuarioMongoRepository = usuarioMongoRepository;
   }
 
   public Actividad toDomain(ActividadEntity entity)
@@ -102,7 +102,7 @@ public class ActividadMapper
 
     if (domain.getOrganizador() != null && domain.getOrganizador().getId() != null)
     {
-      entity.setOrganizador(usuarioJpaRepository.getReferenceById(domain.getOrganizador().getId()));
+      entity.setOrganizador(usuarioMongoRepository.findById(domain.getOrganizador().getId()).orElse(null));
     } else
     {
       entity.setOrganizador(usuarioMapper.toEntity(domain.getOrganizador()));
@@ -113,7 +113,7 @@ public class ActividadMapper
       entity.setParticipantes(domain.getParticipantes().stream().map(p -> {
         if (p.getId() != null)
         {
-          return usuarioJpaRepository.getReferenceById(p.getId());
+          return usuarioMongoRepository.findById(p.getId()).orElse(null);
         }
         return usuarioMapper.toEntity(p);
       }).collect(Collectors.toList()));

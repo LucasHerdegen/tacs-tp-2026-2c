@@ -74,10 +74,10 @@ class ActividadesServiceImplemTest
     );
 
     usuarioMock = new Usuario();
-    usuarioMock.setId(1L);
+    usuarioMock.setId("1");
 
     actividadMock = new Actividad();
-    actividadMock.setId(100L);
+    actividadMock.setId("100");
   }
 
   @Test
@@ -87,21 +87,21 @@ class ActividadesServiceImplemTest
     // Arrange
     ActividadDto expectedDto = mock(ActividadDto.class);
 
-    when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioMock));
+    when(usuarioRepository.findById("1")).thenReturn(Optional.of(usuarioMock));
     when(actividadesMapper.actividadPostDtoToActividad(actividadPostDto, usuarioMock))
         .thenReturn(actividadMock);
     when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
     when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(expectedDto);
 
     // Act
-    ActividadDto result = actividadesService.createActividad(actividadPostDto, 1L);
+    ActividadDto result = actividadesService.createActividad(actividadPostDto, "1");
 
     // Assert
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(expectedDto);
     assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
 
-    verify(usuarioRepository).findById(1L);
+    verify(usuarioRepository).findById("1");
     verify(actividadesRepository).save(actividadMock);
   }
 
@@ -118,7 +118,7 @@ class ActividadesServiceImplemTest
     );
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.createActividad(dtoInvalido, 1L))
+    assertThatThrownBy(() -> actividadesService.createActividad(dtoInvalido, "1"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("La cantidad mínima no puede ser mayor a la máxima");
 
@@ -131,10 +131,10 @@ class ActividadesServiceImplemTest
   void createActividad_UsuarioNoEncontrado_ThrowsException()
   {
     // Arrange
-    when(usuarioRepository.findById(1L)).thenReturn(Optional.empty());
+    when(usuarioRepository.findById("1")).thenReturn(Optional.empty());
 
     // Act & Assert
-    assertThatThrownBy(() -> actividadesService.createActividad(actividadPostDto, 1L))
+    assertThatThrownBy(() -> actividadesService.createActividad(actividadPostDto, "1"))
         .isInstanceOf(UsuarioNotFoundException.class)
         .hasMessageContaining("El usuario con id 1 no fue encontrado");
 
@@ -147,10 +147,10 @@ class ActividadesServiceImplemTest
   void cancelarActividad_Success_ChangesStateToCancelada()
   {
     // Arrange
-    Long actividadId = 100L;
-    Long organizadorId = 1L;
+    String actividadId = "100";
+    String organizadorId = "1";
 
-    actividadMock.setOrganizador(usuarioMock); // id 1L
+    actividadMock.setOrganizador(usuarioMock); // id "1"
     actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
     actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
 
@@ -170,10 +170,10 @@ class ActividadesServiceImplemTest
   void cancelarActividad_NotOrganizer_ThrowsAccesoDenegadoException()
   {
     // Arrange
-    Long actividadId = 100L;
-    Long intrusoId = 999L;
+    String actividadId = "100";
+    String intrusoId = "999";
 
-    actividadMock.setOrganizador(usuarioMock); // el organizador es 1L
+    actividadMock.setOrganizador(usuarioMock); // el organizador es "1"
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
@@ -191,8 +191,8 @@ class ActividadesServiceImplemTest
   void cancelarActividad_ActividadNotFound_ThrowsActividadNotFoundException()
   {
     // Arrange
-    Long actividadId = 999L;
-    Long organizadorId = 1L;
+    String actividadId = "999";
+    String organizadorId = "1";
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.empty());
 
@@ -208,8 +208,8 @@ class ActividadesServiceImplemTest
   void actualizarConfiguracionClima_ReglasClima_Success()
   {
     // Arrange
-    Long actividadId = 100L;
-    Long organizadorId = 1L;
+    String actividadId = "100";
+    String organizadorId = "1";
     actividadMock.setOrganizador(usuarioMock);
 
     var reglasDto = new ReglasClimaDto(30.0, 15.0, 28.0, 20.0);
@@ -238,8 +238,8 @@ class ActividadesServiceImplemTest
   void actualizarConfiguracionClima_RangoReprogramacion_Success()
   {
     // Arrange
-    Long actividadId = 100L;
-    Long organizadorId = 1L;
+    String actividadId = "100";
+    String organizadorId = "1";
     actividadMock.setOrganizador(usuarioMock);
 
     var rangoDto = new RangoReprogramacionDto(3, -10, 20);
@@ -262,9 +262,9 @@ class ActividadesServiceImplemTest
   void actualizarConfiguracionClima_NotOrganizer_ThrowsAccesoDenegadoException()
   {
     // Arrange
-    Long actividadId = 100L;
-    Long usuarioIntrusoId = 999L;
-    actividadMock.setOrganizador(usuarioMock); // Organizador es 1L
+    String actividadId = "100";
+    String usuarioIntrusoId = "999";
+    actividadMock.setOrganizador(usuarioMock); // Organizador es "1"
 
     var configDto = new ConfigurarCondicionesDto(null, 12, null);
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
@@ -282,8 +282,8 @@ class ActividadesServiceImplemTest
   void actualizarConfiguracionClima_RangoHorarioInvalido_ThrowsException()
   {
     // Arrange
-    Long actividadId = 100L;
-    Long organizadorId = 1L;
+    String actividadId = "100";
+    String organizadorId = "1";
     actividadMock.setOrganizador(usuarioMock);
 
     // Hora inicio 20hs, Hora final 10hs (invalido)

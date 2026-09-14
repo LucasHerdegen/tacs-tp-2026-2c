@@ -2,7 +2,7 @@ package com.tacs.backend.persistence.mappers;
 
 import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.persistence.entities.VotacionEntity;
-import com.tacs.backend.persistence.repositories.ActividadesJpaRepository;
+import com.tacs.backend.persistence.repositories.ActividadesMongoRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,16 +14,16 @@ public class VotacionMapperEntity
   private final ActividadMapper actividadMapper;
   private final AlternativaMapper alternativaMapper;
   private final VotoMapper votoMapper;
-  private final ActividadesJpaRepository actividadJpaRepository;
+  private final ActividadesMongoRepository actividadMongoRepository;
 
   public VotacionMapperEntity(ActividadMapper actividadMapper, AlternativaMapper alternativaMapper,
                               VotoMapper votoMapper,
-                              ActividadesJpaRepository actividadJpaRepository)
+                              ActividadesMongoRepository actividadMongoRepository)
   {
     this.actividadMapper = actividadMapper;
     this.alternativaMapper = alternativaMapper;
     this.votoMapper = votoMapper;
-    this.actividadJpaRepository = actividadJpaRepository;
+    this.actividadMongoRepository = actividadMongoRepository;
   }
 
   public Votacion toDomain(VotacionEntity entity)
@@ -72,7 +72,7 @@ public class VotacionMapperEntity
 
     if (domain.getActividad() != null && domain.getActividad().getId() != null)
     {
-      entity.setActividad(actividadJpaRepository.getReferenceById(domain.getActividad().getId()));
+      entity.setActividad(actividadMongoRepository.findById(domain.getActividad().getId()).orElse(null));
     } else
     {
       entity.setActividad(actividadMapper.toEntity(domain.getActividad()));

@@ -20,7 +20,7 @@ import java.util.Optional;
 @NoArgsConstructor
 public class Votacion
 {
-  private Long id;
+  private String id;
   private LocalDateTime fechaApertura;
   private LocalDateTime fechaCierre;
   private boolean abierta = true;

@@ -15,13 +15,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Alternativa
 {
-
-
-  private Long id;
-
+  private String id;
   private LocalDateTime fecha;
-
   private Clima clima;
-
   private int numeroAltenativa;
 }

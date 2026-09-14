@@ -43,7 +43,7 @@ class ActividadesController
       @RequestBody @Valid ActividadPostDto actividadPostDto,
       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     var actividad = this.actividadesService.createActividad(actividadPostDto, usuarioId);
 
     URI location = ServletUriComponentsBuilder
@@ -60,7 +60,7 @@ class ActividadesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @GetMapping("/{id}")
-  public ResponseEntity<ActividadDto> obtenerActividad(@PathVariable Long id)
+  public ResponseEntity<ActividadDto> obtenerActividad(@PathVariable String id)
   {
     return ResponseEntity.ok(actividadesService.obtenerActividad(id));
   }
@@ -74,7 +74,7 @@ class ActividadesController
       @RequestParam(required = false) Boolean organizador,
       @RequestParam(required = false) TipoEstadoActividad estado)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
 
     List<ActividadDto> actividades;
     if (organizador == null)
@@ -110,9 +110,9 @@ class ActividadesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PostMapping("/{id}/participantes")
-  public ResponseEntity<Void> unirseActividad(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt)
+  public ResponseEntity<Void> unirseActividad(@PathVariable String id, @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     actividadesService.unirseActividad(id, usuarioId);
     return ResponseEntity.noContent().build();
   }
@@ -123,9 +123,9 @@ class ActividadesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @DeleteMapping("/{id}/participantes")
-  public ResponseEntity<Void> bajarseActividad(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt)
+  public ResponseEntity<Void> bajarseActividad(@PathVariable String id, @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     actividadesService.bajarseActividad(id, usuarioId);
     return ResponseEntity.noContent().build();
   }
@@ -135,10 +135,10 @@ class ActividadesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @GetMapping("/{id}/clima")
-  public ResponseEntity<PronosticoRespuestaDto> obtenerClimaActividad(@PathVariable Long id,
+  public ResponseEntity<PronosticoRespuestaDto> obtenerClimaActividad(@PathVariable String id,
                                                                       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(actividadesService.obtenerClimaActividad(id, usuarioId));
   }
 
@@ -150,11 +150,11 @@ class ActividadesController
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PatchMapping("/{id}/estado")
   public ResponseEntity<Void> cambiarEstadoActividad(
-      @PathVariable Long id,
+      @PathVariable String id,
       @Valid @RequestBody CambiarEstadoDto dto,
       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     actividadesService.cambiarEstado(id, usuarioId, dto.estado());
     return ResponseEntity.ok().build();
   }
@@ -167,11 +167,11 @@ class ActividadesController
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @PatchMapping("/{id}/configuracion-clima")
   public ResponseEntity<ActividadDto> actualizarConfiguracionClima(
-      @PathVariable Long id,
+      @PathVariable String id,
       @Valid @RequestBody ConfigurarCondicionesDto dto,
       @AuthenticationPrincipal Jwt jwt)
   {
-    Long usuarioId = jwt.getClaim("id");
+    String usuarioId = jwt.getClaim("id");
     ActividadDto actividadActualizada = actividadesService.actualizarConfiguracionClima(id, usuarioId, dto);
     return ResponseEntity.ok(actividadActualizada);
   }

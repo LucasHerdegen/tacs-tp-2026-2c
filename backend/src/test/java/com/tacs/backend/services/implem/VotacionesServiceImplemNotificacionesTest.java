@@ -83,16 +83,16 @@ class VotacionesServiceImplemNotificacionesTest
     LocalDateTime fechaGanadora = LocalDateTime.now().plusDays(3);
 
     Actividad actividad = crearActividad(fechaOriginal);
-    Alternativa ganadora = crearAlternativa(1L, 1, fechaGanadora);
+    Alternativa ganadora = crearAlternativa("1", 1, fechaGanadora);
 
     Votacion votacion = crearVotacion(actividad, 2, List.of(ganadora));
     votarDosVeces(votacion, ganadora);
 
-    when(votacionesRepository.findById(10L)).thenReturn(Optional.of(votacion));
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
-    service.resolverVotacion(10L);
+    service.resolverVotacion("10");
 
     ArgumentCaptor<String> contenido = ArgumentCaptor.forClass(String.class);
     verify(servicioNotificaciones)
@@ -110,16 +110,16 @@ class VotacionesServiceImplemNotificacionesTest
     LocalDateTime fechaGanadora = LocalDateTime.now().plusDays(3);
 
     Actividad actividad = crearActividad(LocalDateTime.now().plusDays(1));
-    Alternativa ganadora = crearAlternativa(1L, 1, fechaGanadora);
+    Alternativa ganadora = crearAlternativa("1", 1, fechaGanadora);
 
     Votacion votacion = crearVotacion(actividad, 2, List.of(ganadora));
     votarDosVeces(votacion, ganadora);
 
-    when(votacionesRepository.findById(10L)).thenReturn(Optional.of(votacion));
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
-    service.resolverVotacion(10L);
+    service.resolverVotacion("10");
 
     assertThat(actividad.getFechaRealizacion()).isEqualTo(fechaGanadora);
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
@@ -133,17 +133,17 @@ class VotacionesServiceImplemNotificacionesTest
   void sinQuorumNotificaLaCancelacion()
   {
     Actividad actividad = crearActividad(LocalDateTime.now().plusDays(1));
-    Alternativa alternativa = crearAlternativa(1L, 1, LocalDateTime.now().plusDays(3));
+    Alternativa alternativa = crearAlternativa("1", 1, LocalDateTime.now().plusDays(3));
 
     // Quorum 5 con solo 2 votos: no se alcanza, la actividad se cancela
     Votacion votacion = crearVotacion(actividad, 5, List.of(alternativa));
     votarDosVeces(votacion, alternativa);
 
-    when(votacionesRepository.findById(10L)).thenReturn(Optional.of(votacion));
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
-    service.resolverVotacion(10L);
+    service.resolverVotacion("10");
 
     verify(servicioNotificaciones)
         .notificarATodos(contains(actividad.getTitulo()), eq(actividad.getParticipantes()));
@@ -161,10 +161,10 @@ class VotacionesServiceImplemNotificacionesTest
   {
     Actividad actividad = crearActividad(LocalDateTime.now().plusDays(1));
 
-    when(actividadesRepository.findById(1L)).thenReturn(Optional.of(actividad));
-    when(votacionesRepository.findByAbiertaTrueAndActividadId(1L)).thenReturn(Optional.empty());
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId("1")).thenReturn(Optional.empty());
 
-    Optional<VotacionDto> resultado = service.abrirVotacionAutomatica(1L);
+    Optional<VotacionDto> resultado = service.abrirVotacionAutomatica("1");
 
     assertThat(resultado).isEmpty();
 
@@ -194,14 +194,14 @@ class VotacionesServiceImplemNotificacionesTest
         LocalDateTime.now(),
         2,
         10,
-        crearUsuarioConId(999L));
+        crearUsuarioConId("999"));
 
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
 
     return actividad;
   }
 
-  private Alternativa crearAlternativa(Long id, int numero, LocalDateTime fecha)
+  private Alternativa crearAlternativa(String id, int numero, LocalDateTime fecha)
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId(id);
@@ -222,11 +222,11 @@ class VotacionesServiceImplemNotificacionesTest
 
   private void votarDosVeces(Votacion votacion, Alternativa alternativa)
   {
-    votacion.registrarVoto(votoDe(1L, alternativa));
-    votacion.registrarVoto(votoDe(2L, alternativa));
+    votacion.registrarVoto(votoDe("1", alternativa));
+    votacion.registrarVoto(votoDe("2", alternativa));
   }
 
-  private Voto votoDe(Long usuarioId, Alternativa alternativa)
+  private Voto votoDe(String usuarioId, Alternativa alternativa)
   {
     Voto voto = new Voto();
     voto.setUsuario(crearUsuarioConId(usuarioId));
@@ -234,7 +234,7 @@ class VotacionesServiceImplemNotificacionesTest
     return voto;
   }
 
-  private Usuario crearUsuarioConId(Long id)
+  private Usuario crearUsuarioConId(String id)
   {
     Usuario usuario = new Usuario("usuario" + id, "password", TipoRol.USER);
     usuario.setId(id);
