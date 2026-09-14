@@ -27,7 +27,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
-@SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
+@SpringBootTest(properties = {
+    "security.jwt.secret=test-secret-key-with-at-least-32-bytes",
+    "weatherapi.api-key=test-key"
+})
 @AutoConfigureMockMvc
 @Transactional
 class ActividadesMeIntegrationTests

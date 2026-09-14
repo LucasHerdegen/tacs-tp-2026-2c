@@ -74,7 +74,7 @@ public class ActividadesMapper
     if (usuario == null)
       return null;
 
-    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());
+    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol(), usuario.getMedioContacto());
   }
 
   public Ubicacion ubicacionDtoToUbicacion(UbicacionDto dto)
