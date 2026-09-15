@@ -67,11 +67,14 @@ class ActividadesServiceTest {
 
     @Test
     void buscarActividades_FiltraCorrectamentePorBarrio() {
+        actividadMock.setTitulo("Partido de fútbol");
+        actividadMock.setUbicacion(new Ubicacion("Palermo", 0, 0));
+
         Actividad actividadOtra = new Actividad();
+        actividadOtra.setTitulo("Clase de Yoga");
         actividadOtra.setUbicacion(new Ubicacion("Recoleta", 0, 0));
-        
+
         when(actividadesRepository.findAll()).thenReturn(List.of(actividadMock, actividadOtra));
-        
 
         ActividadDto dummyDto = new ActividadDto(1L, "Titulo", "Desc", null, null, null, 0, 0, 0, null, null, 0, null, null, null, null);
         when(actividadesMapper.actividadToActividadDto(any(Actividad.class))).thenReturn(dummyDto);

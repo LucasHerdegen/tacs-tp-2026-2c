@@ -69,10 +69,10 @@ class ActividadesController
   @GetMapping
   public ResponseEntity<List<ActividadDto>> buscarActividades(
       @RequestParam(required = false) TipoActividad tipo,
-      @RequestParam(required = false) String barrio,
+      @RequestParam(required = false) String busqueda,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha)
   {
-    List<ActividadDto> actividades = actividadesService.buscarActividades(tipo, barrio, fecha);
+    List<ActividadDto> actividades = actividadesService.buscarActividades(tipo, busqueda, fecha);
     return ResponseEntity.ok(actividades);
   }
 

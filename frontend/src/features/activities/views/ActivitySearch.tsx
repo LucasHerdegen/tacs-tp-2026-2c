@@ -12,6 +12,7 @@ import { ApiError } from '../../../lib/api';
 export const ActivitySearch: React.FC = () => {
   useDocumentTitle('Buscar Actividades');
 
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -23,37 +24,37 @@ export const ActivitySearch: React.FC = () => {
   const { token } = useAuth();
 
   useEffect(() => {
-    const buscarActividades = async () => {
-      if (!token) {
-        setError('No estás autenticado.');
-        return;
-      }
+  const buscarActividades = async () => {
+    if (!token) {
+      setError('No estás autenticado.');
+      return;
+    }
 
-      setIsLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const data = await activitiesApi.buscar(
-          filterType || null,
-          searchTerm || null,
-          filterDate || null,
-          token,
-        );
+    try {
+      const data = await activitiesApi.buscar(
+        filterType || null,
+        appliedSearchTerm || null,
+        filterDate || null,
+        token,
+      );
 
-        setActivities(data);
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : 'Error al buscar actividades.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setActivities(data);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Error al buscar actividades.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    buscarActividades();
-  }, [filterType, searchTerm, filterDate, token]);
+  buscarActividades();
+  }, [filterType, appliedSearchTerm, filterDate, token]);
 
   return (
     <div className="space-y-6">
@@ -75,6 +76,14 @@ export const ActivitySearch: React.FC = () => {
             className="input-field"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setAppliedSearchTerm(searchTerm);
+              }
+            }}
+            onBlur={() => {
+              setAppliedSearchTerm(searchTerm);
+            }}
           />
         </div>
 

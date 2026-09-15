@@ -134,8 +134,10 @@ public class ActividadesServiceImplem implements ActividadesService
         .toList();
   }
 
-  private String normalizar(String texto)
-  {
+  private String normalizar(String texto) {
+    if (texto == null) {
+        return "";
+    }
     return java.text.Normalizer
         .normalize(texto, java.text.Normalizer.Form.NFD)
         .replaceAll("\\p{M}", "")
