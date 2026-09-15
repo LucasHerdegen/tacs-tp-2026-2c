@@ -94,14 +94,14 @@ class ActividadesController
   @GetMapping
   public ResponseEntity<Page<ActividadDto>> buscarActividades(
       @RequestParam(required = false) TipoActividad tipo,
-      @RequestParam(required = false) String barrio,
+      @RequestParam(required = false) String busqueda,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
       @RequestParam(required = false) TipoEstadoActividad estado,
       @RequestParam(required = false) Boolean cupoDisponible,
       @org.springdoc.core.annotations.ParameterObject org.springframework.data.domain.Pageable pageable)
   {
     return ResponseEntity.ok(
-        actividadesService.buscarActividades(tipo, barrio, fecha, estado, cupoDisponible, pageable));
+        actividadesService.buscarActividades(tipo, busqueda, fecha, estado, cupoDisponible, pageable));
   }
 
   @Operation(summary = "Unirse a actividad", description = "Agrega un participante a una actividad (Requiere rol USER)")

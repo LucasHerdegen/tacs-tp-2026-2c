@@ -31,7 +31,10 @@ docker compose up --build -d
 ```
 *(Usamos `--build` para asegurarnos de que la imagen se recompile con los últimos cambios en el código, y `-d` para que corra en segundo plano).*
 
-Esto levantará la aplicación en el puerto `8080` y una instancia de MongoDB.
+Este levantará:
+- El **Backend** (Spring Boot) en el puerto `8080`.
+- Una instancia de **MongoDB** en el puerto `27017`.
+- El **Frontend** (React + Vite, servido con Nginx) en el puerto `80`. Podés acceder a la UI ingresando a **http://localhost** en tu navegador.
 
 > **Nota sobre Base de Datos (Entrega 2):** El proyecto ha sido migrado a MongoDB para cumplir con el requerimiento de una base de datos NoSQL. Docker Compose inicializará automáticamente el servicio de persistencia y la aplicación se conectará usando Spring Data MongoDB.
 
@@ -55,9 +58,9 @@ cd backend
 En el desarrollo de este trabajo práctico se adoptó un enfoque de **Pair-Programming guiado por Inteligencia Artificial**, utilizando asistentes integrados al entorno de desarrollo.
 
 ### Herramientas y Modelos
-- **Asistente / UI**: IDE con integración de agentes conversacionales (Antigravity) y Claude.
-- **Modelos**: Familia de modelos **Gemini** (Google) + **Sonnet 5** (Anthropic), utilizados por su gran capacidad de contexto para leer el código base completo de Spring Boot.
-- **CLI / Harness**: La IA interactuó nativamente con la terminal del sistema para ejecutar comandos de construcción y pruebas (`./mvnw test`), además de leer y parchear archivos en tiempo real.
+- **Asistente / UI**: IDE con integración de agentes conversacionales (Antigravity) y Claude / v0 para prototipado rápido de componentes frontend.
+- **Modelos**: Familia de modelos **Gemini** (Google) + **Sonnet 5** (Anthropic), utilizados por su gran capacidad de contexto para leer el código base completo de Spring Boot, así como para generar los componentes funcionales en React/Tailwind.
+- **CLI / Harness**: La IA interactuó nativamente con la terminal del sistema para ejecutar comandos de construcción y pruebas (`./mvnw test`, `npm run build`), además de leer y parchear archivos en tiempo real y resolver conflictos de merges.
 
 ## Decisiones de Arquitectura y Diseño
 

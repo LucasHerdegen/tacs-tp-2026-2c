@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.tacs.backend.domain.usuario.MedioContacto;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 class AuthServiceImplem implements AuthService
@@ -65,6 +67,15 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
+  @Transactional(readOnly = true)
+  public List<UsuarioDto> listarUsuarios()
+  {
+    return usuarioRepository.findAll().stream()
+        .map(this::toDto)
+        .toList();
+  }
+
+  @Override
   @Transactional
   public UsuarioDto actualizarRol(String usuarioId, TipoRol rol)
   {
@@ -72,7 +83,8 @@ class AuthServiceImplem implements AuthService
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
     usuario.setRol(rol);
-    return toDto(usuario);
+    Usuario guardado = usuarioRepository.save(usuario);
+    return toDto(guardado);
   }
 
   @Override

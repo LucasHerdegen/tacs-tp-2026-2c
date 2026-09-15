@@ -18,4 +18,8 @@ public interface UsuarioRepository
   boolean existsById(String id);
 
   Optional<Usuario> findByMedioContacto(MedioContacto medioContacto);
+
+  java.util.List<Usuario> findAll();
+
+  void deleteAll();
 }

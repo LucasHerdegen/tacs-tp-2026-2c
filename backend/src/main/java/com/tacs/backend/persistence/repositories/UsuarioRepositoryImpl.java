@@ -53,4 +53,16 @@ public class UsuarioRepositoryImpl implements UsuarioRepository
         .findByMedioContacto_ValorAndMedioContacto_Tipo(medioContacto.getValor(), medioContacto.getTipo())
         .map(mapper::toDomain);
   }
+
+  @Override
+  public java.util.List<Usuario> findAll()
+  {
+    return mongoRepository.findAll().stream().map(mapper::toDomain).toList();
+  }
+
+  @Override
+  public void deleteAll()
+  {
+    mongoRepository.deleteAll();
+  }
 }

@@ -133,7 +133,7 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio,
+  public Page<ActividadDto> buscarActividades(TipoActividad tipo, String busqueda,
                                               LocalDate fecha,
                                               TipoEstadoActividad estado,
                                               Boolean cupoDisponible,
@@ -141,8 +141,10 @@ public class ActividadesServiceImplem implements ActividadesService
   {
     List<ActividadDto> filtered = actividadesRepository.findAll().stream()
         .filter(a -> tipo == null || a.getTipo().equals(tipo))
-        .filter(
-            a -> barrio == null || (a.getUbicacion() != null && a.getUbicacion().getBarrio().equalsIgnoreCase(barrio)))
+        .filter(a -> busqueda == null ||
+            normalizar(a.getTitulo()).contains(normalizar(busqueda)) ||
+            (a.getUbicacion() != null &&
+            normalizar(a.getUbicacion().getBarrio()).contains(normalizar(busqueda))))
         .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
         .filter(a -> estado == null || a.getEstado() == estado)
         .filter(
@@ -155,6 +157,17 @@ public class ActividadesServiceImplem implements ActividadesService
     List<ActividadDto> pageContent = (start <= end) ? filtered.subList(start, end) : java.util.Collections.emptyList();
 
     return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, filtered.size());
+  }
+
+  private String normalizar(String texto) {
+    if (texto == null) {
+        return "";
+    }
+    return java.text.Normalizer
+        .normalize(texto, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .toLowerCase()
+        .trim();
   }
 
   /**
