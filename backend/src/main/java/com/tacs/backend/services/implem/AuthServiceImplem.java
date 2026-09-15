@@ -83,7 +83,8 @@ class AuthServiceImplem implements AuthService
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
     usuario.setRol(rol);
-    return toDto(usuario);
+    Usuario guardado = usuarioRepository.save(usuario);
+    return toDto(guardado);
   }
 
   @Override
