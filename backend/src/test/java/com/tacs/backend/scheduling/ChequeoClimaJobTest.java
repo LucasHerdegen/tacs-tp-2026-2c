@@ -9,6 +9,7 @@ import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.TipoMedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
@@ -129,6 +130,29 @@ class ChequeoClimaJobTest
 
     inicializarJob();
     List<Actividad> resultado = job.detectarClimaDesfavorable(); // No propaga exception, devuelve false y permite continuar la evaluacion -
+
+    assertThat(resultado).containsExactly(actividadQueFunciona);
+  }
+
+  @Test
+  void unaProveedorClimaIndisponibleExceptionDeUnaActividadNoImpideDetectarLasDemas()
+  {
+    Actividad actividadQueFalla = crearActividad(
+        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
+    Actividad actividadQueFunciona = crearActividad(
+        LocalDateTime.now().plusHours(3), 24, new ReglasClima(30, 10, 30, 20));
+
+    Clima pronosticoMalo = new Clima(80, 20, 10);
+
+    when(actividadesRepository.findCandidatasParaChequeoClima())
+        .thenReturn(List.of(actividadQueFalla, actividadQueFunciona));
+    when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFalla.getFechaRealizacion()))
+        .thenThrow(new ProveedorClimaIndisponibleException("Proveedor de clima no disponible temporalmente"));
+    when(proveedorClima.obtenerPronostico(UBICACION, actividadQueFunciona.getFechaRealizacion()))
+        .thenReturn(pronosticoMalo);
+
+    inicializarJob();
+    List<Actividad> resultado = job.detectarClimaDesfavorable();
 
     assertThat(resultado).containsExactly(actividadQueFunciona);
   }

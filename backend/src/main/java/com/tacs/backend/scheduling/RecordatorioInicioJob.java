@@ -8,6 +8,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -38,6 +39,7 @@ public class RecordatorioInicioJob
    */
   @Scheduled(fixedRateString = "${recordatorio.inicio.intervalo-ms}")
   @SchedulerLock(name = "RecordatorioInicioJob_enviarRecordatorios", lockAtLeastFor = "1m", lockAtMostFor = "10m")
+  @Transactional
   public void enviarRecordatorios()
   {
     for (Actividad actividad : detectarActividadesPorComenzar())

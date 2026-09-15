@@ -15,6 +15,7 @@ import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.VotacionMapper;
@@ -270,6 +271,91 @@ class VotacionesServiceImplemTest
     verify(actividadesRepository).save(actividad);
     verify(votacionesRepository, never()).save(any());
   }
+
+  @Test
+  void noCancelaLaActividadSiTodosLosDiasCandidatosFallanPorIndisponibilidadDelProveedor()
+  {
+    LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
+    actividad.setId("53");
+    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
+
+    when(actividadesRepository.findById("53")).thenReturn(Optional.of(actividad));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId("53")).thenReturn(Optional.empty());
+    when(proveedorClima.obtenerPronostico(any(), any()))
+        .thenThrow(new ProveedorClimaIndisponibleException("Proveedor de clima no disponible"));
+
+    inicializarService();
+    Optional<VotacionDto> resultado = service.abrirVotacionAutomatica("53");
+
+    assertThat(resultado).isEmpty();
+
+    // No tiene sentido cancelar una actividad si no devolvio alternativas favorables porque el proveedor estaba caido
+    
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
+    verify(actividadesRepository, never()).save(any());
+    verify(votacionesRepository, never()).save(any());
+  }
+
+  /*  
+  @Test
+  void ofreceAlternativasDeLosDiasConDatoAunqueOtroDiaQuedeFueraDeCoberturaDelProveedor()
+  {
+    // Reproduce lo observado en vivo con el proveedor real: cuando
+    // horasAnticipacion + rangoReprogramacion.dias encadenados superan el
+    // tope de dias que el plan de WeatherAPI puede cubrir (ver
+    // decisiones-tecnicas-validadas.md, seccion 2), el dia mas lejano del
+    // rango queda fuera de la cobertura real y climaEnHora tira
+    // ProveedorClimaIndisponibleException para TODAS sus horas — pero eso es
+    // indisponibilidad de UN dia puntual, no de la busqueda entera: los dias
+    // que si tienen dato (exitosos o no) se siguen evaluando normalmente, sin
+    // que el dia sin cobertura cancele la actividad ni tire abajo el resto.
+    
+    LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
+    actividad.setId(55L);
+    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14)); // 3 dias, grilla: 10,12,14
+
+    LocalDateTime diaSinCobertura = fechaOriginal.plusDays(1); // todas sus horas: indisponible
+    LocalDateTime diaConDatoSinFavorable = fechaOriginal.plusDays(2); // con dato, ninguna hora cumple
+    LocalDateTime diaConFavorable = fechaOriginal.plusDays(3); // con dato, una hora cumple
+    LocalDateTime horaFavorable = diaConFavorable.withHour(12).withMinute(0).withSecond(0).withNano(0);
+
+    when(actividadesRepository.findById(55L)).thenReturn(Optional.of(actividad));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId(55L)).thenReturn(Optional.empty());
+
+    // Default: dato disponible pero desfavorable (cubre diaConDatoSinFavorable
+    // y diaConFavorable, salvo la hora que se pisa despues).
+    when(proveedorClima.obtenerPronostico(eq(UBICACION), any())).thenReturn(new Clima(80, 20, 10));
+
+    for (int hora = 10; hora <= 14; hora += 2)
+      when(proveedorClima.obtenerPronostico(eq(UBICACION),
+          eq(diaSinCobertura.withHour(hora).withMinute(0).withSecond(0).withNano(0))))
+          .thenThrow(new ProveedorClimaIndisponibleException("Fuera de la cobertura traida"));
+
+    when(proveedorClima.obtenerPronostico(eq(UBICACION), eq(horaFavorable))).thenReturn(new Clima(5, 22, 10));
+
+    when(votacionesRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
+
+    inicializarService();
+    Optional<VotacionDto> resultado = service.abrirVotacionAutomatica(55L);
+
+    assertThat(resultado).isPresent();
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA); // no cancelada
+
+    ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
+    verify(votacionesRepository).save(captor.capture());
+    Votacion votacionCreada = captor.getValue();
+
+    // Solo la alternativa de diaConFavorable se ofrece; diaSinCobertura no
+    // aporta nada (ni error, ni cancelacion) y diaConDatoSinFavorable tampoco
+    // aporta nada por no tener ninguna hora que cumpla las reglas.
+    assertThat(votacionCreada.getAlternativas()).hasSize(1);
+    assertThat(votacionCreada.getAlternativas().get(0).getFecha()).isEqualTo(horaFavorable);
+  } */
 
   @Test
   void cancelaLaActividadSiNoTieneRangoReprogramacionConfiguradoSinConsultarElClima()

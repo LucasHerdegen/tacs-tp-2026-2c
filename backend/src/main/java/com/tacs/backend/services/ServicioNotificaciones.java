@@ -8,6 +8,5 @@ import java.util.Collection;
 public interface ServicioNotificaciones
 {
   void notificar(String contenido, MedioContacto destinatario);
-
   void notificarATodos(String contenido, Collection<Usuario> destinatarios);
 }

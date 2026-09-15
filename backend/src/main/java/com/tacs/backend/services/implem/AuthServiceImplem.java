@@ -37,7 +37,7 @@ class AuthServiceImplem implements AuthService
     Usuario usuario = new Usuario(request.username(), passwordHash, TipoRol.USER);
     Usuario usuarioGuardado = usuarioRepository.save(usuario);
 
-    return new UsuarioDto(usuarioGuardado.getId(), usuarioGuardado.getUsername(), usuarioGuardado.getRol());
+    return toDto(usuarioGuardado);
   }
 
   @Override
@@ -90,11 +90,12 @@ class AuthServiceImplem implements AuthService
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
     usuario.setMedioContacto(medioContacto);
-    return toDto(usuario);
+    Usuario usuarioGuardado = usuarioRepository.save(usuario);
+    return toDto(usuarioGuardado);
   }
 
   private UsuarioDto toDto(Usuario usuario)
   {
-    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());
+    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol(), usuario.getMedioContacto());
   }
 }

@@ -127,6 +127,31 @@ class VotacionesServiceImplemNotificacionesTest
     assertThat(actividad.isRecordatorioEnviado()).isFalse();
   }
 
+  @Test
+  void conQuorumAlcanzadoNotificaLaReprogramacionAunConLaActividadYaConfirmada()
+  {
+    LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
+    LocalDateTime fechaGanadora = LocalDateTime.now().plusDays(3);
+
+    Actividad actividad = crearActividadConfirmada(fechaOriginal);
+    Alternativa ganadora = crearAlternativa("1", 1, fechaGanadora);
+
+    Votacion votacion = crearVotacion(actividad, 2, List.of(ganadora));
+    votarDosVeces(votacion, ganadora);
+
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
+    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
+
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CONFIRMADA);
+
+    service.resolverVotacion("10");
+
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
+    verify(servicioNotificaciones)
+        .notificarATodos(contains(actividad.getTitulo()), eq(actividad.getParticipantes()));
+  }
+
   /* ==================== Cancelacion sin quorum ==================== */
 
   @Test
@@ -197,6 +222,26 @@ class VotacionesServiceImplemNotificacionesTest
         crearUsuarioConId("999"));
 
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
+
+    return actividad;
+  }
+
+  private Actividad crearActividadConfirmada(LocalDateTime fechaRealizacion)
+  {
+    Actividad actividad = new Actividad(
+        "Asado en el parque",
+        "Actividad de prueba",
+        TipoActividad.AIRE_LIBRE,
+        UBICACION,
+        fechaRealizacion,
+        2,
+        LocalDateTime.now(),
+        2,
+        10,
+        crearUsuarioConId("999"));
+
+    actividad.setEstado(TipoEstadoActividad.PROPUESTA);
+    actividad.agregarParticipante(crearUsuarioConId("1"));
 
     return actividad;
   }

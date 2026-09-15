@@ -1,8 +1,10 @@
 package com.tacs.backend.controllers;
 
 import com.tacs.backend.dtos.usuario.ActualizarRolRequest;
+import com.tacs.backend.dtos.usuario.TelegramVinculacionDto;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
 import com.tacs.backend.services.AuthService;
+import com.tacs.backend.services.implem.telegrambot.TelegramVinculacionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +30,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 class UsuariosController
 {
   private final AuthService authService;
+  private final TelegramVinculacionService telegramVinculacionService;
 
   @Operation(summary = "Actualizar rol de usuario", description = "Modifica el rol de un usuario existente (Requiere rol ADMIN)")
   @ApiResponse(responseCode = "200", description = "Rol actualizado exitosamente", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
@@ -64,5 +68,16 @@ class UsuariosController
   {
     String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.actualizarContacto(usuarioId, dto.medioContacto()));
+  }
+
+  @Operation(summary = "Generar link de vinculacion con Telegram", description = "Genera un token de un solo uso y el deep-link para vincular la cuenta autenticada con un chat de Telegram (Requiere rol USER)")
+  @ApiResponse(responseCode = "200", description = "Link generado", content = @Content(schema = @Schema(implementation = TelegramVinculacionDto.class)))
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @PostMapping("/me/telegram/vinculacion")
+  public ResponseEntity<TelegramVinculacionDto> generarVinculacionTelegram(
+      @AuthenticationPrincipal Jwt jwt)
+  {
+    String usuarioId = jwt.getClaim("id");
+    return ResponseEntity.ok(telegramVinculacionService.generarVinculacion(usuarioId));
   }
 }

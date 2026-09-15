@@ -1,5 +1,6 @@
 package com.tacs.backend.repositories;
 
+import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.Usuario;
 
 import java.util.Optional;
@@ -15,4 +16,6 @@ public interface UsuarioRepository
   Optional<Usuario> findById(String id);
 
   boolean existsById(String id);
+
+  Optional<Usuario> findByMedioContacto(MedioContacto medioContacto);
 }

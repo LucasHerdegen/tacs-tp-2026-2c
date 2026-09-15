@@ -69,12 +69,19 @@ public class ActividadesMapper
     );
   }
 
+  /**
+   * Usado para embeber el organizador/participantes dentro de un ActividadDto,
+   * visible para cualquiera que pueda ver la actividad (no solo el propio
+   * usuario). medioContacto es informacion privada (ej. chat_id de Telegram):
+   * no se propaga aca. Solo se expone en el DTO de "mi propio perfil"
+   * (AuthServiceImplem.toDto, usado por GET /usuarios/me y el PATCH de contacto).
+   */
   public UsuarioDto usuarioToUsuarioDto(Usuario usuario)
   {
     if (usuario == null)
       return null;
 
-    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol());
+    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol(), null);
   }
 
   public Ubicacion ubicacionDtoToUbicacion(UbicacionDto dto)

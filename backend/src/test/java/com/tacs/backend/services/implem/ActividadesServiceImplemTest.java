@@ -6,11 +6,14 @@ import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.mappers.ActividadesMapper;
+import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,8 +22,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,6 +56,12 @@ class ActividadesServiceImplemTest
   @Mock
   private ServicioNotificaciones servicioNotificaciones;
 
+  @Mock
+  private ProveedorClima proveedorClima;
+
+  @Mock
+  private ClimaMapper climaMapper;
+
   @InjectMocks
   private ActividadesServiceImplem actividadesService;
 
@@ -78,6 +89,10 @@ class ActividadesServiceImplemTest
 
     actividadMock = new Actividad();
     actividadMock.setId("100");
+
+    // maxDiasForecast se inyecta via @Value en produccion; en el test se
+    // setea a mano con el mismo valor que application.properties.
+    ReflectionTestUtils.setField(actividadesService, "maxDiasForecast", 14);
   }
 
   @Test
@@ -297,5 +312,68 @@ class ActividadesServiceImplemTest
         .isInstanceOf(RangoReprogramacionInvalidoException.class);
 
     verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Falla si horasAnticipacion supera el tope del plan de WeatherAPI (14 dias = 336hs)")
+  void actualizarConfiguracionClima_HorasAnticipacionSuperaElTope_ThrowsException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+
+    var configDto = new ConfigurarCondicionesDto(null, 337, null); // 14 dias * 24hs + 1
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("WeatherAPI");
+
+    verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Falla si RangoReprogramacion.dias supera el tope del plan de WeatherAPI (14 dias)")
+  void actualizarConfiguracionClima_RangoReprogramacionDiasSuperaElTope_ThrowsException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+
+    var rangoDto = new RangoReprogramacionDto(15, 10, 20); // supera el tope de 14 dias
+    var configDto = new ConfigurarCondicionesDto(null, null, rangoDto);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto))
+        .isInstanceOf(RangoReprogramacionInvalidoException.class)
+        .hasMessageContaining("WeatherAPI");
+
+    verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad con proveedor indisponible - Propaga ProveedorClimaIndisponibleException")
+  void obtenerClimaActividad_ProveedorIndisponible_PropagaExcepcion()
+  {
+    // Arrange
+    String actividadId = "100";
+    String usuarioId = "1";
+    actividadMock.setParticipantes(List.of(usuarioMock));
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(proveedorClima.obtenerClima(any()))
+        .thenThrow(new ProveedorClimaIndisponibleException("Proveedor de clima no disponible"));
+
+    // Act & Assert: la excepcion no se atrapa en el service, se deja propagar
+    // hacia el GlobalExceptionHandler (que la mapea a 503).
+    assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
+        .isInstanceOf(ProveedorClimaIndisponibleException.class);
   }
 }
