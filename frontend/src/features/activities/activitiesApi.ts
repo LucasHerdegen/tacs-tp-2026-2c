@@ -1,4 +1,5 @@
 import { apiRequest } from '../../lib/api';
+import type { UserId } from '../auth/types';
 import type { Actividad, ActividadPost, PronosticoRespuesta, ConfigurarCondiciones } from './types';
 
 export const activitiesApi = {
@@ -18,21 +19,21 @@ export const activitiesApi = {
       ); 
     },
 
-  unirse(actividadId: number, usuarioId: number, token: string) {
+  unirse(actividadId: number, usuarioId: UserId, token: string) {
     return apiRequest<void>(
       `/api/actividades/${actividadId}/participantes?usuarioId=${usuarioId}`,
       { method: 'POST', token },
     );
   },
 
-  bajarse(actividadId: number, usuarioId: number, token: string) {
+  bajarse(actividadId: number, usuarioId: UserId, token: string) {
     return apiRequest<void>(
       `/api/actividades/${actividadId}/participantes?usuarioId=${usuarioId}`,
       { method: 'DELETE', token },
     );
   },
 
-  clima(actividadId: number, usuarioId: number, token: string) {
+  clima(actividadId: number, usuarioId: UserId, token: string) {
     return apiRequest<PronosticoRespuesta>(
       `/api/actividades/${actividadId}/clima?usuarioId=${usuarioId}`,
       { token },
@@ -58,23 +59,23 @@ export const activitiesApi = {
   },
 
   buscar(tipo: string | null, busqueda: string | null, fecha: string | null, token: string) {
-  const params = new URLSearchParams();
+    const params = new URLSearchParams();
 
-  if (tipo) {
-    params.append('tipo', tipo);
-  }
-  if (busqueda) {
-    params.append('barrio', busqueda);
-  }
-  if (fecha) {
-    params.append('fecha', fecha);
-  }
+    if (tipo) {
+      params.append('tipo', tipo);
+    }
+    if (busqueda) {
+      params.append('barrio', busqueda);
+    }
+    if (fecha) {
+      params.append('fecha', fecha);
+    }
 
-  const query = params.toString();
+    const query = params.toString();
 
-  return apiRequest<Actividad[]>(
-    `/api/actividades${query ? `?${query}` : ''}`,
-    { token },
-  );
+    return apiRequest<Actividad[]>(
+      `/api/actividades${query ? `?${query}` : ''}`,
+      { token },
+    );
   },
 };

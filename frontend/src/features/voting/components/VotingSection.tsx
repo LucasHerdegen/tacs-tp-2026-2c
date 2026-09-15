@@ -4,13 +4,14 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { ApiError } from '../../../lib/api';
 import { useAuth } from '../../auth/authContext';
+import type { UserId } from '../../auth/types';
 import { votingApi } from '../votingApi';
 import type { AlternativaDto, VotacionDto } from '../types';
 import { VotingCreateForm } from './VotingCreateForm';
 
 interface VotingSectionProps {
   actividadId: number;
-  organizadorId: number;
+  organizadorId: UserId;
 }
 
 function badgeParaClima(cumple: boolean | null) {
@@ -31,23 +32,43 @@ export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organ
 
   const esOrganizador = user?.id === organizadorId;
 
-  const cargarVotacion = useCallback(async () => {
+  const obtenerVotacion = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
-    setError('');
+    return votingApi.buscarPorActividad(actividadId, token);
+  }, [actividadId, token]);
+
+  const cargarVotacion = useCallback(async () => {
     try {
-      const encontrada = await votingApi.buscarPorActividad(actividadId, token);
+      const encontrada = await obtenerVotacion();
+      if (encontrada === undefined) return;
       setVotacion(encontrada);
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar la votación.');
     } finally {
       setLoading(false);
     }
-  }, [actividadId, token]);
+  }, [obtenerVotacion]);
 
   useEffect(() => {
-    cargarVotacion();
-  }, [cargarVotacion]);
+    let active = true;
+
+    obtenerVotacion()
+      .then((encontrada) => {
+        if (!active || encontrada === undefined) return;
+        setVotacion(encontrada);
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar la votación.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [obtenerVotacion]);
 
   async function handleVotar(numeroAlternativa: number) {
     if (!token || !user || !votacion) return;

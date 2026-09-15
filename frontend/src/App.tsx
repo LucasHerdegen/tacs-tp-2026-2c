@@ -11,6 +11,7 @@ import { GuestOnly, RequireAdmin, RequireAuth } from './features/auth/components
 import { Login } from './features/auth/views/Login';
 import { Register } from './features/auth/views/Register';
 import { AdminStats } from './features/admin/views/AdminStats';
+import { AdminUsers } from './features/admin/views/AdminUsers';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
               <Route path="/activities/:id/weather-config" element={<WeatherConfig />} />
               <Route element={<RequireAdmin />}>
                 <Route path="/admin/estadisticas" element={<AdminStats />} />
+                <Route path="/admin/usuarios" element={<AdminUsers />} />
               </Route>
             </Route>
           </Routes>

@@ -1,9 +1,16 @@
 export type UserRole = 'USER' | 'ADMIN';
+export type UserId = string | number;
+
+export interface ContactMethod {
+  valor: string;
+  tipo: 'TELEGRAM';
+}
 
 export interface User {
-  id: number;
+  id: UserId;
   username: string;
   rol: UserRole;
+  medioContacto: ContactMethod | null;
 }
 
 export interface LoginCredentials {

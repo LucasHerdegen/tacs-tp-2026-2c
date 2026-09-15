@@ -8,13 +8,17 @@ import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
 import type { ActividadPost } from '../types';
-import type { TipoActividad } from '../types';
+// import type { TipoActividad } from '../types'; // Hace que falle build mientras no se use.
 import { ApiError } from '../../../lib/api';
 import { useAuth } from '../../auth/authContext';
 import { activitiesApi } from '../activitiesApi';
 
 // Fix para los íconos por defecto de Leaflet en React
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+type LeafletIconDefaultPrototype = L.Icon.Default & {
+  _getIconUrl?: (name: string) => string;
+};
+
+delete (L.Icon.Default.prototype as LeafletIconDefaultPrototype)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',

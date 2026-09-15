@@ -22,9 +22,14 @@ export const Navbar: React.FC = () => {
                   Mis Actividades
                 </Link>
                 {user?.rol === 'ADMIN' && (
-                  <Link to="/admin/estadisticas" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                    Estadísticas
-                  </Link>
+                  <>
+                    <Link to="/admin/usuarios" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                      Usuarios
+                    </Link>
+                    <Link to="/admin/estadisticas" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                      Estadísticas
+                    </Link>
+                  </>
                 )}
                 <span className="hidden border-l border-indigo-400 pl-4 text-sm sm:inline">
                   {user?.username}

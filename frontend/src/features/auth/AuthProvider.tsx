@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || user) return;
 
     let active = true;
     authApi
@@ -74,13 +74,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (active) logout();
       });
 
+    return () => {
+      active = false;
+    };
+  }, [logout, session, user]);
+
+  useEffect(() => {
+    if (!session) return;
+
     const expirationTimer = window.setTimeout(
       logout,
       Math.max(0, session.expiresAt - Date.now()),
     );
 
     return () => {
-      active = false;
       window.clearTimeout(expirationTimer);
     };
   }, [logout, session]);

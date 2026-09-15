@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // Hace que falle build mientras no se use.
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -15,7 +16,7 @@ export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const actividadId = Number(id);
   const { user, token } = useAuth();
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Hace que falle build mientras no se use.
 
   const [activity, setActivity] = useState<Actividad | null>(null);
   const [pronostico, setPronostico] = useState<PronosticoRespuesta | null>(null);
@@ -34,33 +35,55 @@ export const ActivityDetail: React.FC = () => {
   const esOrganizador = canManageActivity(activity, user);
   const estaCancelada = isActivityCanceled(activity);
 
-  const cargarTodo = useCallback(async () => {
-    if (Number.isNaN(actividadId)) {
-      setLoading(false);
-      return;
-    }
+  const obtenerDetalle = useCallback(async () => {
+    if (Number.isNaN(actividadId)) return;
     if (!token || !user) return;
-    setLoading(true);
-    setError('');
-    try {
-      const actividadEncontrada = await activitiesApi.obtener(actividadId, token);
-      setActivity(actividadEncontrada);
 
-      const yaParticipa = actividadEncontrada?.participantes.some((p) => p.id === user.id);
-      if (actividadEncontrada && yaParticipa && actividadEncontrada.estadoActividad !== 'CANCELADA') {
-        const clima = await activitiesApi.clima(actividadId, user.id, token);
-        setPronostico(clima);
-      }
+    const actividadEncontrada = await activitiesApi.obtener(actividadId, token);
+    let pronosticoEncontrado: PronosticoRespuesta | null = null;
+
+    const yaParticipa = actividadEncontrada?.participantes.some((p) => p.id === user.id);
+    if (actividadEncontrada && yaParticipa && actividadEncontrada.estadoActividad !== 'CANCELADA') {
+      pronosticoEncontrado = await activitiesApi.clima(actividadId, user.id, token);
+    }
+
+    return { actividadEncontrada, pronosticoEncontrado };
+  }, [actividadId, token, user]);
+
+  const cargarTodo = useCallback(async () => {
+    try {
+      const detalle = await obtenerDetalle();
+      if (!detalle) return;
+      setActivity(detalle.actividadEncontrada);
+      setPronostico(detalle.pronosticoEncontrado);
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar la actividad.');
     } finally {
       setLoading(false);
     }
-  }, [actividadId, token, user]);
+  }, [obtenerDetalle]);
 
   useEffect(() => {
-    cargarTodo();
-  }, [cargarTodo]);
+    let active = true;
+
+    obtenerDetalle()
+      .then((detalle) => {
+        if (!active || !detalle) return;
+        setActivity(detalle.actividadEncontrada);
+        setPronostico(detalle.pronosticoEncontrado);
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar la actividad.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [obtenerDetalle]);
 
   async function handleJoinLeave() {
     if (!token || !user || !activity || estaCancelada) return;
@@ -110,6 +133,15 @@ export const ActivityDetail: React.FC = () => {
     }
     return { text: 'Sumarme a la actividad', disabled: busy, variant: 'primary' as const };
   };
+
+  if (Number.isNaN(actividadId)) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-2xl font-bold text-gray-900">Actividad no encontrada</h2>
+        <Link to="/activities" className="text-indigo-600 hover:underline mt-4 inline-block">Volver al buscador</Link>
+      </div>
+    );
+  }
 
   if (loading) {
     return <p className="text-center py-20 text-gray-500">Cargando actividad…</p>;

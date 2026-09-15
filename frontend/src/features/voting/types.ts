@@ -1,5 +1,6 @@
 import type { Actividad } from '../activities/types';
 import type { Clima } from '../activities/types';
+import type { UserId } from '../auth/types';
 
 export interface AlternativaPostDto {
   fecha: string;
@@ -12,7 +13,7 @@ export interface VotacionPostDto {
 }
 
 export interface VotoPostDto {
-  usuarioId: number;
+  usuarioId: UserId;
   numeroAlternativa: number;
 }
 
