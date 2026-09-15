@@ -7,6 +7,8 @@ import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
 import com.tacs.backend.domain.usuario.MedioContacto;
 
+import java.util.List;
+
 public interface AuthService
 {
   UsuarioDto registrar(RegistroRequest request);
@@ -14,6 +16,8 @@ public interface AuthService
   LoginResponse login(LoginRequest request);
 
   UsuarioDto buscarPorUsername(String username);
+
+  List<UsuarioDto> listarUsuarios();
 
   UsuarioDto actualizarRol(String usuarioId, TipoRol rol);
 

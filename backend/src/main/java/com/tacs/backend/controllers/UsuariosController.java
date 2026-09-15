@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/usuarios")
@@ -31,6 +34,12 @@ class UsuariosController
 {
   private final AuthService authService;
   private final TelegramVinculacionService telegramVinculacionService;
+
+  @GetMapping
+  public ResponseEntity<List<UsuarioDto>> listarUsuarios()
+  {
+    return ResponseEntity.ok(authService.listarUsuarios());
+  }
 
   @Operation(summary = "Actualizar rol de usuario", description = "Modifica el rol de un usuario existente (Requiere rol ADMIN)")
   @ApiResponse(responseCode = "200", description = "Rol actualizado exitosamente", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))

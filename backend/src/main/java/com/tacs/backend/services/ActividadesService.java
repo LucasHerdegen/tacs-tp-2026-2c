@@ -18,7 +18,7 @@ public interface ActividadesService
 
   ActividadDto obtenerActividad(String id);
 
-  Page<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha,
+  Page<ActividadDto> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha,
                                        TipoEstadoActividad estado,
                                        Boolean cupoDisponible, Pageable pageable);
 
