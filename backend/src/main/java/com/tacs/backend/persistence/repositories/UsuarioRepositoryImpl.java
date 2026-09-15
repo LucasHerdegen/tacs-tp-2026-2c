@@ -1,5 +1,6 @@
 package com.tacs.backend.persistence.repositories;
 
+import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.persistence.mappers.UsuarioMapper;
 import com.tacs.backend.repositories.UsuarioRepository;
@@ -43,5 +44,13 @@ public class UsuarioRepositoryImpl implements UsuarioRepository
   public boolean existsById(String id)
   {
     return mongoRepository.existsById(id);
+  }
+
+  @Override
+  public Optional<Usuario> findByMedioContacto(MedioContacto medioContacto)
+  {
+    return mongoRepository
+        .findByMedioContacto_ValorAndMedioContacto_Tipo(medioContacto.getValor(), medioContacto.getTipo())
+        .map(mapper::toDomain);
   }
 }

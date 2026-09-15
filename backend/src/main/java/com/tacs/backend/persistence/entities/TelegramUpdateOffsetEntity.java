@@ -9,7 +9,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 /**
  * Fila unica (id fijo = 1) que persiste el ultimo update_id de Telegram ya
  * procesado por {@code TelegramUpdatePoller}, para sobrevivir a un restart
- * del proceso sin reprocesar ni perder updates (ver research.md Unknown 2).
+ * del proceso sin reprocesar ni perder updates.
  */
 @Document(collection = "telegram_update_offset")
 @Getter
