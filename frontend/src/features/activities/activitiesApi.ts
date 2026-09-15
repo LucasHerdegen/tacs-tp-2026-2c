@@ -7,7 +7,11 @@ export const activitiesApi = {
     return actividades.find((a) => a.id === id) ?? null;
   },
 
-  crear(actividad: ActividadPost, token: string) { 
+  misActividades(organizador: boolean, token: string) {
+    return apiRequest<Actividad[]>(`/api/actividades/me?organizador=${organizador}`, { token });
+  },
+
+  crear(actividad: ActividadPost, token: string) {
     return apiRequest<void>(
       '/api/actividades',
       { method: 'POST', token, body: JSON.stringify(actividad) }

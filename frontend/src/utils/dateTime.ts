@@ -6,6 +6,10 @@ export function toDatetimeLocalValue(isoString: string): string {
   return isoString.slice(0, 16);
 }
 
+export function formatFechaHora(isoString: string): string {
+  return new Date(isoString).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export function fromDatetimeLocalValue(value: string): string {
   // El input da "2026-10-01T18:57" (sin segundos); el backend espera
   // LocalDateTime, que acepta bien un ISO con o sin segundos.
