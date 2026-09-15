@@ -247,14 +247,14 @@ export const ActivityDetail: React.FC = () => {
               </p>
 
               {/* Botón principal accionado dinámicamente según el estado */}
-              <Button
+              {!esOrganizador && (<Button
                 variant={participationBtn.variant}
                 onClick={handleJoinLeave}
                 disabled={participationBtn.disabled}
                 className="w-full text-base py-3"
               >
                 {participationBtn.text}
-              </Button>
+              </Button>)}
 
               <p className="text-xs text-gray-500 mt-4 text-center">
                 Mínimo requerido para confirmar: {activity.minimoParticipantes}

@@ -28,10 +28,10 @@ export interface CambioFecha {
 }
 
 export interface ReglasClima {
-  maxProbabilidadLluvia: number | null;
-  minTemperatura: number | null;
-  maxTemperatura: number | null;
-  maxViento: number | null;
+  maxProbabilidadLluvia: number;
+  minTemperatura: number;
+  maxTemperatura: number;
+  maxViento: number;
 }
 
 export interface Clima {

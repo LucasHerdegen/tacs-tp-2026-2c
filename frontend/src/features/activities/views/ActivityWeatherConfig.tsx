@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
 import type { ConfigurarCondiciones } from '../types';
-import { ApiError } from '../../../lib/api'; 
+import { ApiError } from '../../../lib/api';
 import { useAuth } from '../../auth/authContext';
 import { activitiesApi } from '../activitiesApi';
 
@@ -14,31 +14,76 @@ export const WeatherConfig: React.FC = () => {
 
   useDocumentTitle('Configuración de Clima');
 
-  // 1. Horas de anticipación
   const [horasAnticipacion, setHorasAnticipacion] = useState<number>(24);
 
-  // 2. Rango de Reprogramación (Días y Horarios)
   const [diasReprogramacion, setDiasReprogramacion] = useState<number>(7);
   const [horaInicio, setHoraInicio] = useState<number>(12);
   const [horaFinal, setHoraFinal] = useState<number>(18);
 
-  // 3. Reglas de Clima Aceptables (Permite null si no se ingresa nada)
-  const [maxProbabilidadLluvia, setMaxProbabilidadLluvia] = useState<number | null>(null);
-  const [minTemperatura, setMinTemperatura] = useState<number | null>(null);
-  const [maxTemperatura, setMaxTemperatura] = useState<number | null>(null);
-  const [maxViento, setMaxViento] = useState<number | null>(null);
+  const [maxProbabilidadLluvia, setMaxProbabilidadLluvia] = useState<number>(50);
+  const [minTemperatura, setMinTemperatura] = useState<number>(0);
+  const [maxTemperatura, setMaxTemperatura] = useState<number>(32);
+  const [maxViento, setMaxViento] = useState<number>(100);
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const { token } = useAuth();
+
+  useEffect(() => {
+    const cargarConfiguracion = async () => {
+      if (!token || !id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const actividad = await activitiesApi.obtener(Number(id), token);
+
+        if (!actividad) {
+          setMessage({
+            type: 'error',
+            text: 'No se encontró la actividad.'
+          });
+          return;
+        }
+
+        setHorasAnticipacion(actividad.horasAnticipacion ?? 24);
+
+        if (actividad.rangoReprogramacion) {
+          setDiasReprogramacion(actividad.rangoReprogramacion.dias);
+          setHoraInicio(actividad.rangoReprogramacion.horaInicio);
+          setHoraFinal(actividad.rangoReprogramacion.horaFinal);
+        }
+
+        if (actividad.reglasClima) {
+          setMaxProbabilidadLluvia(actividad.reglasClima.maxProbabilidadLluvia);
+          setMinTemperatura(actividad.reglasClima.minTemperatura);
+          setMaxTemperatura(actividad.reglasClima.maxTemperatura);
+          setMaxViento(actividad.reglasClima.maxViento);
+        }
+      } catch (err) {
+        setMessage({
+          type: 'error',
+          text:
+            err instanceof ApiError
+              ? err.message
+              : 'Error al cargar la configuración del clima.'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    cargarConfiguracion();
+  }, [id, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage(null);
 
-    // Validación básica de horario
     if (horaInicio >= horaFinal) {
       setMessage({
         type: 'error',
@@ -57,7 +102,6 @@ export const WeatherConfig: React.FC = () => {
       return;
     }
 
-    // Armado del DTO
     const payload: ConfigurarCondiciones = {
       horasAnticipacion,
       rangoReprogramacion: {
@@ -66,22 +110,10 @@ export const WeatherConfig: React.FC = () => {
         horaFinal
       },
       reglasClima: {
-        maxProbabilidadLluvia:
-          maxProbabilidadLluvia !== null
-            ? Number(maxProbabilidadLluvia)
-            : null,
-        minTemperatura:
-          minTemperatura !== null
-            ? Number(minTemperatura)
-            : null,
-        maxTemperatura:
-          maxTemperatura !== null
-            ? Number(maxTemperatura)
-            : null,
-        maxViento:
-          maxViento !== null
-            ? Number(maxViento)
-            : null
+        maxProbabilidadLluvia,
+        minTemperatura,
+        maxTemperatura,
+        maxViento
       }
     };
 
@@ -112,6 +144,37 @@ export const WeatherConfig: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div>
+          <Link
+            to={`/activities/${id}`}
+            className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-2"
+          >
+            ← Volver al detalle
+          </Link>
+
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            ⛅ Configurar Monitoreo de Clima
+          </h1>
+
+          <p className="text-gray-600 text-sm mt-1">
+            Habilitá el chequeo periódico del clima y reglas de reprogramación para la actividad.
+          </p>
+        </div>
+
+        <Card>
+          <CardBody>
+            <p className="text-sm text-gray-600">
+              Cargando configuración...
+            </p>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -121,9 +184,11 @@ export const WeatherConfig: React.FC = () => {
         >
           ← Volver al detalle
         </Link>
+
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           ⛅ Configurar Monitoreo de Clima
         </h1>
+
         <p className="text-gray-600 text-sm mt-1">
           Habilitá el chequeo periódico del clima y reglas de reprogramación para la actividad.
         </p>
@@ -131,8 +196,8 @@ export const WeatherConfig: React.FC = () => {
 
       {message && (
         <div className={`p-4 border rounded-xl text-sm font-medium flex items-center gap-2 ${
-          message.type === 'success' 
-            ? 'bg-green-50 border-green-200 text-green-800' 
+          message.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800'
             : 'bg-red-50 border-red-200 text-red-800'
         }`}>
           <span>{message.type === 'success' ? '✅' : '⚠️'}</span> {message.text}
@@ -142,14 +207,17 @@ export const WeatherConfig: React.FC = () => {
       <form onSubmit={handleSubmit}>
         <Card>
           <CardBody className="space-y-8">
-            
-            {/* 1. Anticipación de Aviso */}
+
             <div>
               <h3 className="text-md font-bold text-gray-900 mb-3 border-b pb-1">
                 ⏱️ Anticipación del Aviso
               </h3>
+
               <div>
-                <label className="label-text">Horas de anticipación para chequear el clima</label>
+                <label className="label-text">
+                  Horas de anticipación para chequear el clima
+                </label>
+
                 <input
                   type="number"
                   min="1"
@@ -159,82 +227,98 @@ export const WeatherConfig: React.FC = () => {
                   className="input-field max-w-xs"
                   required
                 />
+
                 <p className="text-xs text-gray-500 mt-1">
                   Con cuántas horas de anticipación se te avisara si el clima va a estar mal.
                 </p>
               </div>
             </div>
 
-            {/* 2. Reglas y Límites del Clima (Opcionales / Nullable) */}
             <div>
               <h3 className="text-md font-bold text-gray-900 mb-3 border-b pb-1">
-                🌡️ Condiciones Climáticas Aceptables (Opcionales)
+                🌡️ Condiciones Climáticas Aceptables
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
                 <div>
-                  <label className="label-text">Probabilidad Máxima de Lluvia (%)</label>
+                  <label className="label-text">
+                    Probabilidad Máxima de Lluvia (%)
+                  </label>
+
                   <input
                     type="number"
                     min="0"
                     max="100"
-                    value={maxProbabilidadLluvia ?? ''}
-                    onChange={(e) => setMaxProbabilidadLluvia(e.target.value !== '' ? Number(e.target.value) : null)}
+                    value={maxProbabilidadLluvia}
+                    onChange={(e) => setMaxProbabilidadLluvia(Number(e.target.value))}
                     className="input-field"
-                    placeholder="Sin límite"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="label-text">Viento Máximo (km/h)</label>
+                  <label className="label-text">
+                    Viento Máximo (km/h)
+                  </label>
+
                   <input
                     type="number"
                     min="0"
                     max="150"
-                    value={maxViento ?? ''}
-                    onChange={(e) => setMaxViento(e.target.value !== '' ? Number(e.target.value) : null)}
+                    value={maxViento}
+                    onChange={(e) => setMaxViento(Number(e.target.value))}
                     className="input-field"
-                    placeholder="Sin límite"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="label-text">Temperatura Mínima Aceptable (°C)</label>
+                  <label className="label-text">
+                    Temperatura Mínima Aceptable (°C)
+                  </label>
+
                   <input
                     type="number"
                     min="-20"
                     max="50"
-                    value={minTemperatura ?? ''}
-                    onChange={(e) => setMinTemperatura(e.target.value !== '' ? Number(e.target.value) : null)}
+                    value={minTemperatura}
+                    onChange={(e) => setMinTemperatura(Number(e.target.value))}
                     className="input-field"
-                    placeholder="Sin límite"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="label-text">Temperatura Máxima Aceptable (°C)</label>
+                  <label className="label-text">
+                    Temperatura Máxima Aceptable (°C)
+                  </label>
+
                   <input
                     type="number"
                     min="-20"
                     max="50"
-                    value={maxTemperatura ?? ''}
-                    onChange={(e) => setMaxTemperatura(e.target.value !== '' ? Number(e.target.value) : null)}
+                    value={maxTemperatura}
+                    onChange={(e) => setMaxTemperatura(Number(e.target.value))}
                     className="input-field"
-                    placeholder="Sin límite"
+                    required
                   />
                 </div>
+
               </div>
             </div>
 
-            {/* 3. Ventana y Rango de Reprogramación */}
             <div>
               <h3 className="text-md font-bold text-gray-900 mb-3 border-b pb-1">
                 📅 Rango para Reprogramar
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
-                  <label className="label-text">Rango Máximo de Días</label>
+                  <label className="label-text">
+                    Rango Máximo de Días
+                  </label>
+
                   <input
                     type="number"
                     min="1"
@@ -247,8 +331,12 @@ export const WeatherConfig: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
                   <div>
-                    <label className="label-text">Hora de Inicio Permitida (0 a 23 hs)</label>
+                    <label className="label-text">
+                      Hora de Inicio Permitida (0 a 23 hs)
+                    </label>
+
                     <input
                       type="number"
                       min="0"
@@ -261,7 +349,10 @@ export const WeatherConfig: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="label-text">Hora Final Permitida (0 a 23 hs)</label>
+                    <label className="label-text">
+                      Hora Final Permitida (0 a 23 hs)
+                    </label>
+
                     <input
                       type="number"
                       min="0"
@@ -272,17 +363,18 @@ export const WeatherConfig: React.FC = () => {
                       required
                     />
                   </div>
+
                 </div>
               </div>
             </div>
 
-            {/* Botones de acción */}
             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
               <Link to={`/activities/${id}`}>
                 <Button variant="secondary" type="button" disabled={isSubmitting}>
                   Cancelar
                 </Button>
               </Link>
+
               <Button variant="primary" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Guardando...' : 'Guardar Configuracion'}
               </Button>

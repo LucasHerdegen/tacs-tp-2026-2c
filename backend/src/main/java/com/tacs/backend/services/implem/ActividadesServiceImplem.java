@@ -120,14 +120,27 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public List<ActividadDto> buscarActividades(TipoActividad tipo, String barrio, LocalDate fecha)
+  public List<ActividadDto> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha)
   {
     return actividadesRepository.findAll().stream()
         .filter(a -> tipo == null || a.getTipo().equals(tipo))
-        .filter(a -> barrio == null || (a.getUbicacion() != null && a.getUbicacion().getBarrio().equalsIgnoreCase(barrio)))
-        .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
+        .filter(a -> busqueda == null ||
+            normalizar(a.getTitulo()).contains(normalizar(busqueda)) ||
+            (a.getUbicacion() != null &&
+            normalizar(a.getUbicacion().getBarrio()).contains(normalizar(busqueda))))
+        .filter(a -> fecha == null ||
+            a.getFechaRealizacion().toLocalDate().equals(fecha))
         .map(actividadesMapper::actividadToActividadDto)
         .toList();
+  }
+
+  private String normalizar(String texto)
+  {
+    return java.text.Normalizer
+        .normalize(texto, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .toLowerCase()
+        .trim();
   }
 
   /**

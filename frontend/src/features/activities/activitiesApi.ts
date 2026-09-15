@@ -57,4 +57,24 @@ export const activitiesApi = {
     );
   },
 
+  buscar(tipo: string | null, busqueda: string | null, fecha: string | null, token: string) {
+  const params = new URLSearchParams();
+
+  if (tipo) {
+    params.append('tipo', tipo);
+  }
+  if (busqueda) {
+    params.append('barrio', busqueda);
+  }
+  if (fecha) {
+    params.append('fecha', fecha);
+  }
+
+  const query = params.toString();
+
+  return apiRequest<Actividad[]>(
+    `/api/actividades${query ? `?${query}` : ''}`,
+    { token },
+  );
+  },
 };
