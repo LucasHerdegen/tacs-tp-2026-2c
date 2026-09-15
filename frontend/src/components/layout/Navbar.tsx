@@ -21,6 +21,11 @@ export const Navbar: React.FC = () => {
                 <Link to="/my-activities" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                   Mis Actividades
                 </Link>
+                {user?.rol === 'ADMIN' && (
+                  <Link to="/admin/estadisticas" className="hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                    Estadísticas
+                  </Link>
+                )}
                 <span className="hidden border-l border-indigo-400 pl-4 text-sm sm:inline">
                   {user?.username}
                   {user?.rol === 'ADMIN' && (

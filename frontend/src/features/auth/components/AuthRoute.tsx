@@ -20,6 +20,24 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
+export function RequireAdmin() {
+  const { status, user } = useAuth();
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-64 items-center justify-center" role="status">
+        <span className="text-sm font-medium text-gray-500">Cargando sesión…</span>
+      </div>
+    );
+  }
+
+  if (user?.rol !== 'ADMIN') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+}
+
 export function GuestOnly() {
   const { status } = useAuth();
 

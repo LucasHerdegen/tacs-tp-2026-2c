@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardBody } from '../../../components/ui/Card';
-import { Badge, type BadgeVariant } from '../../../components/ui/Badge';
+import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
 import { ApiError } from '../../../lib/api';
@@ -10,16 +10,9 @@ import { useAuth } from '../../auth/authContext';
 import { votingApi } from '../../voting/votingApi';
 import type { VotacionDto } from '../../voting/types';
 import { activitiesApi } from '../activitiesApi';
+import { ESTADO_BADGE } from '../activityLabels';
 import { canManageActivity } from '../activityPermissions';
-import type { Actividad, TipoActividad, TipoEstadoActividad } from '../types';
-
-const ESTADO_BADGE: Record<TipoEstadoActividad, { variant: BadgeVariant; label: string }> = {
-  PROPUESTA: { variant: 'info', label: 'Propuesta' },
-  CONFIRMADA: { variant: 'success', label: 'Confirmada' },
-  REPROGRAMADA: { variant: 'warning', label: 'Reprogramada' },
-  CANCELADA: { variant: 'error', label: 'Cancelada' },
-  FINALIZADA: { variant: 'neutral', label: 'Finalizada' },
-};
+import type { Actividad, TipoActividad } from '../types';
 
 const TIPO_ACTIVIDAD_LABEL: Record<TipoActividad, string> = {
   AIRE_LIBRE: 'Aire libre',

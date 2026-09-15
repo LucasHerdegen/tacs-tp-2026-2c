@@ -7,9 +7,10 @@ import { MyActivities } from "./features/activities/views/MyActivities";
 import { WeatherConfig } from './features/activities/views/ActivityWeatherConfig';
 import { CreateActivity } from './features/activities/views/ActivityCreate';
 import { AuthProvider } from './features/auth/AuthProvider';
-import { GuestOnly, RequireAuth } from './features/auth/components/AuthRoute';
+import { GuestOnly, RequireAdmin, RequireAuth } from './features/auth/components/AuthRoute';
 import { Login } from './features/auth/views/Login';
 import { Register } from './features/auth/views/Register';
+import { AdminStats } from './features/admin/views/AdminStats';
 
 function App() {
   return (
@@ -28,6 +29,9 @@ function App() {
               <Route path="/activities/new" element={<CreateActivity />} />
               <Route path="/activities/:id" element={<ActivityDetail />} />
               <Route path="/activities/:id/weather-config" element={<WeatherConfig />} />
+              <Route element={<RequireAdmin />}>
+                <Route path="/admin/estadisticas" element={<AdminStats />} />
+              </Route>
             </Route>
           </Routes>
         </MainLayout>
