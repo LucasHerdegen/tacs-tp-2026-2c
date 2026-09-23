@@ -55,3 +55,13 @@ En este documento se registran las decisiones de arquitectura más importantes t
 4. Reemplazar \JdbcTemplateLockProvider\ por \MongoLockProvider\ para que ShedLock siga funcionando sobre MongoDB.
 
 **Consecuencias**: El sistema pasa a estar puramente basado en documentos, mejorando el alineamiento con el paradigma NoSQL. Las busquedas complejas (que antes utilizaban JOINs en JPA) ahora se resuelven de forma mas nativa o a traves de filtrado en aplicacion para evitar \$lookup\ excesivos, respetando el modelo NoSQL.
+
+## ADR 6: Eliminacion de transacciones en MongoDB
+
+**Contexto**: Durante el desarrollo en base de datos relacional (JPA), se utilizaban anotaciones @Transactional para garantizar la consistencia en escrituras multiples. Con la migracion a MongoDB, dado que no hay un MongoTransactionManager configurado y el cluster local provisto en el docker-compose no es un replica set (prerrequisito obligatorio de MongoDB para las transacciones multidocumento), las anotaciones perdieron efecto real.
+
+**Decision**: 
+1. Eliminar por completo todas las anotaciones @Transactional de la capa de Servicios y los Jobs (Cron).
+2. Documentar que las escrituras multidocumento (e.g. esolverVotacion que guarda la actividad y la votacion) ahora son eventualmente consistentes y se ejecutan como escrituras independientes, en lugar de intentar forzar el motor transaccional de Spring Data MongoDB.
+
+**Consecuencias**: El codigo refleja fielmente la semantica actual de almacenamiento (que no goza de garantias ACID multidocumento). Para habilitar verdaderas transacciones a futuro, requeriria reconfigurar el compose.yaml a replica set y definir el bean del manejador transaccional.
