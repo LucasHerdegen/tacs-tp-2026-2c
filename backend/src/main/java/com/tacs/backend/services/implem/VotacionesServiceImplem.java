@@ -20,7 +20,6 @@ import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -63,7 +62,6 @@ class VotacionesServiceImplem implements VotacionesService
    * @return DTO con la votacion creada.
    */
   @Override
-  @Transactional
   public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto, String usuarioId)
   {
     Actividad actividad = buscarActividad(actividadId);
@@ -95,7 +93,6 @@ class VotacionesServiceImplem implements VotacionesService
    * @return Optional con el DTO de la votacion si fue abierta exitosamente.
    */
   @Override
-  @Transactional
   public Optional<VotacionDto> abrirVotacionAutomatica(String actividadId)
   {
     Actividad actividad = buscarActividad(actividadId);
@@ -127,7 +124,6 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
   public VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
@@ -147,7 +143,6 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
   public void eliminarAlternativa(String votacionId, int numeroAlternativa, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
@@ -173,7 +168,6 @@ class VotacionesServiceImplem implements VotacionesService
    * @return DTO de la votacion actualizada.
    */
   @Override
-  @Transactional
   public VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa)
   {
     Votacion votacion = buscarVotacion(votacionId);
@@ -211,7 +205,6 @@ class VotacionesServiceImplem implements VotacionesService
    * @return DTO de la votacion resuelta.
    */
   @Override
-  @Transactional
   public VotacionDto resolverVotacion(String votacionId, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
@@ -220,7 +213,6 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
   public VotacionDto resolverVotacion(String votacionId)
   {
     return resolverVotacionInterno(buscarVotacion(votacionId));
@@ -254,7 +246,6 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
   public void eliminarVotacion(String votacionId, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);

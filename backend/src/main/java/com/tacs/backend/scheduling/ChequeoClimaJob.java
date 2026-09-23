@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -35,7 +34,6 @@ public class ChequeoClimaJob
 
   @Scheduled(fixedRateString = "${clima.chequeo.intervalo-ms}")
   @SchedulerLock(name = "ChequeoClimaJob_chequearClima", lockAtLeastFor = "1m", lockAtMostFor = "10m")
-  @Transactional
   public void chequearClima()
   {
     for (Actividad actividad : detectarClimaDesfavorable())
@@ -71,7 +69,7 @@ public class ChequeoClimaJob
    * reevalua en la proxima corrida del cron, sigue siendo candidata) en vez de
    * tirar abajo la deteccion completa para el resto de las actividades.
    */
-  
+
   private boolean tieneClimaDesfavorable(Actividad actividad)
   {
     try

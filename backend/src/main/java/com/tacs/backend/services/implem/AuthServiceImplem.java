@@ -16,7 +16,6 @@ import com.tacs.backend.services.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import com.tacs.backend.domain.usuario.MedioContacto;
 
 import java.util.List;
@@ -30,8 +29,7 @@ class AuthServiceImplem implements AuthService
   private final JwtService jwtService;
 
   @Override
-  @Transactional
-  public UsuarioDto registrar(RegistroRequest request)
+    public UsuarioDto registrar(RegistroRequest request)
   {
     if (usuarioRepository.existsByUsername(request.username()))
       throw new UsernameAlreadyExistsException("El username ya esta registrado");
@@ -44,8 +42,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-  @Transactional(readOnly = true)
-  public LoginResponse login(LoginRequest request)
+    public LoginResponse login(LoginRequest request)
   {
     Usuario usuario = usuarioRepository.findByUsername(request.username())
         .orElseThrow(() -> new InvalidCredentialsException("Credenciales invalidas"));
@@ -58,8 +55,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-  @Transactional(readOnly = true)
-  public UsuarioDto buscarPorUsername(String username)
+    public UsuarioDto buscarPorUsername(String username)
   {
     Usuario usuario = usuarioRepository.findByUsername(username)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -68,8 +64,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-  @Transactional(readOnly = true)
-  public List<UsuarioDto> listarUsuarios()
+    public List<UsuarioDto> listarUsuarios()
   {
     return usuarioRepository.findAll().stream()
         .map(this::toDto)
@@ -77,8 +72,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-  @Transactional
-  public UsuarioDto actualizarRol(String usuarioId, TipoRol rol, String adminId)
+    public UsuarioDto actualizarRol(String usuarioId, TipoRol rol, String adminId)
   {
     if (usuarioId.equals(adminId))
         throw new AccesoDenegadoException("No podes cambiarte el rol a vos mismo");
@@ -107,8 +101,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-  @Transactional
-  public UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto)
+    public UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto)
   {
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
