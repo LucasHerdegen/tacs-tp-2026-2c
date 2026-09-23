@@ -6,6 +6,7 @@ import com.tacs.backend.dtos.auth.LoginRequest;
 import com.tacs.backend.dtos.auth.LoginResponse;
 import com.tacs.backend.dtos.auth.RegistroRequest;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.InvalidCredentialsException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
@@ -77,10 +78,20 @@ class AuthServiceImplem implements AuthService
 
   @Override
   @Transactional
-  public UsuarioDto actualizarRol(String usuarioId, TipoRol rol)
+  public UsuarioDto actualizarRol(String usuarioId, TipoRol rol, String adminId)
   {
+    if (usuarioId.equals(adminId))
+        throw new AccesoDenegadoException("No podes cambiarte el rol a vos mismo");
+
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+
+    if (usuario.getRol() == TipoRol.ADMIN && rol != TipoRol.ADMIN) {
+        long adminsCount = usuarioRepository.countByRol(TipoRol.ADMIN);
+        if (adminsCount <= 1) {
+            throw new AccesoDenegadoException("No podes quitarle el rol al unico admin del sistema");
+        }
+    }
 
     usuario.setRol(rol);
     Usuario guardado = usuarioRepository.save(usuario);

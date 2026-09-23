@@ -92,7 +92,7 @@ class VotacionesServiceImplemNotificacionesTest
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     ArgumentCaptor<String> contenido = ArgumentCaptor.forClass(String.class);
     verify(servicioNotificaciones)
@@ -119,7 +119,7 @@ class VotacionesServiceImplemNotificacionesTest
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     assertThat(actividad.getFechaRealizacion()).isEqualTo(fechaGanadora);
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
@@ -145,7 +145,7 @@ class VotacionesServiceImplemNotificacionesTest
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CONFIRMADA);
 
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
     verify(servicioNotificaciones)
@@ -168,7 +168,7 @@ class VotacionesServiceImplemNotificacionesTest
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     verify(servicioNotificaciones)
         .notificarATodos(contains(actividad.getTitulo()), eq(actividad.getParticipantes()));
@@ -219,7 +219,7 @@ class VotacionesServiceImplemNotificacionesTest
         LocalDateTime.now(),
         2,
         10,
-        crearUsuarioConId("999"));
+        crearUsuarioConId("1"));
 
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
 
@@ -238,9 +238,9 @@ class VotacionesServiceImplemNotificacionesTest
         LocalDateTime.now(),
         2,
         10,
-        crearUsuarioConId("999"));
+        crearUsuarioConId("1"));
 
-    actividad.setEstado(TipoEstadoActividad.PROPUESTA);
+    actividad.setEstado(TipoEstadoActividad.CONFIRMADA);
     actividad.agregarParticipante(crearUsuarioConId("1"));
 
     return actividad;
@@ -250,7 +250,7 @@ class VotacionesServiceImplemNotificacionesTest
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId(id);
-    alternativa.setNumeroAltenativa(numero);
+    alternativa.setNumeroAlternativa(numero);
     alternativa.setFecha(fecha);
     return alternativa;
   }

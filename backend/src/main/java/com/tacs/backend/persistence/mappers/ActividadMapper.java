@@ -151,12 +151,12 @@ public class ActividadMapper
   private Ubicacion mapUbicacionToDomain(UbicacionEntity entity)
   {
     if (entity == null) return null;
-    return new Ubicacion(entity.getBarrio(), entity.getLatitud(), entity.getLongitud());
+    return new Ubicacion(entity.getCiudad(), entity.getLatitud(), entity.getLongitud());
   }
 
   private UbicacionEntity mapUbicacionToEntity(Ubicacion domain)
   {
     if (domain == null) return null;
-    return new UbicacionEntity(domain.getBarrio(), domain.getLatitud(), domain.getLongitud());
+    return new UbicacionEntity(domain.getCiudad(), domain.getLatitud(), domain.getLongitud());
   }
 }

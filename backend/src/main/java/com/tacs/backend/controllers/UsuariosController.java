@@ -50,9 +50,11 @@ class UsuariosController
   @PatchMapping("/{usuarioId}/rol")
   public ResponseEntity<UsuarioDto> actualizarRol(
       @PathVariable String usuarioId,
-      @RequestBody @Valid ActualizarRolRequest request)
+      @RequestBody @Valid ActualizarRolRequest request,
+      @AuthenticationPrincipal Jwt jwt)
   {
-    return ResponseEntity.ok(authService.actualizarRol(usuarioId, request.rol()));
+    String adminId = jwt.getClaim("id");
+    return ResponseEntity.ok(authService.actualizarRol(usuarioId, request.rol(), adminId));
   }
 
   @Operation(summary = "Obtener datos propios", description = "Devuelve los datos del usuario autenticado (Requiere rol USER)")

@@ -144,7 +144,7 @@ public class ActividadesServiceImplem implements ActividadesService
         .filter(a -> busqueda == null ||
             normalizar(a.getTitulo()).contains(normalizar(busqueda)) ||
             (a.getUbicacion() != null &&
-            normalizar(a.getUbicacion().getBarrio()).contains(normalizar(busqueda))))
+            normalizar(a.getUbicacion().getCiudad()).contains(normalizar(busqueda))))
         .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
         .filter(a -> estado == null || a.getEstado() == estado)
         .filter(

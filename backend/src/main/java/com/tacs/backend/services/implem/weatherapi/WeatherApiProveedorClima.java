@@ -76,7 +76,7 @@ public class WeatherApiProveedorClima implements ProveedorClima
     if (ubicacion.getLatitud() != null && ubicacion.getLongitud() != null)
       return ubicacion.getLatitud() + "," + ubicacion.getLongitud();
 
-    return ubicacion.getBarrio();
+    return ubicacion.getCiudad();
   }
 
   /**

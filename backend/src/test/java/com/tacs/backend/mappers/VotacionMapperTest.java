@@ -69,7 +69,7 @@ class VotacionMapperTest
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId("1");
-    alternativa.setNumeroAltenativa(1);
+    alternativa.setNumeroAlternativa(1);
     alternativa.setFecha(LocalDateTime.now().plusDays(2));
     alternativa.setClima(clima);
     return alternativa;

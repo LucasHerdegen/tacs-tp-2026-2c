@@ -11,7 +11,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class UbicacionEntity
 {
-  private String barrio;
+  private String ciudad;
   private Double latitud;
   private Double longitud;
 }

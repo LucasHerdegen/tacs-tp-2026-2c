@@ -15,7 +15,7 @@ public class AlternativaMapper
     domain.setId(entity.getId());
     domain.setFecha(entity.getFecha());
     domain.setClima(entity.getClima());
-    domain.setNumeroAltenativa(entity.getNumeroAltenativa());
+    domain.setNumeroAlternativa(entity.getNumeroAlternativa());
     return domain;
   }
 
@@ -26,7 +26,7 @@ public class AlternativaMapper
     entity.setId(domain.getId());
     entity.setFecha(domain.getFecha());
     entity.setClima(domain.getClima());
-    entity.setNumeroAltenativa(domain.getNumeroAltenativa());
+    entity.setNumeroAlternativa(domain.getNumeroAlternativa());
     return entity;
   }
 }

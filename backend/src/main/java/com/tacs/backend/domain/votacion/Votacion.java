@@ -38,7 +38,7 @@ public class Votacion
 
   public void eliminarAlternativa(int numeroAlternativa)
   {
-    alternativas.removeIf(a -> a.getNumeroAltenativa() == numeroAlternativa);
+    alternativas.removeIf(a -> a.getNumeroAlternativa() == numeroAlternativa);
   }
 
   public void registrarVoto(Voto voto)
@@ -68,7 +68,7 @@ public class Votacion
     return alternativas.stream()
         .max(Comparator
             .comparingLong(this::cantidadVotos)
-            .thenComparing(Comparator.comparingInt(Alternativa::getNumeroAltenativa).reversed()));
+            .thenComparing(Comparator.comparingInt(Alternativa::getNumeroAlternativa).reversed()));
   }
 
   /**

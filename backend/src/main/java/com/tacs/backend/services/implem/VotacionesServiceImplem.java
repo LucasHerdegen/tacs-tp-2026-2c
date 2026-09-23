@@ -10,13 +10,7 @@ import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
-import com.tacs.backend.exceptions.AlternativaNotFoundException;
-import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
-import com.tacs.backend.exceptions.QuorumInvalidoException;
-import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
-import com.tacs.backend.exceptions.UsuarioNotFoundException;
-import com.tacs.backend.exceptions.VotacionCerradaException;
-import com.tacs.backend.exceptions.VotacionNotFoundException;
+import com.tacs.backend.exceptions.*;
 import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
@@ -56,12 +50,6 @@ class VotacionesServiceImplem implements VotacionesService
   {
     validarExistenciaUsuario(usuarioId);
 
-    // TODO: asumo que el organizador no puede ser también participante de la misma
-    // actividad. Si esa regla cambia, revisar duplicados (volver a un Set como antes)
-    // Set<Votacion> votaciones = new LinkedHashSet<>();
-    // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
-    // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
-
     return votacionesRepository.findByAbiertaYUsuarioInvolucrado(abierta, usuarioId).stream()
         .map(votacionMapper::votacionToVotacionDto)
         .toList();
@@ -76,10 +64,11 @@ class VotacionesServiceImplem implements VotacionesService
    */
   @Override
   @Transactional
-  public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto)
+  public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto, String usuarioId)
   {
     Actividad actividad = buscarActividad(actividadId);
 
+    validarOrganizador(actividad, usuarioId);
     validarSinVotacionAbierta(actividadId);
     validarQuorumMinimo(votacionPostDto.quorumMinimo(), actividad);
 
@@ -139,13 +128,14 @@ class VotacionesServiceImplem implements VotacionesService
 
   @Override
   @Transactional
-  public VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto)
+  public VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
     validarVotacionAbierta(votacion);
 
     int siguienteNumero = votacion.getAlternativas().stream()
-        .mapToInt(Alternativa::getNumeroAltenativa)
+        .mapToInt(Alternativa::getNumeroAlternativa)
         .max()
         .orElse(0) + 1;
 
@@ -158,13 +148,14 @@ class VotacionesServiceImplem implements VotacionesService
 
   @Override
   @Transactional
-  public void eliminarAlternativa(String votacionId, int numeroAlternativa)
+  public void eliminarAlternativa(String votacionId, int numeroAlternativa, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
     validarVotacionAbierta(votacion);
 
     boolean existe = votacion.getAlternativas().stream()
-        .anyMatch(a -> a.getNumeroAltenativa() == numeroAlternativa);
+        .anyMatch(a -> a.getNumeroAlternativa() == numeroAlternativa);
 
     if (!existe)
       throw new AlternativaNotFoundException("No existe la alternativa numero " + numeroAlternativa);
@@ -198,7 +189,7 @@ class VotacionesServiceImplem implements VotacionesService
       throw new IllegalStateException("Debes ser participante de la actividad para votar");
 
     Alternativa alternativa = votacion.getAlternativas().stream()
-        .filter(a -> a.getNumeroAltenativa() == numeroAlternativa)
+        .filter(a -> a.getNumeroAlternativa() == numeroAlternativa)
         .findFirst()
         .orElseThrow(() -> new AlternativaNotFoundException("No existe la alternativa numero " + numeroAlternativa));
 
@@ -221,9 +212,22 @@ class VotacionesServiceImplem implements VotacionesService
    */
   @Override
   @Transactional
-  public VotacionDto resolverVotacion(String votacionId)
+  public VotacionDto resolverVotacion(String votacionId, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
+    return resolverVotacionInterno(votacion);
+  }
+
+  @Override
+  @Transactional
+  public VotacionDto resolverVotacion(String votacionId)
+  {
+    return resolverVotacionInterno(buscarVotacion(votacionId));
+  }
+
+  private VotacionDto resolverVotacionInterno(Votacion votacion)
+  {
     validarVotacionAbierta(votacion);
 
     Optional<Alternativa> ganadora = votacion.alternativaMasVotada()
@@ -251,12 +255,20 @@ class VotacionesServiceImplem implements VotacionesService
 
   @Override
   @Transactional
-  public void eliminarVotacion(String votacionId)
+  public void eliminarVotacion(String votacionId, String usuarioId)
   {
-    votacionesRepository.delete(buscarVotacion(votacionId));
+    Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
+    votacionesRepository.delete(votacion);
   }
 
   // ==================== Metodos auxiliares ====================
+
+  private void validarOrganizador(Actividad actividad, String usuarioId)
+  {
+    if (!actividad.getOrganizador().getId().equals(usuarioId))
+      throw new AccesoDenegadoException("Solo el organizador puede realizar esta acción");
+  }
 
   private void validarExistenciaUsuario(String usuarioId)
   {
@@ -317,7 +329,9 @@ class VotacionesServiceImplem implements VotacionesService
    * ninguno cumple las reglas" o "no hay rango configurado" (ambos casos SI
    * ameritan cancelar, ver abrirVotacionAutomatica).
    */
-  private record ResultadoBusquedaAlternativas(List<Alternativa> favorables, boolean climaIndisponible) {}
+  private record ResultadoBusquedaAlternativas(List<Alternativa> favorables, boolean climaIndisponible)
+  {
+  }
 
   /**
    * Busca, dentro de rangoReprogramacion (dias permitidos y franja horaria
@@ -347,7 +361,7 @@ class VotacionesServiceImplem implements VotacionesService
 
       for (Alternativa alternativa : resultadoDia.favorables())
       {
-        alternativa.setNumeroAltenativa(numero++);
+        alternativa.setNumeroAlternativa(numero++);
         favorables.add(alternativa);
       }
     }
@@ -355,7 +369,9 @@ class VotacionesServiceImplem implements VotacionesService
     return new ResultadoBusquedaAlternativas(favorables, !algunaConsultaExitosa);
   }
 
-  private record ResultadoBusquedaDia(List<Alternativa> favorables, boolean huboConsultaExitosa) {}
+  private record ResultadoBusquedaDia(List<Alternativa> favorables, boolean huboConsultaExitosa)
+  {
+  }
 
   /**
    * Recorre la franja horaInicio-horaFinal de ese dia cada
@@ -454,7 +470,7 @@ class VotacionesServiceImplem implements VotacionesService
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setFecha(fecha);
-    alternativa.setNumeroAltenativa(numero);
+    alternativa.setNumeroAlternativa(numero);
     alternativa.setClima(clima);
     return alternativa;
   }

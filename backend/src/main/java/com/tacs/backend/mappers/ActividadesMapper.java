@@ -87,13 +87,13 @@ public class ActividadesMapper
   public Ubicacion ubicacionDtoToUbicacion(UbicacionDto dto)
   {
     if (dto == null) return null;
-    return new Ubicacion(dto.getBarrio(), dto.getLatitud(), dto.getLongitud());
+    return new Ubicacion(dto.getCiudad(), dto.getLatitud(), dto.getLongitud());
   }
 
   public UbicacionDto ubicacionToUbicacionDto(Ubicacion ubicacion)
   {
     if (ubicacion == null) return null;
-    return new UbicacionDto(ubicacion.getBarrio(), ubicacion.getLatitud(),
+    return new UbicacionDto(ubicacion.getCiudad(), ubicacion.getLatitud(),
         ubicacion.getLongitud());
   }
 }
