@@ -88,6 +88,12 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
 
+  @ExceptionHandler(YaEsParticipanteException.class)
+  public ProblemDetail handleYaEsParticipanteException(YaEsParticipanteException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
   @ExceptionHandler(NoParticipanteException.class)
   public ProblemDetail handleNoParticipanteException(NoParticipanteException ex)
   {

@@ -241,7 +241,6 @@ class VotacionesServiceImplemNotificacionesTest
         crearUsuarioConId("1"));
 
     actividad.setEstado(TipoEstadoActividad.CONFIRMADA);
-    actividad.agregarParticipante(crearUsuarioConId("1"));
 
     return actividad;
   }

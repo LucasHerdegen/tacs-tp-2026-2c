@@ -37,6 +37,11 @@ public interface VotacionesService
   VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa);
 
   /**
+   * Numero de la alternativa que el usuario ya voto en esa votacion, o vacio si todavia no voto.
+   */
+  Optional<Integer> alternativaVotadaPor(String votacionId, String usuarioId);
+
+  /**
    * Cierra la votacion y resuelve la actividad asociada: si la alternativa
    * mas votada alcanza el quorumMinimo, reprograma la actividad a esa fecha;
    * si no, la cancela. Puede dispararse manualmente o desde el cron de

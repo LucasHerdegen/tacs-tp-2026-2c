@@ -1,13 +1,10 @@
 package com.tacs.backend.domain.clima;
 
-
-
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 
 @Getter
 @Setter
@@ -16,16 +13,27 @@ import lombok.Setter;
 @AllArgsConstructor
 public class ReglasClima
 {
-  private double maxProbabilidadLluvia;
-  private double minTemperatura;
-  private double maxTemperatura;
-  private double maxViento;
+  private Double maxProbabilidadLluvia;
+  private Double minTemperatura;
+  private Double maxTemperatura;
+  private Double maxViento;
 
   public boolean esFavorable(Clima clima)
   {
-    return clima.getProbabilidadLluvia() <= maxProbabilidadLluvia &&
-        clima.temperaturaEntre(minTemperatura, maxTemperatura) &&
-        clima.getViento() <= maxViento;
+    return noSuperaMaximo(maxProbabilidadLluvia, clima.getProbabilidadLluvia())
+        && noBajaDelMinimo(minTemperatura, clima.getTemperatura())
+        && noSuperaMaximo(maxTemperatura, clima.getTemperatura())
+        && noSuperaMaximo(maxViento, clima.getViento());
+  }
+
+  private boolean noSuperaMaximo(Double maximo, double valorReal)
+  {
+    return maximo == null || valorReal <= maximo;
+  }
+
+  private boolean noBajaDelMinimo(Double minimo, double valorReal)
+  {
+    return minimo == null || valorReal >= minimo;
   }
 
   public void actualizar(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)

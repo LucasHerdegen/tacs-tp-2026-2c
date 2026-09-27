@@ -38,6 +38,7 @@ public class CallbackRouter
     CallbackHandler handler = handlersPorPrefijo.get(prefijo);
 
     String respuesta;
+    boolean mostrarComoAlerta = false;
     if (handler == null)
     {
       respuesta = MENSAJE_ACCION_NO_RECONOCIDA;
@@ -47,9 +48,10 @@ public class CallbackRouter
       long chatId = callbackQuery.maybeInaccessibleMessage().chat().id();
       String usuarioId = identidadResolver.resolverUsuarioId(chatId).orElse(null);
       respuesta = handler.manejar(callbackQuery, usuarioId);
+      mostrarComoAlerta = handler.mostrarComoAlerta();
     }
 
-    telegramBot.execute(new AnswerCallbackQuery(callbackQuery.id()).text(respuesta));
+    telegramBot.execute(new AnswerCallbackQuery(callbackQuery.id()).text(respuesta).showAlert(mostrarComoAlerta));
   }
 
   private String extraerPrefijo(String callbackData)

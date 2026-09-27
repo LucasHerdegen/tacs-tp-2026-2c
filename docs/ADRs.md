@@ -65,3 +65,15 @@ En este documento se registran las decisiones de arquitectura más importantes t
 2. Documentar que las escrituras multidocumento (e.g. esolverVotacion que guarda la actividad y la votacion) ahora son eventualmente consistentes y se ejecutan como escrituras independientes, en lugar de intentar forzar el motor transaccional de Spring Data MongoDB.
 
 **Consecuencias**: El codigo refleja fielmente la semantica actual de almacenamiento (que no goza de garantias ACID multidocumento). Para habilitar verdaderas transacciones a futuro, requeriria reconfigurar el compose.yaml a replica set y definir el bean del manejador transaccional.
+
+## ADR 7: Telegram como interfaz completa de entrada (no solo Notificador)
+
+**Contexto**: La corrección de la Entrega 1 aclaró que la integración con Telegram pedida en la consigna no es únicamente el `Notificador` (canal de salida) descripto en el ADR 3 — es una interfaz alternativa al frontend, con comandos y botones para crear actividades, buscarlas, sumarse, votar y ver estado. Había que definir con qué librería construirla, cómo recibir los mensajes, y cómo resolver la identidad del usuario sin depender del JWT.
+
+**Decisión**:
+1. **Librería cliente: `com.github.pengrad:java-telegram-bot-api`**, en vez de `org.telegram:telegrambots` (framework más pesado, con su propio modelo de hilos y una migración de API reciente que generó fragmentación) o de armar los DTOs de la Bot API a mano con `RestClient` (válido solo para "mandar un mensaje"; con botones inline y estado conversacional es reinventar la rueda). Pengrad da tipos para `SendMessage`, `InlineKeyboardMarkup`, `CallbackQuery`, `GetUpdates`, etc., sin imponer un ciclo de vida propio — fácil de envolver en beans de Spring.
+2. **Long polling, no webhook**: el backend pregunta periódicamente por novedades (`GetUpdates` con offset persistido) en vez de que Telegram le pegue a una URL pública. No requiere HTTPS público y funciona igual en local (`docker-compose`) que en la nube.
+3. **Alta nativa sin contraseña**: si alguien le escribe al bot sin un token de vinculación y sin cuenta previa, se crea un `Usuario` nuevo ahí mismo usando el `chat_id` como identidad. Coherente con la consigna ("no es objetivo del TP trabajar sobre autenticación") y hace que Telegram sea una interfaz autónoma, no dependiente del frontend.
+4. **Identidad por `chat_id`, no por JWT**: los handlers resuelven `chat_id → Usuario` contra `MedioContacto` y llaman a los mismos `Service` que ya usan los controllers REST, pasando el `usuarioId` explícito — cero lógica de negocio duplicada.
+
+**Consecuencias**: La interfaz de Telegram reutiliza el mismo dominio y los mismos `Service` que el REST, sin duplicar reglas. El principal trade-off conocido es que `GetUpdates` solo admite **un consumidor concurrente por token**: si se escalara horizontalmente el backend, una segunda instancia haciendo polling recibiría `409 Conflict` y desplazaría a la anterior. Para este TP se documenta como aceptado (single-instance); si se necesitara escalar, la solución sería usar ShedLock (ya presente en el proyecto) para elegir una única instancia "dueña" del poller, o migrar a webhook.

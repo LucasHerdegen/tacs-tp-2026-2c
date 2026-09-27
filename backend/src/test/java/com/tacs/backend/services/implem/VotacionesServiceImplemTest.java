@@ -25,6 +25,7 @@ import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -186,7 +187,7 @@ class VotacionesServiceImplemTest
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("50");
     actividad.setMinimoParticipantes(4);
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14)); // 3 dias, franja 10-14hs (grilla: 10,12,14)
 
     Clima malo = new Clima(80, 20, 10);
@@ -221,7 +222,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("54");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20)); // max 30% de lluvia permitido
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0)); // max 30% de lluvia permitido
     actividad.setRangoReprogramacion(new RangoReprogramacion(1, 10, 14)); // 1 dia, grilla: 10, 12, 14
 
     LocalDateTime dia1 = fechaOriginal.plusDays(1);
@@ -256,7 +257,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("51");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
 
     when(actividadesRepository.findById("51")).thenReturn(Optional.of(actividad));
@@ -278,7 +279,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("53");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
 
     when(actividadesRepository.findById("53")).thenReturn(Optional.of(actividad));
@@ -315,7 +316,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(55L);
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14)); // 3 dias, grilla: 10,12,14
 
     LocalDateTime diaSinCobertura = fechaOriginal.plusDays(1); // todas sus horas: indisponible
@@ -362,7 +363,7 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId("55");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(null);
 
     when(actividadesRepository.findById("55")).thenReturn(Optional.of(actividad));
@@ -382,7 +383,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().minusHours(2); // ya paso
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("52");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
 
     when(actividadesRepository.findById("52")).thenReturn(Optional.of(actividad));
@@ -407,7 +408,7 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId("53");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     when(actividadesRepository.findById("53")).thenReturn(Optional.of(actividad));
     when(votacionesRepository.findByAbiertaTrueAndActividadId("53")).thenReturn(Optional.of(new Votacion()));
@@ -469,7 +470,6 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(null);
     Usuario participante = crearUsuarioConId("1");
-    actividad.agregarParticipante(participante);
 
     Alternativa alternativa = crearAlternativa("1", 1, LocalDateTime.now().plusDays(2));
     Votacion votacion = crearVotacion(actividad, 2, List.of(alternativa));
@@ -519,7 +519,7 @@ class VotacionesServiceImplemTest
     inicializarService();
 
     assertThatThrownBy(() -> service.votar("10", "5", 1))
-        .isInstanceOf(IllegalStateException.class);
+        .isInstanceOf(NoParticipanteException.class);
 
     verify(votacionesRepository, never()).save(any());
   }
@@ -529,7 +529,6 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(null);
     Usuario participante = crearUsuarioConId("1");
-    actividad.agregarParticipante(participante);
 
     Alternativa alternativa = crearAlternativa("1", 1, LocalDateTime.now().plusDays(2));
     Votacion votacion = crearVotacion(actividad, 2, List.of(alternativa)); // solo existe la alternativa numero 1
@@ -568,7 +567,6 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(null);
     Usuario participante = crearUsuarioConId("1");
-    actividad.agregarParticipante(participante);
 
     Alternativa sabado = crearAlternativa("1", 1, LocalDateTime.now().plusDays(2));
     Alternativa domingo = crearAlternativa("2", 2, LocalDateTime.now().plusDays(3));

@@ -45,6 +45,7 @@ class AyudaComandoHandlerTest
 
     ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
     verify(telegramBot).execute(captor.capture());
-    assertThat(captor.getValue().getText()).contains("/start");
+    assertThat(captor.getValue().getText())
+        .contains("/start").contains("/crear").contains("/clima").contains("/cancelar");
   }
 }

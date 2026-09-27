@@ -2,11 +2,14 @@ package com.tacs.backend.domain.actividad;
 
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
+import com.tacs.backend.exceptions.YaEsParticipanteException;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ActividadTest
 {
@@ -67,6 +70,29 @@ class ActividadTest
     Actividad actividad = crearActividad(LocalDateTime.now().plusDays(1));
 
     assertThat(actividad.isRecordatorioEnviado()).isFalse();
+  }
+
+  @Test
+  void agregarUnParticipanteYaInscriptoLanzaExcepcion()
+  {
+    Actividad actividad = crearActividad(LocalDateTime.now().plusDays(1));
+    Usuario participante = crearUsuarioConId("1");
+    actividad.agregarParticipante(participante);
+
+    assertThatThrownBy(() -> actividad.agregarParticipante(participante))
+        .isInstanceOf(YaEsParticipanteException.class);
+    assertThat(actividad.getParticipantes()).hasSize(2);
+  }
+
+  @Test
+  void agregarUnParticipanteNuevoConLaActividadLlenaLanzaExcepcion()
+  {
+    Actividad actividad = new Actividad(
+        "Asado en el parque", "Actividad de prueba", TipoActividad.AIRE_LIBRE, UBICACION,
+        LocalDateTime.now().plusDays(1), 2, LocalDateTime.now(), 2, 1, crearUsuarioConId("999"));
+
+    assertThatThrownBy(() -> actividad.agregarParticipante(crearUsuarioConId("1")))
+        .isInstanceOf(CapacidadMaximaException.class);
   }
 
   /* ==================== Auxiliares ==================== */

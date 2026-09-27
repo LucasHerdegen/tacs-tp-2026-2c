@@ -21,6 +21,9 @@ Antes de levantar el entorno, podés configurar el archivo `.env` en la raíz de
 - `ADMIN_USERNAME`: (Opcional) Usuario para la cuenta de administrador.
 - `ADMIN_PASSWORD`: (Opcional) Contraseña para la cuenta de administrador.
 - `MONGODB_URI`: (Opcional) URI de conexión a MongoDB. Por defecto usa la generada por Docker Compose.
+- `WEATHERAPI_API_KEY`: (Requerida) API key de [WeatherAPI.com](https://www.weatherapi.com/) (plan con forecast de 14 días).
+- `TELEGRAM_BOT_TOKEN`: (Requerida) Token del bot, obtenido de `@BotFather`. Ver sección [Bot de Telegram](#bot-de-telegram).
+- `TELEGRAM_BOT_USERNAME`: (Requerida) Username del bot (sin la `@`), también entregado por `@BotFather`.
 
 ### 2. Ejecutar la Aplicación (Docker)
 
@@ -52,6 +55,35 @@ Los tests son fundamentales (y obligatorios según rúbrica). Para correr la sui
 cd backend
 ./mvnw test
 ```
+
+## Bot de Telegram
+
+Además del frontend web y la API REST, el sistema expone una interfaz completa por Telegram: crear actividades, buscarlas, sumarse/bajarse, votar reprogramaciones y consultar el estado propio, todo con comandos y botones.
+
+### 1. Crear el bot con @BotFather
+
+1. Abrí una conversación con [`@BotFather`](https://t.me/BotFather) en Telegram.
+2. Mandale `/newbot` y seguí las instrucciones (nombre visible y username, que debe terminar en `bot`).
+3. `@BotFather` te va a devolver un **token** (formato `123456:ABC-DEF...`) — es el valor de `TELEGRAM_BOT_TOKEN`.
+4. El **username** que elegiste (sin la `@`) es el valor de `TELEGRAM_BOT_USERNAME`.
+5. Cargá ambos valores en tu `.env` y levantá el backend (`docker compose up --build -d`, o `./mvnw spring-boot:run` en local).
+
+El backend se conecta a la Bot API por **long polling** (no requiere HTTPS público ni configurar un webhook), así que alcanza con tener el token cargado para que el bot empiece a responder.
+
+### 2. Probar el alta nativa (cuenta creada desde cero por Telegram)
+
+Buscá tu bot por su username en Telegram y mandale `/start` sin ningún parámetro. Si el `chat_id` no está vinculado a ninguna cuenta todavía, el bot crea un `Usuario` nuevo en el momento (sin contraseña, identificado por ese `chat_id`) y queda listo para usar el resto de los comandos.
+
+### 3. Probar la vinculación de una cuenta ya existente
+
+Si ya tenés una cuenta creada por el frontend/REST y querés usarla también desde Telegram:
+
+1. Autenticate (login) y llamá a `POST /api/usuarios/me/telegram/vinculacion` con tu JWT. Devuelve un token de un solo uso y un `deepLink` con la forma `https://t.me/<bot>?start=<token>` (expira a los pocos minutos).
+2. Abrí ese link (o mandale `/start <token>` directamente al bot). El chat queda vinculado a esa cuenta existente.
+
+### 4. Comandos disponibles
+
+Una vez identificado (por alta nativa o vinculación), mandale `/ayuda` al bot para ver el listado actualizado de comandos (`/crear`, `/buscar`, `/misactividades`, `/misvotaciones`, `/clima`, etc.).
 
 ## Uso de IA
 

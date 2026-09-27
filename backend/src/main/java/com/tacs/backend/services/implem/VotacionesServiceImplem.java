@@ -180,7 +180,7 @@ class VotacionesServiceImplem implements VotacionesService
         .anyMatch(u -> u.getId().equals(usuarioId));
 
     if (!esParticipante)
-      throw new IllegalStateException("Debes ser participante de la actividad para votar");
+      throw new NoParticipanteException("Debes ser participante de la actividad para votar");
 
     Alternativa alternativa = votacion.getAlternativas().stream()
         .filter(a -> a.getNumeroAlternativa() == numeroAlternativa)
@@ -195,6 +195,17 @@ class VotacionesServiceImplem implements VotacionesService
     votacion = votacionesRepository.save(votacion);
 
     return votacionMapper.votacionToVotacionDto(votacion);
+  }
+
+  @Override
+  public Optional<Integer> alternativaVotadaPor(String votacionId, String usuarioId)
+  {
+    Votacion votacion = buscarVotacion(votacionId);
+
+    return votacion.getVotos().stream()
+        .filter(v -> v.getUsuario().getId().equals(usuarioId))
+        .map(v -> v.getAlternativa().getNumeroAlternativa())
+        .findFirst();
   }
 
   /**
@@ -371,7 +382,7 @@ class VotacionesServiceImplem implements VotacionesService
    * buscarAlternativasFavorables). Vacia si ninguna cumple. Si el proveedor de
    * clima esta indisponible para una hora puntual, esa hora se saltea (no
    * cuenta como desfavorable, simplemente no hay dato) — pero se registra si
-   * hubo al menos una consulta exitosa en el dia (FR-007).
+   * hubo al menos una consulta exitosa en el dia.
    */
   private ResultadoBusquedaDia alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia)
   {

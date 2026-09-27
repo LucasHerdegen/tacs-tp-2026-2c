@@ -7,6 +7,7 @@ import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.YaEsParticipanteException;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -120,19 +121,20 @@ public class Actividad
    *
    * @param usuario El usuario a inscribir.
    * @throws CapacidadMaximaException Si la actividad ya alcanzo el maximo de participantes.
+   * @throws YaEsParticipanteException Si el usuario ya esta inscripto (incluye al organizador).
    */
   public void agregarParticipante(Usuario usuario)
   {
+    if (this.participantes.contains(usuario))
+      throw new YaEsParticipanteException("Ya sos participante de esta actividad");
+
     if (this.participantes.size() >= this.maximoParticipantes)
       throw new CapacidadMaximaException("La actividad ha alcanzado la capacidad maxima de participantes");
 
-    if (!this.participantes.contains(usuario))
-    {
-      this.participantes.add(usuario);
+    this.participantes.add(usuario);
 
-      if (this.estado == TipoEstadoActividad.PROPUESTA && this.participantes.size() >= this.minimoParticipantes)
-        this.estado = TipoEstadoActividad.CONFIRMADA;
-    }
+    if (this.estado == TipoEstadoActividad.PROPUESTA && this.participantes.size() >= this.minimoParticipantes)
+      this.estado = TipoEstadoActividad.CONFIRMADA;
   }
 
   /**

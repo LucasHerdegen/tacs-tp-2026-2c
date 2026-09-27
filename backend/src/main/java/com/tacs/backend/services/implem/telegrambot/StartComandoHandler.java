@@ -9,8 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * "/start" sin payload -> alta nativa (US1). "/start <token>" -> vinculacion
- * de una cuenta ya existente (US2). Si el chat ya esta identificado, no hace
+ * "/start" sin payload da de alta un usuario nuevo. "/start <token>" vincula
+ * el chat a una cuenta ya existente. Si el chat ya esta identificado, no hace
  * nada de negocio (evita un alta/vinculacion duplicada sobre el mismo chat).
  */
 @Slf4j

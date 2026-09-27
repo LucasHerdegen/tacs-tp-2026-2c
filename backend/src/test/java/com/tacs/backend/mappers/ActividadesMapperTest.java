@@ -47,7 +47,7 @@ class ActividadesMapperTest
   @Test
   void actividadToActividadDtoIncluyeReglasClimaHorasAnticipacionYRangoReprogramacion()
   {
-    ReglasClima reglasClima = new ReglasClima(30, 10, 30, 20);
+    ReglasClima reglasClima = new ReglasClima(30.0, 10.0, 30.0, 20.0);
     RangoReprogramacion rango = new RangoReprogramacion(3, 10, 20);
     Actividad actividad = new Actividad(
         "Asado", "desc", TipoActividad.AIRE_LIBRE, UBICACION,
