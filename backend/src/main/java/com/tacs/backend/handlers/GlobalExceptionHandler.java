@@ -100,6 +100,12 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
     return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
   }
 
+  @ExceptionHandler(NotificacionNotFoundException.class)
+  public ProblemDetail handleNotificacionNotFoundException(NotificacionNotFoundException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+  }
+
   @ExceptionHandler(QuorumInvalidoException.class)
   public ProblemDetail handleQuorumInvalidoException(QuorumInvalidoException ex)
   {

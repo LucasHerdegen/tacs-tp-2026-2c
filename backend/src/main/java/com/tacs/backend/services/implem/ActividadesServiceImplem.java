@@ -14,10 +14,12 @@ import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ProveedorClima proveedorClima;
   private final ClimaMapper climaMapper;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
 
   @Value("${weatherapi.forecast.max-days}")
   private int maxDiasForecast;
@@ -261,10 +264,12 @@ public class ActividadesServiceImplem implements ActividadesService
 
     if (nuevoEstado == TipoEstadoActividad.CANCELADA)
     {
-      servicioNotificaciones.notificarATodos(
-          "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
-              actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
-          actividad.getParticipantes());
+      String contenido = "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
+          actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
+
+      servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+      notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+          actividad.getId(), null, actividad.getParticipantes());
     }
   }
 

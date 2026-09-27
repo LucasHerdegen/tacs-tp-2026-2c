@@ -13,6 +13,7 @@ import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,9 @@ class ActividadesServiceImplemTest
 
   @Mock
   private ClimaMapper climaMapper;
+
+  @Mock
+  private NotificacionInboxService notificacionInboxService;
 
   @InjectMocks
   private ActividadesServiceImplem actividadesService;

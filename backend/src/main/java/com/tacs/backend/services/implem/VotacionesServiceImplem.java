@@ -4,6 +4,7 @@ import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.domain.votacion.Voto;
@@ -15,6 +16,7 @@ import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
@@ -41,6 +43,7 @@ class VotacionesServiceImplem implements VotacionesService
   private final VotacionMapper votacionMapper;
   private final ProveedorClima proveedorClima;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
 
   // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
@@ -107,7 +110,7 @@ class VotacionesServiceImplem implements VotacionesService
         // No se cancela actividad si el fallo es debido a un error en la conexion con el proveedor
         return Optional.empty();
 
-      cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico");
+      cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico", null);
       actividadesRepository.save(actividad);
       return Optional.empty();
     }
@@ -242,10 +245,10 @@ class VotacionesServiceImplem implements VotacionesService
     {
       LocalDateTime fechaAnterior = actividad.getFechaRealizacion();
       actividad.reprogramar(ganadora.get().getFecha());
-      notificarReprogramacion(actividad, fechaAnterior);
+      notificarReprogramacion(actividad, fechaAnterior, votacion.getId());
     } else
     {
-      cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos");
+      cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
     }
 
     actividadesRepository.save(actividad);
@@ -411,7 +414,7 @@ class VotacionesServiceImplem implements VotacionesService
     return new ResultadoBusquedaDia(favorablesDelDia, huboConsultaExitosa);
   }
 
-  private void cancelarActividad(Actividad actividad, String motivo)
+  private void cancelarActividad(Actividad actividad, String motivo, String votacionId)
   {
     if (actividad.getEstado() == null)
       throw new IllegalStateException(
@@ -419,19 +422,23 @@ class VotacionesServiceImplem implements VotacionesService
 
     actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
 
-    servicioNotificaciones.notificarATodos(
-        "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo),
-        actividad.getParticipantes());
+    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
+
+    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
-  private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior)
+  private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior, String votacionId)
   {
-    servicioNotificaciones.notificarATodos(
-        "La actividad '%s' se reprogramo del %s al %s.".formatted(
-            actividad.getTitulo(),
-            fechaAnterior.format(FORMATO),
-            actividad.getFechaRealizacion().format(FORMATO)),
-        actividad.getParticipantes());
+    String contenido = "La actividad '%s' se reprogramo del %s al %s.".formatted(
+        actividad.getTitulo(),
+        fechaAnterior.format(FORMATO),
+        actividad.getFechaRealizacion().format(FORMATO));
+
+    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.REPROGRAMACION,
+        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
   /**

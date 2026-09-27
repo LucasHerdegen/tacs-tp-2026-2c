@@ -1,7 +1,9 @@
 package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.Actividad;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -21,14 +23,17 @@ public class RecordatorioInicioJob
 
   private final ActividadesRepository actividadesRepository;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
   private final int horasAnticipacionDefault;
 
   public RecordatorioInicioJob(ActividadesRepository actividadesRepository,
                                ServicioNotificaciones servicioNotificaciones,
+                               NotificacionInboxService notificacionInboxService,
                                @Value("${recordatorio.inicio.horas-anticipacion-default}") int horasAnticipacionDefault)
   {
     this.actividadesRepository = actividadesRepository;
     this.servicioNotificaciones = servicioNotificaciones;
+    this.notificacionInboxService = notificacionInboxService;
     this.horasAnticipacionDefault = horasAnticipacionDefault;
   }
 
@@ -63,10 +68,13 @@ public class RecordatorioInicioJob
   {
     try
     {
-      servicioNotificaciones.notificarATodos(
-          "La actividad '%s' comienza el %s.".formatted(
-              actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
-          actividad.getParticipantes());
+      String contenido = "La actividad '%s' comienza el %s.".formatted(
+          actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
+
+      servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+      notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.RECORDATORIO_INICIO,
+          actividad.getId(), null, actividad.getParticipantes());
+
       actividad.marcarRecordatorioEnviado();
       actividadesRepository.save(actividad);
     } catch (Exception e)
