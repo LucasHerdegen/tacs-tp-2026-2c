@@ -46,7 +46,7 @@ export interface PronosticoRespuesta {
 }
 
 export interface Actividad {
-  id: number;
+  id: string;
   titulo: string;
   descripcion: string;
   tipoActividad: TipoActividad;

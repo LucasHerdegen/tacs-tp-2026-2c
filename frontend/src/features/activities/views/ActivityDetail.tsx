@@ -14,7 +14,7 @@ import { canManageActivity, isParticipant, isActivityCanceled } from '../activit
 
 export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const actividadId = Number(id);
+  const actividadId = id ?? '';
   const { user, token } = useAuth();
   // const navigate = useNavigate(); // Hace que falle build mientras no se use.
 
@@ -36,7 +36,7 @@ export const ActivityDetail: React.FC = () => {
   const estaCancelada = isActivityCanceled(activity);
 
   const obtenerDetalle = useCallback(async () => {
-    if (Number.isNaN(actividadId)) return;
+    if (!actividadId) return;
     if (!token || !user) return;
 
     const actividadEncontrada = await activitiesApi.obtener(actividadId, token);
@@ -44,7 +44,11 @@ export const ActivityDetail: React.FC = () => {
 
     const yaParticipa = actividadEncontrada?.participantes.some((p) => p.id === user.id);
     if (actividadEncontrada && yaParticipa && actividadEncontrada.estadoActividad !== 'CANCELADA') {
-      pronosticoEncontrado = await activitiesApi.clima(actividadId, user.id, token);
+      try {
+        pronosticoEncontrado = await activitiesApi.clima(actividadId, token);
+      } catch (error) {
+        console.error('Error al obtener el pronóstico del clima:', error);
+      }
     }
 
     return { actividadEncontrada, pronosticoEncontrado };
@@ -91,9 +95,9 @@ export const ActivityDetail: React.FC = () => {
     setError('');
     try {
       if (esParticipante) {
-        await activitiesApi.bajarse(activity.id, user.id, token);
+        await activitiesApi.bajarse(activity.id, token);
       } else {
-        await activitiesApi.unirse(activity.id, user.id, token);
+        await activitiesApi.unirse(activity.id, token);
       }
       await cargarTodo();
     } catch (requestError) {
@@ -134,7 +138,7 @@ export const ActivityDetail: React.FC = () => {
     return { text: 'Sumarme a la actividad', disabled: busy, variant: 'primary' as const };
   };
 
-  if (Number.isNaN(actividadId)) {
+  if (!actividadId) {
     return (
       <div className="text-center py-20">
         <h2 className="text-2xl font-bold text-gray-900">Actividad no encontrada</h2>

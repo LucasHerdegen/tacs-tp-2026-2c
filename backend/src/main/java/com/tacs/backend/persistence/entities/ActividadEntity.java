@@ -32,6 +32,7 @@ public class ActividadEntity
 
   private TipoActividad tipo;
 
+  private List<String> tags = new ArrayList<>();
   private UbicacionEntity ubicacion;
 
   private LocalDateTime fechaCreacion;

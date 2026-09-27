@@ -1,6 +1,5 @@
-import type { Actividad } from '../activities/types';
 import type { Clima } from '../activities/types';
-import type { UserId } from '../auth/types';
+
 
 export interface AlternativaPostDto {
   fecha: string;
@@ -13,12 +12,11 @@ export interface VotacionPostDto {
 }
 
 export interface VotoPostDto {
-  usuarioId: UserId;
   numeroAlternativa: number;
 }
 
 export interface AlternativaDto {
-  id: number;
+  id: string;
   fecha: string;
   clima: Clima | null;
   numeroAlternativa: number;
@@ -28,11 +26,16 @@ export interface AlternativaDto {
 }
 
 export interface VotacionDto {
-  id: number;
+  id: string;
   fechaApertura: string;
   fechaLimite: string;
   fechaCierre: string | null;
-  actividadDto: Actividad;
+  actividad: {
+    id: string;
+    titulo: string;
+    estado: string;
+    fechaRealizacion: string;
+  };
   alternativasDtos: AlternativaDto[];
   quorumMinimo: number;
   abierta: boolean;

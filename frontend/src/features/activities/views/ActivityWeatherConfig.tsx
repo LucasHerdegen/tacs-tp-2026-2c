@@ -39,7 +39,7 @@ export const WeatherConfig: React.FC = () => {
       }
 
       try {
-        const actividad = await activitiesApi.obtener(Number(id), token);
+        const actividad = await activitiesApi.obtener(id, token);
 
         if (!actividad) {
           setMessage({
@@ -120,7 +120,7 @@ export const WeatherConfig: React.FC = () => {
     try {
       console.log('Payload a enviar:', payload);
 
-      await activitiesApi.configurarClima(Number(id), payload, token);
+      await activitiesApi.configurarClima(id!, payload, token);
 
       setMessage({
         type: 'success',

@@ -44,6 +44,7 @@ public class Actividad
 
 
   private TipoActividad tipo;
+  private List<String> tags = new ArrayList<>();
 
 
   private Ubicacion ubicacion;

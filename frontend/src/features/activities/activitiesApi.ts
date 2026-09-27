@@ -1,11 +1,14 @@
 import { apiRequest } from '../../lib/api';
-import type { UserId } from '../auth/types';
+
 import type { Actividad, ActividadPost, PronosticoRespuesta, ConfigurarCondiciones } from './types';
 
 export const activitiesApi = {
-  async obtener(id: number, token: string): Promise<Actividad | null> {
-    const actividades = await apiRequest<Actividad[]>('/api/actividades', { token });
-    return actividades.find((a) => a.id === id) ?? null;
+  async obtener(id: string, token: string): Promise<Actividad | null> {
+    try {
+      return await apiRequest<Actividad>(`/api/actividades/${id}`, { token });
+    } catch (error) {
+      return null;
+    }
   },
 
   misActividades(organizador: boolean, token: string) {
@@ -19,36 +22,36 @@ export const activitiesApi = {
       ); 
     },
 
-  unirse(actividadId: number, usuarioId: UserId, token: string) {
+  unirse(actividadId: string, token: string) {
     return apiRequest<void>(
-      `/api/actividades/${actividadId}/participantes?usuarioId=${usuarioId}`,
+      `/api/actividades/${actividadId}/participantes`,
       { method: 'POST', token },
     );
   },
 
-  bajarse(actividadId: number, usuarioId: UserId, token: string) {
+  bajarse(actividadId: string, token: string) {
     return apiRequest<void>(
-      `/api/actividades/${actividadId}/participantes?usuarioId=${usuarioId}`,
+      `/api/actividades/${actividadId}/participantes`,
       { method: 'DELETE', token },
     );
   },
 
-  clima(actividadId: number, usuarioId: UserId, token: string) {
+  clima(actividadId: string, token: string) {
     return apiRequest<PronosticoRespuesta>(
-      `/api/actividades/${actividadId}/clima?usuarioId=${usuarioId}`,
+      `/api/actividades/${actividadId}/clima`,
       { token },
     );
   },
 
-  cancelar(actividadId: number, token: string) {
+  cancelar(actividadId: string, token: string) {
     return apiRequest<void>(
-      `/api/actividades/${actividadId}/cancelaciones`,
-      { method: 'POST', token },
+      `/api/actividades/${actividadId}/estado`,
+      { method: 'PATCH', token, body: JSON.stringify({ estado: 'CANCELADA' }) },
     );
   },
 
   configurarClima(
-    actividadId: number,
+    actividadId: string,
     configuracion: ConfigurarCondiciones,
     token: string,
   ) {
@@ -58,23 +61,38 @@ export const activitiesApi = {
     );
   },
 
-  buscar(tipo: string | null, busqueda: string | null, fecha: string | null, token: string) {
+  buscar(
+    tipo: string | null,
+    busqueda: string | null,
+    fecha: string | null,
+    estado: string | null,
+    page: number = 0,
+    size: number = 20,
+    token: string
+  ) {
     const params = new URLSearchParams();
 
-  if (tipo) {
-    params.append('tipo', tipo);
-  }
-  if (busqueda) {
-    params.append('busqueda', busqueda);
-  }
-  if (fecha) {
-    params.append('fecha', fecha);
-  }
+    if (tipo) {
+      params.append('tipo', tipo);
+    }
+    if (busqueda) {
+      params.append('busqueda', busqueda);
+    }
+    if (fecha) {
+      params.append('fecha', fecha);
+    }
+    if (estado) {
+      params.append('estado', estado);
+    }
+    
+    params.append('page', page.toString());
+    params.append('size', size.toString());
+
     const query = params.toString();
 
-    return apiRequest<any>(
+    return apiRequest<{ content: Actividad[]; totalPages: number; number: number; last: boolean; first: boolean }>(
       `/api/actividades${query ? `?${query}` : ''}`,
       { token },
-    ).then(res => res.content ? res.content : res);
+    );
   },
 };
