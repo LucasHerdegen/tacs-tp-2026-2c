@@ -32,7 +32,7 @@ class ConfigurarClimaFlujoHandlerTest
   private static final long CHAT_ID = 999L;
   private static final String USUARIO_ID = "usr-1";
   private static final String ACTIVIDAD_ID = "act-1";
-  private static final int MAX_DIAS_FORECAST = 14;
+  private static final int MAX_DIAS_FORECAST = 3;
 
   @Mock
   private TelegramBot telegramBot;

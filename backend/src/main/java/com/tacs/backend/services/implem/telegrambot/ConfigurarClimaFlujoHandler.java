@@ -13,7 +13,6 @@ import com.tacs.backend.dtos.clima.ReglasClimaDto;
 import com.tacs.backend.persistence.entities.TelegramSesionEntity;
 import com.tacs.backend.persistence.repositories.TelegramSesionMongoRepository;
 import com.tacs.backend.services.ActividadesService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

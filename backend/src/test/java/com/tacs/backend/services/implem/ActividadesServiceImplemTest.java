@@ -92,7 +92,7 @@ class ActividadesServiceImplemTest
 
     // maxDiasForecast se inyecta via @Value en produccion; en el test se
     // setea a mano con el mismo valor que application.properties.
-    ReflectionTestUtils.setField(actividadesService, "maxDiasForecast", 14);
+    ReflectionTestUtils.setField(actividadesService, "maxDiasForecast", 3);
   }
 
   @Test
@@ -315,7 +315,7 @@ class ActividadesServiceImplemTest
   }
 
   @Test
-  @DisplayName("Falla si horasAnticipacion supera el tope del plan de WeatherAPI (14 dias = 336hs)")
+  @DisplayName("Falla si horasAnticipacion supera el tope del plan de WeatherAPI (3 dias = 72hs)")
   void actualizarConfiguracionClima_HorasAnticipacionSuperaElTope_ThrowsException()
   {
     // Arrange
@@ -323,7 +323,7 @@ class ActividadesServiceImplemTest
     String organizadorId = "1";
     actividadMock.setOrganizador(usuarioMock);
 
-    var configDto = new ConfigurarCondicionesDto(null, 337, null); // 14 dias * 24hs + 1
+    var configDto = new ConfigurarCondicionesDto(null, 73, null); // 3 dias * 24hs + 1
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
 
@@ -336,7 +336,7 @@ class ActividadesServiceImplemTest
   }
 
   @Test
-  @DisplayName("Falla si RangoReprogramacion.dias supera el tope del plan de WeatherAPI (14 dias)")
+  @DisplayName("Falla si RangoReprogramacion.dias supera el tope del plan de WeatherAPI (3 dias)")
   void actualizarConfiguracionClima_RangoReprogramacionDiasSuperaElTope_ThrowsException()
   {
     // Arrange
@@ -344,7 +344,7 @@ class ActividadesServiceImplemTest
     String organizadorId = "1";
     actividadMock.setOrganizador(usuarioMock);
 
-    var rangoDto = new RangoReprogramacionDto(15, 10, 20); // supera el tope de 14 dias
+    var rangoDto = new RangoReprogramacionDto(4, 10, 20); // supera el tope de 3 dias
     var configDto = new ConfigurarCondicionesDto(null, null, rangoDto);
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
