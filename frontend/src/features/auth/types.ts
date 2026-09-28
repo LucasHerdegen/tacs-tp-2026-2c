@@ -1,5 +1,5 @@
 export type UserRole = 'USER' | 'ADMIN';
-export type UserId = string | number;
+export type UserId = string;
 
 export interface ContactMethod {
   valor: string;

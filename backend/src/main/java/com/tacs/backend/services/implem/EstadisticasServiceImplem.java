@@ -13,16 +13,9 @@ import org.springframework.stereotype.Service;
 class EstadisticasServiceImplem implements EstadisticasService
 {
   private final ActividadesRepository actividadesRepository;
-
-  // calculo de estadisticas para el US 14
-  // TODO queda fuera de mi alcance "consultas al servicio de pronostico"
-  // porque todavia no estan implementadas. Ademas, el proveedor de clima (ProveedorClima) hoy es
-  // el mock MockProveedorClima: contar sus llamadas no reflejaria consultas reales a ningun servicio,
-  // asi que no tiene sentido implementarlo hasta que haya un proveedor real.
   @Override
   public EstadisticasDto obtenerEstadisticas()
   {
-    // de quererlo aca puedo sacar un par, esto es como un dashboard
     long creadas = actividadesRepository.count();
     long reprogramadas = actividadesRepository.countByEstado(TipoEstadoActividad.REPROGRAMADA);
     long canceladas = actividadesRepository.countByEstado(TipoEstadoActividad.CANCELADA);

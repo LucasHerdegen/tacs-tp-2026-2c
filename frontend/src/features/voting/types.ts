@@ -1,4 +1,4 @@
-import type { Clima } from '../activities/types';
+import type { Clima, TipoEstadoActividad } from '../activities/types';
 
 
 export interface AlternativaPostDto {
@@ -25,17 +25,19 @@ export interface AlternativaDto {
   cumpleReglasClima: boolean | null;
 }
 
+export interface ActividadResumen {
+  id: string;
+  titulo: string;
+  estado: TipoEstadoActividad;
+  fechaRealizacion: string;
+}
+
 export interface VotacionDto {
   id: string;
   fechaApertura: string;
   fechaLimite: string;
   fechaCierre: string | null;
-  actividad: {
-    id: string;
-    titulo: string;
-    estado: string;
-    fechaRealizacion: string;
-  };
+  actividad: ActividadResumen;
   alternativasDtos: AlternativaDto[];
   quorumMinimo: number;
   abierta: boolean;
