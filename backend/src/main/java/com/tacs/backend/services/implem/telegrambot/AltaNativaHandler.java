@@ -12,8 +12,7 @@ import java.util.UUID;
 
 /**
  * Alta de un Usuario nuevo directamente desde el bot, sin contrasenia
- * elegida por la persona (no es objetivo del TP trabajar sobre login/registro
- * clasico para este canal). El chatId nace ya vinculado como MedioContacto.
+ * elegida por la persona. El chatId nace ya vinculado como MedioContacto.
  */
 @Component
 @RequiredArgsConstructor

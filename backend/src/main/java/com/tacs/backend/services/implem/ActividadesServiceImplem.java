@@ -14,10 +14,12 @@ import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +27,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -43,6 +44,7 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ProveedorClima proveedorClima;
   private final ClimaMapper climaMapper;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
 
   @Value("${weatherapi.forecast.max-days}")
   private int maxDiasForecast;
@@ -57,7 +59,6 @@ public class ActividadesServiceImplem implements ActividadesService
    * @return DTO de la actividad creada.
    */
   @Override
-  @Transactional
   public ActividadDto createActividad(ActividadPostDto actividadPostDto, String usuarioId)
   {
     if (actividadPostDto.cantidadMinima() > actividadPostDto.cantidadMaxima())
@@ -144,7 +145,7 @@ public class ActividadesServiceImplem implements ActividadesService
         .filter(a -> busqueda == null ||
             normalizar(a.getTitulo()).contains(normalizar(busqueda)) ||
             (a.getUbicacion() != null &&
-            normalizar(a.getUbicacion().getBarrio()).contains(normalizar(busqueda))))
+                normalizar(a.getUbicacion().getCiudad()).contains(normalizar(busqueda))))
         .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
         .filter(a -> estado == null || a.getEstado() == estado)
         .filter(
@@ -159,10 +160,11 @@ public class ActividadesServiceImplem implements ActividadesService
     return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, filtered.size());
   }
 
-  private String normalizar(String texto) {
-    if (texto == null) {
-        return "";
-    }
+  private String normalizar(String texto)
+  {
+    if (texto == null)
+      return "";
+
     return java.text.Normalizer
         .normalize(texto, java.text.Normalizer.Form.NFD)
         .replaceAll("\\p{M}", "")
@@ -178,7 +180,6 @@ public class ActividadesServiceImplem implements ActividadesService
    * @param usuarioId   Identificador del usuario que desea unirse.
    */
   @Override
-  @Transactional
   public void unirseActividad(String actividadId, String usuarioId)
   {
     validarExistenciaUsuario(usuarioId);
@@ -187,9 +188,8 @@ public class ActividadesServiceImplem implements ActividadesService
         .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
     if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes())
-    {
       throw new CapacidadMaximaException("La actividad ya esta al maximo de participantes permitidos");
-    }
+
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
@@ -205,7 +205,6 @@ public class ActividadesServiceImplem implements ActividadesService
    * @param usuarioId   Identificador del usuario que desea bajarse.
    */
   @Override
-  @Transactional
   public void bajarseActividad(String actividadId, String usuarioId)
   {
     validarExistenciaUsuario(usuarioId);
@@ -250,7 +249,6 @@ public class ActividadesServiceImplem implements ActividadesService
    * @param usuarioId   Identificador del usuario que solicita la cancelacion (debe ser el organizador).
    */
   @Override
-  @Transactional
   public void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado)
   {
     var actividad = actividadesRepository.findById(actividadId)
@@ -266,10 +264,12 @@ public class ActividadesServiceImplem implements ActividadesService
 
     if (nuevoEstado == TipoEstadoActividad.CANCELADA)
     {
-      servicioNotificaciones.notificarATodos(
-          "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
-              actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
-          actividad.getParticipantes());
+      String contenido = "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
+          actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
+
+      servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+      notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+          actividad.getId(), null, actividad.getParticipantes());
     }
   }
 
@@ -282,7 +282,6 @@ public class ActividadesServiceImplem implements ActividadesService
    * @return DTO de la actividad actualizada.
    */
   @Override
-  @Transactional
   public ActividadDto actualizarConfiguracionClima(String actividadId, String usuarioId, ConfigurarCondicionesDto dto)
   {
     Actividad actividad = actividadesRepository.findById(actividadId)
@@ -294,10 +293,10 @@ public class ActividadesServiceImplem implements ActividadesService
     if (dto.reglasClima() != null)
     {
       actividad.actualizarReglasClima(
-        dto.reglasClima().maxProbabilidadLluvia(),
-        dto.reglasClima().minTemperatura(),
-        dto.reglasClima().maxTemperatura(),
-        dto.reglasClima().maxViento()
+          dto.reglasClima().maxProbabilidadLluvia(),
+          dto.reglasClima().minTemperatura(),
+          dto.reglasClima().maxTemperatura(),
+          dto.reglasClima().maxViento()
       );
     }
 
@@ -320,9 +319,9 @@ public class ActividadesServiceImplem implements ActividadesService
                 .formatted(maxDiasForecast));
 
       actividad.actualizarRangoReprogramacion(
-        dto.rangoReprogramacion().dias(),
-        dto.rangoReprogramacion().horaInicio(),
-        dto.rangoReprogramacion().horaFinal()
+          dto.rangoReprogramacion().dias(),
+          dto.rangoReprogramacion().horaInicio(),
+          dto.rangoReprogramacion().horaFinal()
       );
     }
 

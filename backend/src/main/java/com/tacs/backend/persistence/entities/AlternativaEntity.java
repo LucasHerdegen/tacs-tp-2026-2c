@@ -18,5 +18,5 @@ public class AlternativaEntity
 
   private Clima clima;
 
-  private int numeroAltenativa;
+  private int numeroAlternativa;
 }

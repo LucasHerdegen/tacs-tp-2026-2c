@@ -60,7 +60,7 @@ class WeatherApiProveedorClimaCacheTest
     @Bean
     public WeatherApiProveedorClima weatherApiProveedorClima(RestClient restClient, WeatherApiForecastClient forecastClient)
     {
-      return new WeatherApiProveedorClima(restClient, forecastClient, ResilienceDePrueba.permisiva(), "test-key", 14);
+      return new WeatherApiProveedorClima(restClient, forecastClient, ResilienceDePrueba.permisiva(), "test-key", 3);
     }
   }
 

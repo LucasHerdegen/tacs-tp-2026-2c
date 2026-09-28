@@ -5,12 +5,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -19,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 @Configuration
 public class SecurityConfig
@@ -32,10 +33,10 @@ public class SecurityConfig
   }
 
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception
+  public SecurityFilterChain securityFilterChain(HttpSecurity http, com.tacs.backend.repositories.UsuarioRepository usuarioRepository) throws Exception
   {
     return http
-        .csrf(csrf -> csrf.disable())
+        .csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(session -> session
             .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(authorize -> authorize
@@ -45,7 +46,8 @@ public class SecurityConfig
                 "/error",
                 "/swagger-ui.html",
                 "/swagger-ui/**",
-                "/v3/api-docs/**")
+                "/v3/api-docs/**",
+                "/api/health")
             .permitAll()
             .requestMatchers(HttpMethod.GET, "/api/usuarios")
             .hasRole("ADMIN")
@@ -55,16 +57,19 @@ public class SecurityConfig
             .hasRole("ADMIN")
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2
-            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter(usuarioRepository))))
         .build();
   }
 
   @Bean
-  public JwtAuthenticationConverter jwtAuthenticationConverter()
+  public JwtAuthenticationConverter jwtAuthenticationConverter(com.tacs.backend.repositories.UsuarioRepository usuarioRepository)
   {
-    JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
-    authoritiesConverter.setAuthoritiesClaimName("role");
-    authoritiesConverter.setAuthorityPrefix("ROLE_");
+    org.springframework.core.convert.converter.Converter<org.springframework.security.oauth2.jwt.Jwt, java.util.Collection<org.springframework.security.core.GrantedAuthority>> authoritiesConverter = jwt -> {
+        String userId = jwt.getClaimAsString("id");
+        return usuarioRepository.findById(userId)
+            .map(u -> (java.util.Collection<org.springframework.security.core.GrantedAuthority>) java.util.List.<org.springframework.security.core.GrantedAuthority>of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + u.getRol().name())))
+            .orElseGet(Collections::emptyList);
+    };
 
     JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
     authenticationConverter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);

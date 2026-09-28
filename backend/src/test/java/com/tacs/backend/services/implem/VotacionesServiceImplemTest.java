@@ -22,9 +22,11 @@ import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -70,12 +72,15 @@ class VotacionesServiceImplemTest
   @Mock
   private ServicioNotificaciones servicioNotificaciones;
 
+  @Mock
+  private NotificacionInboxService notificacionInboxService;
+
   private VotacionesServiceImplem service;
 
   private void inicializarService()
   {
     service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository,
-        votacionMapper, proveedorClima, servicioNotificaciones);
+        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService);
   }
 
   @Test
@@ -93,7 +98,7 @@ class VotacionesServiceImplemTest
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     assertThat(actividad.getFechaRealizacion()).isEqualTo(fechaGanadora);
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
@@ -116,7 +121,7 @@ class VotacionesServiceImplemTest
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     assertThat(votacion.isAbierta()).isFalse();
@@ -135,7 +140,7 @@ class VotacionesServiceImplemTest
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
-    service.resolverVotacion("10");
+    service.resolverVotacion("10", "1");
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     assertThat(votacion.getAlternativaGanadora()).isNull();
@@ -154,7 +159,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.resolverVotacion("10"))
+    assertThatThrownBy(() -> service.resolverVotacion("10", "1"))
         .isInstanceOf(IllegalStateException.class);
 
     verify(actividadesRepository, never()).save(any());
@@ -172,7 +177,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.resolverVotacion("10"))
+    assertThatThrownBy(() -> service.resolverVotacion("10", "1"))
         .isInstanceOf(VotacionCerradaException.class);
 
     verify(actividadesRepository, never()).save(any());
@@ -186,7 +191,7 @@ class VotacionesServiceImplemTest
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("50");
     actividad.setMinimoParticipantes(4);
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14)); // 3 dias, franja 10-14hs (grilla: 10,12,14)
 
     Clima malo = new Clima(80, 20, 10);
@@ -221,7 +226,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("54");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20)); // max 30% de lluvia permitido
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0)); // max 30% de lluvia permitido
     actividad.setRangoReprogramacion(new RangoReprogramacion(1, 10, 14)); // 1 dia, grilla: 10, 12, 14
 
     LocalDateTime dia1 = fechaOriginal.plusDays(1);
@@ -247,7 +252,7 @@ class VotacionesServiceImplemTest
     // hora10 y hora14 cumplen, se ofrecen ambas; hora12 no cumple y queda afuera
     assertThat(alternativas).hasSize(2);
     assertThat(alternativas).extracting(Alternativa::getFecha).containsExactly(hora10, hora14);
-    assertThat(alternativas).extracting(Alternativa::getNumeroAltenativa).containsExactly(1, 2);
+    assertThat(alternativas).extracting(Alternativa::getNumeroAlternativa).containsExactly(1, 2);
   }
 
   @Test
@@ -256,7 +261,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("51");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
 
     when(actividadesRepository.findById("51")).thenReturn(Optional.of(actividad));
@@ -278,7 +283,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("53");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
 
     when(actividadesRepository.findById("53")).thenReturn(Optional.of(actividad));
@@ -315,7 +320,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(55L);
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14)); // 3 dias, grilla: 10,12,14
 
     LocalDateTime diaSinCobertura = fechaOriginal.plusDays(1); // todas sus horas: indisponible
@@ -362,7 +367,7 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId("55");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(null);
 
     when(actividadesRepository.findById("55")).thenReturn(Optional.of(actividad));
@@ -382,7 +387,7 @@ class VotacionesServiceImplemTest
     LocalDateTime fechaOriginal = LocalDateTime.now().minusHours(2); // ya paso
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId("52");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14));
 
     when(actividadesRepository.findById("52")).thenReturn(Optional.of(actividad));
@@ -407,7 +412,7 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     actividad.setId("53");
-    actividad.setReglasClima(new ReglasClima(30, 10, 30, 20));
+    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     when(actividadesRepository.findById("53")).thenReturn(Optional.of(actividad));
     when(votacionesRepository.findByAbiertaTrueAndActividadId("53")).thenReturn(Optional.of(new Votacion()));
@@ -434,7 +439,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.crearVotacion("60", dto))
+    assertThatThrownBy(() -> service.crearVotacion("60", dto, "1"))
         .isInstanceOf(QuorumInvalidoException.class);
 
     verify(votacionesRepository, never()).save(any());
@@ -457,7 +462,7 @@ class VotacionesServiceImplemTest
     when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
-    service.crearVotacion("61", dto); // no debe lanzar QuorumInvalidoException
+    service.crearVotacion("61", dto, "1"); // no debe lanzar QuorumInvalidoException
 
     ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
     verify(votacionesRepository).save(captor.capture());
@@ -469,7 +474,6 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(null);
     Usuario participante = crearUsuarioConId("1");
-    actividad.agregarParticipante(participante);
 
     Alternativa alternativa = crearAlternativa("1", 1, LocalDateTime.now().plusDays(2));
     Votacion votacion = crearVotacion(actividad, 2, List.of(alternativa));
@@ -519,7 +523,7 @@ class VotacionesServiceImplemTest
     inicializarService();
 
     assertThatThrownBy(() -> service.votar("10", "5", 1))
-        .isInstanceOf(IllegalStateException.class);
+        .isInstanceOf(NoParticipanteException.class);
 
     verify(votacionesRepository, never()).save(any());
   }
@@ -529,7 +533,6 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(null);
     Usuario participante = crearUsuarioConId("1");
-    actividad.agregarParticipante(participante);
 
     Alternativa alternativa = crearAlternativa("1", 1, LocalDateTime.now().plusDays(2));
     Votacion votacion = crearVotacion(actividad, 2, List.of(alternativa)); // solo existe la alternativa numero 1
@@ -568,7 +571,6 @@ class VotacionesServiceImplemTest
   {
     Actividad actividad = crearActividad(null);
     Usuario participante = crearUsuarioConId("1");
-    actividad.agregarParticipante(participante);
 
     Alternativa sabado = crearAlternativa("1", 1, LocalDateTime.now().plusDays(2));
     Alternativa domingo = crearAlternativa("2", 2, LocalDateTime.now().plusDays(3));
@@ -597,7 +599,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.agregarAlternativa("10", new AlternativaPostDto(LocalDateTime.now().plusDays(1))))
+    assertThatThrownBy(() -> service.agregarAlternativa("10", new AlternativaPostDto(LocalDateTime.now().plusDays(1)), "1"))
         .isInstanceOf(VotacionCerradaException.class);
 
     verify(votacionesRepository, never()).save(any());
@@ -615,7 +617,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.eliminarAlternativa("10", 1))
+    assertThatThrownBy(() -> service.eliminarAlternativa("10", 1, "1"))
         .isInstanceOf(VotacionCerradaException.class);
 
     verify(votacionesRepository, never()).save(any());
@@ -631,7 +633,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.eliminarAlternativa("10", 99))
+    assertThatThrownBy(() -> service.eliminarAlternativa("10", 99, "1"))
         .isInstanceOf(AlternativaNotFoundException.class);
 
     verify(votacionesRepository, never()).save(any());
@@ -647,7 +649,7 @@ class VotacionesServiceImplemTest
     when(votacionesRepository.save(votacion)).thenReturn(votacion);
 
     inicializarService();
-    service.eliminarAlternativa("10", 1);
+    service.eliminarAlternativa("10", 1, "1");
 
     assertThat(votacion.getAlternativas()).isEmpty();
   }
@@ -685,7 +687,7 @@ class VotacionesServiceImplemTest
 
     inicializarService();
 
-    assertThatThrownBy(() -> service.eliminarVotacion("404"))
+    assertThatThrownBy(() -> service.eliminarVotacion("404", "1"))
         .isInstanceOf(VotacionNotFoundException.class);
 
     verify(votacionesRepository, never()).delete(any());
@@ -699,7 +701,7 @@ class VotacionesServiceImplemTest
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
 
     inicializarService();
-    service.eliminarVotacion("10");
+    service.eliminarVotacion("10", "1");
 
     verify(votacionesRepository).delete(votacion);
   }
@@ -771,7 +773,7 @@ class VotacionesServiceImplemTest
         LocalDateTime.now(),
         2,
         10,
-        crearUsuarioConId("999"));
+        crearUsuarioConId("1"));
     actividad.setEstado(estado);
     actividad.setRangoReprogramacion(new RangoReprogramacion(5, 0, 23));
     return actividad;
@@ -781,7 +783,7 @@ class VotacionesServiceImplemTest
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId(id);
-    alternativa.setNumeroAltenativa(numero);
+    alternativa.setNumeroAlternativa(numero);
     alternativa.setFecha(fecha);
     return alternativa;
   }

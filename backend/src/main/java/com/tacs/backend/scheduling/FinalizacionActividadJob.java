@@ -1,14 +1,13 @@
 package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.persistence.entities.ActividadEntity;
-import com.tacs.backend.persistence.repositories.ActividadesMongoRepository;
+import com.tacs.backend.domain.actividad.Actividad;
+import com.tacs.backend.repositories.ActividadesRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -17,22 +16,21 @@ import java.util.List;
 @Slf4j
 public class FinalizacionActividadJob
 {
-  private final ActividadesMongoRepository actividadesRepository;
+  private final ActividadesRepository actividadesRepository;
 
   @Scheduled(fixedRate = 300000) // cada 5 min
   @SchedulerLock(name = "finalizacionActividadJob", lockAtMostFor = "4m", lockAtLeastFor = "1m")
-  @Transactional
   public void finalizarActividadesPasadas()
   {
     log.info("Iniciando chequeo de finalización de actividades pasadas...");
 
-    List<ActividadEntity> candidatas = actividadesRepository.findCandidatasParaFinalizacion(java.time.LocalDateTime.now());
+    List<Actividad> candidatas = actividadesRepository.findCandidatasParaFinalizacion(java.time.LocalDateTime.now());
 
-    for (ActividadEntity entidad : candidatas)
+    for (Actividad entidad : candidatas)
     {
       try
       {
-        entidad.setEstado(TipoEstadoActividad.FINALIZADA);
+        entidad.cambiarEstado(TipoEstadoActividad.FINALIZADA);
         actividadesRepository.save(entidad);
         log.info("Actividad ID={} marcada como FINALIZADA", entidad.getId());
       } catch (Exception e)

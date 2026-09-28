@@ -11,6 +11,7 @@ import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
@@ -49,11 +50,15 @@ class ChequeoClimaJobTest
   @Mock
   private VotacionesService votacionesService;
 
+  @Mock
+  private NotificacionInboxService notificacionInboxService;
+
   private ChequeoClimaJob job;
 
   private void inicializarJob()
   {
-    job = new ChequeoClimaJob(actividadesRepository, proveedorClima, servicioNotificaciones, votacionesService);
+    job = new ChequeoClimaJob(actividadesRepository, proveedorClima, servicioNotificaciones,
+        notificacionInboxService, votacionesService);
   }
 
   @Test
@@ -62,7 +67,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));  // Max 30% de lluvia permitido
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));  // Max 30% de lluvia permitido
 
     Clima pronosticoMalo = new Clima(80, 20, 10); // 80% de probabilidad de lluvia
 
@@ -81,7 +86,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     Clima pronosticoBueno = new Clima(5, 22, 10); // Dentro de todos los limites
 
@@ -100,7 +105,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusDays(10),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
 
@@ -115,9 +120,9 @@ class ChequeoClimaJobTest
   void unaFallaConsultandoElPronosticoDeUnaActividadNoImpideDetectarLasDemas()
   {
     Actividad actividadQueFalla = crearActividad(
-        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30.0, 10.0, 30.0, 20.0));
     Actividad actividadQueFunciona = crearActividad(
-        LocalDateTime.now().plusHours(3), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(3), 24, new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
@@ -138,9 +143,9 @@ class ChequeoClimaJobTest
   void unaProveedorClimaIndisponibleExceptionDeUnaActividadNoImpideDetectarLasDemas()
   {
     Actividad actividadQueFalla = crearActividad(
-        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30.0, 10.0, 30.0, 20.0));
     Actividad actividadQueFunciona = crearActividad(
-        LocalDateTime.now().plusHours(3), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(3), 24, new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
 
@@ -163,7 +168,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     MedioContacto medioContacto = new MedioContacto("123456789", TipoMedioContacto.TELEGRAM);
     Usuario participante = crearParticipante(medioContacto);
@@ -187,7 +192,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     actividad.agregarParticipante(crearParticipante(new MedioContacto("123456789", TipoMedioContacto.TELEGRAM)));
 
@@ -209,7 +214,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     actividad.agregarParticipante(crearParticipante(null)); // sin medio de contacto
 
@@ -230,7 +235,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     MedioContacto medioQueFalla = new MedioContacto("111", TipoMedioContacto.TELEGRAM);
     MedioContacto medioQueFunciona = new MedioContacto("222", TipoMedioContacto.TELEGRAM);
@@ -251,12 +256,37 @@ class ChequeoClimaJobTest
   }
 
   @Test
+  void unaFallaPersistiendoLaNotificacionInAppDeUnParticipanteNoImpideNotificarleElRestoNiPorTelegram()
+  {
+    Actividad actividad = crearActividad(
+        LocalDateTime.now().plusHours(2),
+        24,
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
+
+    MedioContacto medioContacto = new MedioContacto("123456789", TipoMedioContacto.TELEGRAM);
+    Usuario participante = crearParticipante(medioContacto);
+    actividad.agregarParticipante(participante);
+
+    Clima pronosticoMalo = new Clima(80, 20, 10);
+
+    when(actividadesRepository.findCandidatasParaChequeoClima()).thenReturn(List.of(actividad));
+    when(proveedorClima.obtenerPronostico(UBICACION, actividad.getFechaRealizacion())).thenReturn(pronosticoMalo);
+    org.mockito.Mockito.doThrow(new RuntimeException("Mongo caido"))
+        .when(notificacionInboxService).crear(anyString(), any(), anyString(), any(), any());
+
+    inicializarJob();
+    job.chequearClima(); // No propaga la excepcion, el envio por Telegram igual se intenta
+
+    verify(servicioNotificaciones).notificar(contains(actividad.getTitulo()), eq(medioContacto));
+  }
+
+  @Test
   void abreVotacionAutomaticaCuandoDetectaClimaDesfavorable()
   {
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividad.setId("99");
 
     Clima pronosticoMalo = new Clima(80, 20, 10);
@@ -276,7 +306,7 @@ class ChequeoClimaJobTest
     Actividad actividad = crearActividad(
         LocalDateTime.now().plusHours(2),
         24,
-        new ReglasClima(30, 10, 30, 20));
+        new ReglasClima(30.0, 10.0, 30.0, 20.0));
 
     Clima pronosticoBueno = new Clima(5, 22, 10);
 
@@ -293,11 +323,11 @@ class ChequeoClimaJobTest
   void unaFallaAbriendoVotacionAutomaticaNoImpideProcesarLasDemasActividades()
   {
     Actividad actividadQueFalla = crearActividad(
-        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividadQueFalla.setId("1");
 
     Actividad actividadQueFunciona = crearActividad(
-        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30, 10, 30, 20));
+        LocalDateTime.now().plusHours(2), 24, new ReglasClima(30.0, 10.0, 30.0, 20.0));
     actividadQueFunciona.setId("2");
 
     Clima pronosticoMalo = new Clima(80, 20, 10);

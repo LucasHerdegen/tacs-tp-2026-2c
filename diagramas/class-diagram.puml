@@ -131,7 +131,7 @@ class Votacion
     - votos: List<Voto>
     - quorumMinimo: int
     + agregarAlternativa(alternativa: Alternativa): void
-    + eliminarAlternativa(numeroAltenativa: int): void
+    + eliminarAlternativa(numeroAlternativa: int): void
     + registrarVoto(voto: Voto)
     + eliminarVoto(usuario: Usuario): void
 }
@@ -144,7 +144,7 @@ class Alternativa
 {
     - fecha: Date
     - clima: Clima
-    - numeroAltenativa: int
+    - numeroAlternativa: int
 }
 
 Alternativa--> Clima

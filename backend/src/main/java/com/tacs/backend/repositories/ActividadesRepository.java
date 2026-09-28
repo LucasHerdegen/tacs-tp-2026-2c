@@ -6,6 +6,12 @@ import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import com.tacs.backend.domain.actividad.TipoActividad;
+
+import java.time.LocalDate;
+
 public interface ActividadesRepository
 {
   List<Actividad> findByOrganizadorId(String organizadorId);
@@ -33,6 +39,11 @@ public interface ActividadesRepository
   Optional<Actividad> findById(String id);
 
   List<Actividad> findAll();
+
+  List<Actividad> findCandidatasParaFinalizacion(java.time.LocalDateTime now);
+
+  Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha, TipoEstadoActividad estado,
+                                    Boolean cupoDisponible, Pageable pageable);
 
   long count();
 }

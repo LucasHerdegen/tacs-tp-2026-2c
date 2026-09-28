@@ -18,4 +18,14 @@ public interface CallbackHandler
    * (AnswerCallbackQuery) — el CallbackRouter lo envia despues de ejecutar esto.
    */
   String manejar(CallbackQuery callbackQuery, String usuarioId);
+
+  /**
+   * Si la confirmacion debe mostrarse como alerta modal (el usuario tiene que
+   * cerrarla) en vez del toast chico que desaparece solo. Se usa en acciones
+   * cuyo resultado es facil de perderse de vista (ej. sumarse/bajarse).
+   */
+  default boolean mostrarComoAlerta()
+  {
+    return false;
+  }
 }

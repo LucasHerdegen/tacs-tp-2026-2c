@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.tacs.backend.dtos.usuario.ActualizarContactoDto;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
@@ -50,9 +49,11 @@ class UsuariosController
   @PatchMapping("/{usuarioId}/rol")
   public ResponseEntity<UsuarioDto> actualizarRol(
       @PathVariable String usuarioId,
-      @RequestBody @Valid ActualizarRolRequest request)
+      @RequestBody @Valid ActualizarRolRequest request,
+      @AuthenticationPrincipal Jwt jwt)
   {
-    return ResponseEntity.ok(authService.actualizarRol(usuarioId, request.rol()));
+    String adminId = jwt.getClaim("id");
+    return ResponseEntity.ok(authService.actualizarRol(usuarioId, request.rol(), adminId));
   }
 
   @Operation(summary = "Obtener datos propios", description = "Devuelve los datos del usuario autenticado (Requiere rol USER)")

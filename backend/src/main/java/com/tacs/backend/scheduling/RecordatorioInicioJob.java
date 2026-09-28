@@ -1,14 +1,15 @@
 package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.Actividad;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ServicioNotificaciones;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -22,14 +23,17 @@ public class RecordatorioInicioJob
 
   private final ActividadesRepository actividadesRepository;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
   private final int horasAnticipacionDefault;
 
   public RecordatorioInicioJob(ActividadesRepository actividadesRepository,
                                ServicioNotificaciones servicioNotificaciones,
+                               NotificacionInboxService notificacionInboxService,
                                @Value("${recordatorio.inicio.horas-anticipacion-default}") int horasAnticipacionDefault)
   {
     this.actividadesRepository = actividadesRepository;
     this.servicioNotificaciones = servicioNotificaciones;
+    this.notificacionInboxService = notificacionInboxService;
     this.horasAnticipacionDefault = horasAnticipacionDefault;
   }
 
@@ -39,7 +43,6 @@ public class RecordatorioInicioJob
    */
   @Scheduled(fixedRateString = "${recordatorio.inicio.intervalo-ms}")
   @SchedulerLock(name = "RecordatorioInicioJob_enviarRecordatorios", lockAtLeastFor = "1m", lockAtMostFor = "10m")
-  @Transactional
   public void enviarRecordatorios()
   {
     for (Actividad actividad : detectarActividadesPorComenzar())
@@ -65,10 +68,13 @@ public class RecordatorioInicioJob
   {
     try
     {
-      servicioNotificaciones.notificarATodos(
-          "La actividad '%s' comienza el %s.".formatted(
-              actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO)),
-          actividad.getParticipantes());
+      String contenido = "La actividad '%s' comienza el %s.".formatted(
+          actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
+
+      servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+      notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.RECORDATORIO_INICIO,
+          actividad.getId(), null, actividad.getParticipantes());
+
       actividad.marcarRecordatorioEnviado();
       actividadesRepository.save(actividad);
     } catch (Exception e)

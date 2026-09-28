@@ -1,8 +1,10 @@
 package com.tacs.backend.handlers;
 
 import com.tacs.backend.exceptions.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,9 +15,11 @@ import java.util.HashMap;
 
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import org.springframework.web.context.request.WebRequest;
 
+@Slf4j
 @ControllerAdvice
-class GlobalExceptionHandler
+class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 {
   @ExceptionHandler(EstadoInvalidoException.class)
   public ProblemDetail handleEstadoInvalidoException(EstadoInvalidoException ex)
@@ -84,10 +88,22 @@ class GlobalExceptionHandler
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
 
+  @ExceptionHandler(YaEsParticipanteException.class)
+  public ProblemDetail handleYaEsParticipanteException(YaEsParticipanteException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
   @ExceptionHandler(NoParticipanteException.class)
   public ProblemDetail handleNoParticipanteException(NoParticipanteException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+  }
+
+  @ExceptionHandler(NotificacionNotFoundException.class)
+  public ProblemDetail handleNotificacionNotFoundException(NotificacionNotFoundException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 
   @ExceptionHandler(QuorumInvalidoException.class)
@@ -122,8 +138,15 @@ class GlobalExceptionHandler
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
 
-  @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ProblemDetail handleValidationExceptions(MethodArgumentNotValidException ex)
+  @ExceptionHandler(OptimisticLockingFailureException.class)
+  public ProblemDetail handleOptimisticLockingFailureException(org.springframework.dao.OptimisticLockingFailureException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Hubo un conflicto de concurrencia al actualizar el recurso, intente nuevamente.");
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleMethodArgumentNotValid(
+      MethodArgumentNotValidException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
   {
     ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
         "Error de validacion en los campos enviados");
@@ -134,12 +157,13 @@ class GlobalExceptionHandler
       errors.put(fieldName, errorMessage);
     });
     problemDetail.setProperty("errores", errors);
-    return problemDetail;
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
   }
 
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleAllOtherExceptions(Exception ex)
   {
+    log.error("Ocurrió un error inesperado", ex);
     return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
         "Ocurrio un error inesperado. Por favor, intente nuevamente mas tarde.");
   }

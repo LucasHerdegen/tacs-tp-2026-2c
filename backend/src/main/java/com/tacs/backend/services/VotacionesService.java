@@ -11,7 +11,7 @@ public interface VotacionesService
 {
   List<VotacionDto> votaciones(String usuarioId, boolean abierta);
 
-  VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto);
+  VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto, String usuarioId);
 
   /**
    * Busca fechas con clima favorable para la actividad en los proximos dias
@@ -26,9 +26,9 @@ public interface VotacionesService
 
   VotacionDto obtenerVotacion(String votacionId);
 
-  VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto);
+  VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto, String usuarioId);
 
-  void eliminarAlternativa(String votacionId, int numeroAlternativa);
+  void eliminarAlternativa(String votacionId, int numeroAlternativa, String usuarioId);
 
   /**
    * Registra (o actualiza, si ya habia votado antes) el voto de un participante.
@@ -37,12 +37,19 @@ public interface VotacionesService
   VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa);
 
   /**
+   * Numero de la alternativa que el usuario ya voto en esa votacion, o vacio si todavia no voto.
+   */
+  Optional<Integer> alternativaVotadaPor(String votacionId, String usuarioId);
+
+  /**
    * Cierra la votacion y resuelve la actividad asociada: si la alternativa
    * mas votada alcanza el quorumMinimo, reprograma la actividad a esa fecha;
    * si no, la cancela. Puede dispararse manualmente o desde el cron de
    * cierre automatico por fechaLimite vencida.
    */
-  VotacionDto resolverVotacion(String votacionId);
+  VotacionDto resolverVotacion(String votacionId, String usuarioId);
+  
+  VotacionDto resolverVotacion(String votacionId); // Para ser llamado desde los jobs o internamente
 
-  void eliminarVotacion(String votacionId);
+  void eliminarVotacion(String votacionId, String usuarioId);
 }

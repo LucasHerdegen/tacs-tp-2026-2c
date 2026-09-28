@@ -18,5 +18,5 @@ public class Alternativa
   private String id;
   private LocalDateTime fecha;
   private Clima clima;
-  private int numeroAltenativa;
+  private int numeroAlternativa;
 }

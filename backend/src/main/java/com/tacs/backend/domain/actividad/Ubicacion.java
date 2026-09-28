@@ -15,7 +15,7 @@ import lombok.ToString;
 @AllArgsConstructor
 public class Ubicacion implements java.io.Serializable
 {
-  private String barrio;
+  private String ciudad;
   private Double latitud;
   private Double longitud;
 }

@@ -34,7 +34,7 @@ class VotacionMapperTest
   @Test
   void cumpleReglasClimaEsTrueCuandoElClimaDeLaAlternativaCumple()
   {
-    Votacion votacion = crearVotacion(new ReglasClima(30, 10, 30, 20));
+    Votacion votacion = crearVotacion(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     Alternativa alternativa = crearAlternativa(new Clima(5, 22, 10)); // dentro de todos los limites
 
     AlternativaDto dto = mapper.alternativaToAlternativaDto(alternativa, votacion);
@@ -45,7 +45,7 @@ class VotacionMapperTest
   @Test
   void cumpleReglasClimaEsFalseCuandoElClimaDeLaAlternativaNoCumple()
   {
-    Votacion votacion = crearVotacion(new ReglasClima(30, 10, 30, 20));
+    Votacion votacion = crearVotacion(new ReglasClima(30.0, 10.0, 30.0, 20.0));
     Alternativa alternativa = crearAlternativa(new Clima(80, 22, 10)); // 80% de lluvia > 30% permitido
 
     AlternativaDto dto = mapper.alternativaToAlternativaDto(alternativa, votacion);
@@ -69,7 +69,7 @@ class VotacionMapperTest
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId("1");
-    alternativa.setNumeroAltenativa(1);
+    alternativa.setNumeroAlternativa(1);
     alternativa.setFecha(LocalDateTime.now().plusDays(2));
     alternativa.setClima(clima);
     return alternativa;

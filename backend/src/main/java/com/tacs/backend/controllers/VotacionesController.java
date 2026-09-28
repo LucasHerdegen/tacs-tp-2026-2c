@@ -47,9 +47,11 @@ public class VotacionesController
   @PostMapping
   public ResponseEntity<VotacionDto> crearVotacion(
       @RequestParam String actividadId,
-      @RequestBody @Valid VotacionPostDto votacionPostDto)
+      @RequestBody @Valid VotacionPostDto votacionPostDto,
+      @AuthenticationPrincipal Jwt jwt)
   {
-    VotacionDto votacion = votacionesService.crearVotacion(actividadId, votacionPostDto);
+    String usuarioId = jwt.getClaim("id");
+    VotacionDto votacion = votacionesService.crearVotacion(actividadId, votacionPostDto, usuarioId);
 
     URI location = ServletUriComponentsBuilder
         .fromCurrentRequest()
@@ -78,9 +80,11 @@ public class VotacionesController
   @PostMapping("/{id}/alternativas")
   public ResponseEntity<VotacionDto> agregarAlternativa(
       @PathVariable String id,
-      @RequestBody @Valid AlternativaPostDto alternativaPostDto)
+      @RequestBody @Valid AlternativaPostDto alternativaPostDto,
+      @AuthenticationPrincipal Jwt jwt)
   {
-    return ResponseEntity.ok(votacionesService.agregarAlternativa(id, alternativaPostDto));
+    String usuarioId = jwt.getClaim("id");
+    return ResponseEntity.ok(votacionesService.agregarAlternativa(id, alternativaPostDto, usuarioId));
   }
 
   @Operation(summary = "Eliminar alternativa", description = "Elimina una alternativa de una votación (Requiere rol USER)")
@@ -88,9 +92,10 @@ public class VotacionesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación o alternativa no encontrada", content = @Content)
   @DeleteMapping("/{id}/alternativas/{numeroAlternativa}")
-  public ResponseEntity<Void> eliminarAlternativa(@PathVariable String id, @PathVariable int numeroAlternativa)
+  public ResponseEntity<Void> eliminarAlternativa(@PathVariable String id, @PathVariable int numeroAlternativa, @AuthenticationPrincipal Jwt jwt)
   {
-    votacionesService.eliminarAlternativa(id, numeroAlternativa);
+    String usuarioId = jwt.getClaim("id");
+    votacionesService.eliminarAlternativa(id, numeroAlternativa, usuarioId);
     return ResponseEntity.noContent().build();
   }
 
@@ -101,7 +106,7 @@ public class VotacionesController
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @PostMapping("/{id}/votos")
   public ResponseEntity<VotacionDto> votar(@PathVariable String id, @RequestBody @Valid VotoPostDto votoPostDto,
-                                           @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+                                           @AuthenticationPrincipal Jwt jwt)
   {
     String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(votacionesService.votar(id, usuarioId, votoPostDto.numeroAlternativa()));
@@ -112,9 +117,10 @@ public class VotacionesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @PostMapping("/{id}/cierre")
-  public ResponseEntity<VotacionDto> cerrarVotacion(@PathVariable String id)
+  public ResponseEntity<VotacionDto> cerrarVotacion(@PathVariable String id, @AuthenticationPrincipal Jwt jwt)
   {
-    return ResponseEntity.ok(votacionesService.resolverVotacion(id));
+    String usuarioId = jwt.getClaim("id");
+    return ResponseEntity.ok(votacionesService.resolverVotacion(id, usuarioId));
   }
 
   @Operation(summary = "Eliminar votación", description = "Elimina una votación por su ID (Requiere rol USER)")
@@ -123,9 +129,10 @@ public class VotacionesController
   @ApiResponse(responseCode = "403", description = "No autorizado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
   @DeleteMapping("/{id}")
-  public ResponseEntity<Void> eliminarVotacion(@PathVariable String id)
+  public ResponseEntity<Void> eliminarVotacion(@PathVariable String id, @AuthenticationPrincipal Jwt jwt)
   {
-    votacionesService.eliminarVotacion(id);
+    String usuarioId = jwt.getClaim("id");
+    votacionesService.eliminarVotacion(id, usuarioId);
     return ResponseEntity.noContent().build();
   }
 }

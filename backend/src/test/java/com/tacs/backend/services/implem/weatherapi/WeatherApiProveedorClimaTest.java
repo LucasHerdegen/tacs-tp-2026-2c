@@ -32,7 +32,7 @@ class WeatherApiProveedorClimaTest
     WeatherApiForecastClient forecastClient =
         new WeatherApiForecastClient(restClient, ResilienceDePrueba.permisiva(), "test-key");
 
-    return new WeatherApiProveedorClima(restClient, forecastClient, ResilienceDePrueba.permisiva(), "test-key", 14);
+    return new WeatherApiProveedorClima(restClient, forecastClient, ResilienceDePrueba.permisiva(), "test-key", 3);
   }
 
   @Test

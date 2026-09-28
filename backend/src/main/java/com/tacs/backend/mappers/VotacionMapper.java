@@ -48,7 +48,7 @@ public class VotacionMapper
         alternativa.getId(),
         alternativa.getFecha(),
         climaToClimaDto(alternativa.getClima()),
-        alternativa.getNumeroAltenativa(),
+        alternativa.getNumeroAlternativa(),
         votacion.cantidadVotos(alternativa),
         cumpleReglasClima(votacion.getActividad(), alternativa)
     );

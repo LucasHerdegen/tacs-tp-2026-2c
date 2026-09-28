@@ -2,8 +2,10 @@ package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
@@ -12,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ public class ChequeoClimaJob
   private final ActividadesRepository actividadesRepository;
   private final ProveedorClima proveedorClima;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
   private final VotacionesService votacionesService;
 
   /**
@@ -35,7 +37,6 @@ public class ChequeoClimaJob
 
   @Scheduled(fixedRateString = "${clima.chequeo.intervalo-ms}")
   @SchedulerLock(name = "ChequeoClimaJob_chequearClima", lockAtLeastFor = "1m", lockAtMostFor = "10m")
-  @Transactional
   public void chequearClima()
   {
     for (Actividad actividad : detectarClimaDesfavorable())
@@ -71,7 +72,7 @@ public class ChequeoClimaJob
    * reevalua en la proxima corrida del cron, sigue siendo candidata) en vez de
    * tirar abajo la deteccion completa para el resto de las actividades.
    */
-  
+
   private boolean tieneClimaDesfavorable(Actividad actividad)
   {
     try
@@ -126,6 +127,19 @@ public class ChequeoClimaJob
   private void notificarOrganizador(Actividad actividad)
   {
     Usuario organizador = actividad.getOrganizador();
+
+    String contenido = "Alerta de Organizador: El pronóstico para tu actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrirá una votación automática para reprogramar."
+        .formatted(actividad.getTitulo());
+
+    try
+    {
+      notificacionInboxService.crear(contenido, TipoNotificacion.CLIMA_DESFAVORABLE, actividad.getId(), null, organizador);
+    } catch (Exception e)
+    {
+      log.error("Fallo persistiendo la notificacion in-app de clima desfavorable para organizador id={} de actividad id={}",
+          organizador.getId(), actividad.getId(), e);
+    }
+
     if (organizador.getMedioContacto() == null)
     {
       log.warn(
@@ -133,9 +147,6 @@ public class ChequeoClimaJob
           organizador.getId(), actividad.getId());
       return;
     }
-
-    String contenido = "Alerta de Organizador: El pronóstico para tu actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrirá una votación automática para reprogramar."
-        .formatted(actividad.getTitulo());
 
     try
     {
@@ -149,6 +160,18 @@ public class ChequeoClimaJob
 
   private void notificarParticipante(Actividad actividad, Usuario participante)
   {
+    String contenido = "El pronóstico para la actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrirá una votación para reprogramar."
+        .formatted(actividad.getTitulo());
+
+    try
+    {
+      notificacionInboxService.crear(contenido, TipoNotificacion.CLIMA_DESFAVORABLE, actividad.getId(), null, participante);
+    } catch (Exception e)
+    {
+      log.error("Fallo persistiendo la notificacion in-app de clima desfavorable para participante id={} de actividad id={}",
+          participante.getId(), actividad.getId(), e);
+    }
+
     if (participante.getMedioContacto() == null)
     {
       log.warn(
@@ -156,9 +179,6 @@ public class ChequeoClimaJob
           participante.getId(), actividad.getId());
       return;
     }
-
-    String contenido = "El pronóstico para la actividad '%s' cambió y ya no cumple las condiciones climáticas definidas. Se abrirá una votación para reprogramar."
-        .formatted(actividad.getTitulo());
 
     try
     {

@@ -13,9 +13,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,13 +43,4 @@ class AuthController
     return ResponseEntity.ok(authService.login(request));
   }
 
-  @Operation(summary = "Obtener datos del usuario actual", description = "Devuelve los datos del usuario autenticado (Requiere rol USER o superior)")
-  @ApiResponse(responseCode = "200", description = "Datos del usuario", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
-  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
-  @ApiResponse(responseCode = "404", description = "Usuario no encontrado", content = @Content)
-  @GetMapping("/me")
-  public ResponseEntity<UsuarioDto> me(@AuthenticationPrincipal Jwt jwt)
-  {
-    return ResponseEntity.ok(authService.buscarPorUsername(jwt.getSubject()));
-  }
 }

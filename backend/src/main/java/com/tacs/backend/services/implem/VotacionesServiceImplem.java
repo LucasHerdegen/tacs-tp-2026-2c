@@ -4,29 +4,24 @@ import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
-import com.tacs.backend.exceptions.AlternativaNotFoundException;
-import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
-import com.tacs.backend.exceptions.QuorumInvalidoException;
-import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
-import com.tacs.backend.exceptions.UsuarioNotFoundException;
-import com.tacs.backend.exceptions.VotacionCerradaException;
-import com.tacs.backend.exceptions.VotacionNotFoundException;
+import com.tacs.backend.exceptions.*;
 import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -48,6 +43,7 @@ class VotacionesServiceImplem implements VotacionesService
   private final VotacionMapper votacionMapper;
   private final ProveedorClima proveedorClima;
   private final ServicioNotificaciones servicioNotificaciones;
+  private final NotificacionInboxService notificacionInboxService;
 
   // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
@@ -55,12 +51,6 @@ class VotacionesServiceImplem implements VotacionesService
   public List<VotacionDto> votaciones(String usuarioId, boolean abierta)
   {
     validarExistenciaUsuario(usuarioId);
-
-    // TODO: asumo que el organizador no puede ser también participante de la misma
-    // actividad. Si esa regla cambia, revisar duplicados (volver a un Set como antes)
-    // Set<Votacion> votaciones = new LinkedHashSet<>();
-    // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadOrganizadorId(usuarioId));
-    // votaciones.addAll(votacionesRepository.findByAbiertaTrueAndActividadParticipantesId(usuarioId));
 
     return votacionesRepository.findByAbiertaYUsuarioInvolucrado(abierta, usuarioId).stream()
         .map(votacionMapper::votacionToVotacionDto)
@@ -75,11 +65,11 @@ class VotacionesServiceImplem implements VotacionesService
    * @return DTO con la votacion creada.
    */
   @Override
-  @Transactional
-  public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto)
+  public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto, String usuarioId)
   {
     Actividad actividad = buscarActividad(actividadId);
 
+    validarOrganizador(actividad, usuarioId);
     validarSinVotacionAbierta(actividadId);
     validarQuorumMinimo(votacionPostDto.quorumMinimo(), actividad);
 
@@ -106,7 +96,6 @@ class VotacionesServiceImplem implements VotacionesService
    * @return Optional con el DTO de la votacion si fue abierta exitosamente.
    */
   @Override
-  @Transactional
   public Optional<VotacionDto> abrirVotacionAutomatica(String actividadId)
   {
     Actividad actividad = buscarActividad(actividadId);
@@ -121,7 +110,7 @@ class VotacionesServiceImplem implements VotacionesService
         // No se cancela actividad si el fallo es debido a un error en la conexion con el proveedor
         return Optional.empty();
 
-      cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico");
+      cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico", null);
       actividadesRepository.save(actividad);
       return Optional.empty();
     }
@@ -138,14 +127,14 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
-  public VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto)
+  public VotacionDto agregarAlternativa(String votacionId, AlternativaPostDto alternativaPostDto, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
     validarVotacionAbierta(votacion);
 
     int siguienteNumero = votacion.getAlternativas().stream()
-        .mapToInt(Alternativa::getNumeroAltenativa)
+        .mapToInt(Alternativa::getNumeroAlternativa)
         .max()
         .orElse(0) + 1;
 
@@ -157,14 +146,14 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
-  public void eliminarAlternativa(String votacionId, int numeroAlternativa)
+  public void eliminarAlternativa(String votacionId, int numeroAlternativa, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
     validarVotacionAbierta(votacion);
 
     boolean existe = votacion.getAlternativas().stream()
-        .anyMatch(a -> a.getNumeroAltenativa() == numeroAlternativa);
+        .anyMatch(a -> a.getNumeroAlternativa() == numeroAlternativa);
 
     if (!existe)
       throw new AlternativaNotFoundException("No existe la alternativa numero " + numeroAlternativa);
@@ -182,7 +171,6 @@ class VotacionesServiceImplem implements VotacionesService
    * @return DTO de la votacion actualizada.
    */
   @Override
-  @Transactional
   public VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa)
   {
     Votacion votacion = buscarVotacion(votacionId);
@@ -195,10 +183,10 @@ class VotacionesServiceImplem implements VotacionesService
         .anyMatch(u -> u.getId().equals(usuarioId));
 
     if (!esParticipante)
-      throw new IllegalStateException("Debes ser participante de la actividad para votar");
+      throw new NoParticipanteException("Debes ser participante de la actividad para votar");
 
     Alternativa alternativa = votacion.getAlternativas().stream()
-        .filter(a -> a.getNumeroAltenativa() == numeroAlternativa)
+        .filter(a -> a.getNumeroAlternativa() == numeroAlternativa)
         .findFirst()
         .orElseThrow(() -> new AlternativaNotFoundException("No existe la alternativa numero " + numeroAlternativa));
 
@@ -212,6 +200,17 @@ class VotacionesServiceImplem implements VotacionesService
     return votacionMapper.votacionToVotacionDto(votacion);
   }
 
+  @Override
+  public Optional<Integer> alternativaVotadaPor(String votacionId, String usuarioId)
+  {
+    Votacion votacion = buscarVotacion(votacionId);
+
+    return votacion.getVotos().stream()
+        .filter(v -> v.getUsuario().getId().equals(usuarioId))
+        .map(v -> v.getAlternativa().getNumeroAlternativa())
+        .findFirst();
+  }
+
   /**
    * Cierra la votacion y determina la alternativa ganadora segun los votos y el quorum minimo.
    * Reprograma la actividad o la cancela si no hay alternativa ganadora.
@@ -220,10 +219,21 @@ class VotacionesServiceImplem implements VotacionesService
    * @return DTO de la votacion resuelta.
    */
   @Override
-  @Transactional
-  public VotacionDto resolverVotacion(String votacionId)
+  public VotacionDto resolverVotacion(String votacionId, String usuarioId)
   {
     Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
+    return resolverVotacionInterno(votacion);
+  }
+
+  @Override
+  public VotacionDto resolverVotacion(String votacionId)
+  {
+    return resolverVotacionInterno(buscarVotacion(votacionId));
+  }
+
+  private VotacionDto resolverVotacionInterno(Votacion votacion)
+  {
     validarVotacionAbierta(votacion);
 
     Optional<Alternativa> ganadora = votacion.alternativaMasVotada()
@@ -235,10 +245,10 @@ class VotacionesServiceImplem implements VotacionesService
     {
       LocalDateTime fechaAnterior = actividad.getFechaRealizacion();
       actividad.reprogramar(ganadora.get().getFecha());
-      notificarReprogramacion(actividad, fechaAnterior);
+      notificarReprogramacion(actividad, fechaAnterior, votacion.getId());
     } else
     {
-      cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos");
+      cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
     }
 
     actividadesRepository.save(actividad);
@@ -250,13 +260,20 @@ class VotacionesServiceImplem implements VotacionesService
   }
 
   @Override
-  @Transactional
-  public void eliminarVotacion(String votacionId)
+  public void eliminarVotacion(String votacionId, String usuarioId)
   {
-    votacionesRepository.delete(buscarVotacion(votacionId));
+    Votacion votacion = buscarVotacion(votacionId);
+    validarOrganizador(votacion.getActividad(), usuarioId);
+    votacionesRepository.delete(votacion);
   }
 
   // ==================== Metodos auxiliares ====================
+
+  private void validarOrganizador(Actividad actividad, String usuarioId)
+  {
+    if (!actividad.getOrganizador().getId().equals(usuarioId))
+      throw new AccesoDenegadoException("Solo el organizador puede realizar esta acción");
+  }
 
   private void validarExistenciaUsuario(String usuarioId)
   {
@@ -317,7 +334,9 @@ class VotacionesServiceImplem implements VotacionesService
    * ninguno cumple las reglas" o "no hay rango configurado" (ambos casos SI
    * ameritan cancelar, ver abrirVotacionAutomatica).
    */
-  private record ResultadoBusquedaAlternativas(List<Alternativa> favorables, boolean climaIndisponible) {}
+  private record ResultadoBusquedaAlternativas(List<Alternativa> favorables, boolean climaIndisponible)
+  {
+  }
 
   /**
    * Busca, dentro de rangoReprogramacion (dias permitidos y franja horaria
@@ -347,7 +366,7 @@ class VotacionesServiceImplem implements VotacionesService
 
       for (Alternativa alternativa : resultadoDia.favorables())
       {
-        alternativa.setNumeroAltenativa(numero++);
+        alternativa.setNumeroAlternativa(numero++);
         favorables.add(alternativa);
       }
     }
@@ -355,7 +374,9 @@ class VotacionesServiceImplem implements VotacionesService
     return new ResultadoBusquedaAlternativas(favorables, !algunaConsultaExitosa);
   }
 
-  private record ResultadoBusquedaDia(List<Alternativa> favorables, boolean huboConsultaExitosa) {}
+  private record ResultadoBusquedaDia(List<Alternativa> favorables, boolean huboConsultaExitosa)
+  {
+  }
 
   /**
    * Recorre la franja horaInicio-horaFinal de ese dia cada
@@ -364,7 +385,7 @@ class VotacionesServiceImplem implements VotacionesService
    * buscarAlternativasFavorables). Vacia si ninguna cumple. Si el proveedor de
    * clima esta indisponible para una hora puntual, esa hora se saltea (no
    * cuenta como desfavorable, simplemente no hay dato) — pero se registra si
-   * hubo al menos una consulta exitosa en el dia (FR-007).
+   * hubo al menos una consulta exitosa en el dia.
    */
   private ResultadoBusquedaDia alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia)
   {
@@ -393,7 +414,7 @@ class VotacionesServiceImplem implements VotacionesService
     return new ResultadoBusquedaDia(favorablesDelDia, huboConsultaExitosa);
   }
 
-  private void cancelarActividad(Actividad actividad, String motivo)
+  private void cancelarActividad(Actividad actividad, String motivo, String votacionId)
   {
     if (actividad.getEstado() == null)
       throw new IllegalStateException(
@@ -401,19 +422,23 @@ class VotacionesServiceImplem implements VotacionesService
 
     actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
 
-    servicioNotificaciones.notificarATodos(
-        "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo),
-        actividad.getParticipantes());
+    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
+
+    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
-  private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior)
+  private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior, String votacionId)
   {
-    servicioNotificaciones.notificarATodos(
-        "La actividad '%s' se reprogramo del %s al %s.".formatted(
-            actividad.getTitulo(),
-            fechaAnterior.format(FORMATO),
-            actividad.getFechaRealizacion().format(FORMATO)),
-        actividad.getParticipantes());
+    String contenido = "La actividad '%s' se reprogramo del %s al %s.".formatted(
+        actividad.getTitulo(),
+        fechaAnterior.format(FORMATO),
+        actividad.getFechaRealizacion().format(FORMATO));
+
+    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.REPROGRAMACION,
+        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
   /**
@@ -454,7 +479,7 @@ class VotacionesServiceImplem implements VotacionesService
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setFecha(fecha);
-    alternativa.setNumeroAltenativa(numero);
+    alternativa.setNumeroAlternativa(numero);
     alternativa.setClima(clima);
     return alternativa;
   }

@@ -7,6 +7,7 @@ import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ServicioNotificaciones;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,12 +45,15 @@ class RecordatorioInicioJobTest
   @Mock
   private ServicioNotificaciones servicioNotificaciones;
 
+  @Mock
+  private NotificacionInboxService notificacionInboxService;
+
   private RecordatorioInicioJob job;
 
   private void inicializarJob()
   {
     job = new RecordatorioInicioJob(
-        actividadesRepository, servicioNotificaciones, HORAS_ANTICIPACION_DEFAULT);
+        actividadesRepository, servicioNotificaciones, notificacionInboxService, HORAS_ANTICIPACION_DEFAULT);
   }
 
   @Test

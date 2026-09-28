@@ -97,7 +97,7 @@ class VotacionTest
   {
     Alternativa alternativa = new Alternativa();
     alternativa.setId(id);
-    alternativa.setNumeroAltenativa(numero);
+    alternativa.setNumeroAlternativa(numero);
     alternativa.setFecha(LocalDateTime.now().plusDays(numero));
     return alternativa;
   }
