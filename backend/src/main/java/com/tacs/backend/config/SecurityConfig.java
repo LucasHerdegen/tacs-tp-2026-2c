@@ -1,5 +1,7 @@
 package com.tacs.backend.config;
 
+import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.repositories.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,16 +11,22 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.core.convert.converter.Converter;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Configuration
 public class SecurityConfig
@@ -32,7 +40,8 @@ public class SecurityConfig
   }
 
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception
+  public SecurityFilterChain securityFilterChain(
+      HttpSecurity http, Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter) throws Exception
   {
     return http
         .csrf(csrf -> csrf.disable())
@@ -55,20 +64,23 @@ public class SecurityConfig
             .hasRole("ADMIN")
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2
-            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
         .build();
   }
 
   @Bean
-  public JwtAuthenticationConverter jwtAuthenticationConverter()
+  public Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter(UsuarioRepository usuarioRepository)
   {
-    JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
-    authoritiesConverter.setAuthoritiesClaimName("role");
-    authoritiesConverter.setAuthorityPrefix("ROLE_");
+    return jwt -> {
+      Object claimId = jwt.getClaim("id");
+      Usuario usuario = claimId instanceof String id ? usuarioRepository.findById(id).orElse(null) : null;
+      if (usuario == null || !usuario.getUsername().equals(jwt.getSubject()))
+        throw new OAuth2AuthenticationException(new OAuth2Error("invalid_token", "Usuario no válido", null));
 
-    JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
-    authenticationConverter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
-    return authenticationConverter;
+      return new JwtAuthenticationToken(jwt,
+          List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())),
+          usuario.getUsername());
+    };
   }
 
   @Bean

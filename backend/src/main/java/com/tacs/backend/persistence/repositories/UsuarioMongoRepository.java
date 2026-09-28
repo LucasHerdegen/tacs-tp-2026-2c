@@ -1,6 +1,7 @@
 package com.tacs.backend.persistence.repositories;
 
 import com.tacs.backend.domain.usuario.TipoMedioContacto;
+import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.persistence.entities.UsuarioEntity;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
@@ -15,4 +16,6 @@ public interface UsuarioMongoRepository extends MongoRepository<UsuarioEntity, S
   boolean existsByUsername(String username);
 
   Optional<UsuarioEntity> findByMedioContacto_ValorAndMedioContacto_Tipo(String valor, TipoMedioContacto tipo);
+
+  long countByRol(TipoRol rol);
 }

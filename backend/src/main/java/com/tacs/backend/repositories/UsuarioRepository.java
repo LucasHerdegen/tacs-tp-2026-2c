@@ -2,6 +2,7 @@ package com.tacs.backend.repositories;
 
 import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.domain.usuario.TipoRol;
 
 import java.util.Optional;
 
@@ -22,4 +23,6 @@ public interface UsuarioRepository
   java.util.List<Usuario> findAll();
 
   void deleteAll();
+
+  long countByRol(TipoRol rol);
 }

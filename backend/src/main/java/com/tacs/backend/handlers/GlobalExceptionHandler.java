@@ -42,6 +42,12 @@ class GlobalExceptionHandler
     return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
   }
 
+  @ExceptionHandler({UltimoAdministradorException.class, CambioRolConcurrenteException.class})
+  public ProblemDetail handleConflictoRol(RuntimeException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
   @ExceptionHandler(UsernameAlreadyExistsException.class)
   public ProblemDetail handleUsernameAlreadyExistsException(UsernameAlreadyExistsException ex)
   {

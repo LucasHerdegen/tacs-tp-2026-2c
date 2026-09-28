@@ -2,6 +2,7 @@ package com.tacs.backend.persistence.repositories;
 
 import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.persistence.mappers.UsuarioMapper;
 import com.tacs.backend.repositories.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -64,5 +65,11 @@ public class UsuarioRepositoryImpl implements UsuarioRepository
   public void deleteAll()
   {
     mongoRepository.deleteAll();
+  }
+
+  @Override
+  public long countByRol(TipoRol rol)
+  {
+    return mongoRepository.countByRol(rol);
   }
 }

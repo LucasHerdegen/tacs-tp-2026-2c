@@ -19,7 +19,7 @@ public interface AuthService
 
   List<UsuarioDto> listarUsuarios();
 
-  UsuarioDto actualizarRol(String usuarioId, TipoRol rol);
+  UsuarioDto actualizarRol(String usuarioId, TipoRol rol, String actorId);
 
   UsuarioDto obtenerUsuario(String usuarioId);
 

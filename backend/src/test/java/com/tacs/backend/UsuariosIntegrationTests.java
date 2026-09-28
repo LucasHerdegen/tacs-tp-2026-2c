@@ -109,6 +109,44 @@ class UsuariosIntegrationTests
     assertThat(usuarioRepository.findById(admin.getId()).orElseThrow().getRol()).isEqualTo(TipoRol.ADMIN);
   }
 
+  @Test
+  void administradorNoPuedeCambiarSuPropioRol() throws Exception
+  {
+    String token = login("admin");
+    Usuario admin = usuarioRepository.findByUsername("admin").orElseThrow();
+
+    HttpResponse<String> response = patchRole(admin.getId(), "USER", token);
+
+    assertThat(response.statusCode()).isEqualTo(403);
+    assertThat(usuarioRepository.findById(admin.getId()).orElseThrow().getRol()).isEqualTo(TipoRol.ADMIN);
+  }
+
+  @Test
+  void rolRevocadoDejaDeAutorizarUnTokenYaEmitido() throws Exception
+  {
+    usuarioRepository.save(new Usuario("otro-admin", passwordEncoder.encode("password-segura"), TipoRol.ADMIN));
+    String tokenAdmin = login("admin");
+    String tokenOtroAdmin = login("otro-admin");
+    Usuario otroAdmin = usuarioRepository.findByUsername("otro-admin").orElseThrow();
+
+    assertThat(getUsuarios(tokenOtroAdmin).statusCode()).isEqualTo(200);
+    assertThat(patchRole(otroAdmin.getId(), "USER", tokenAdmin).statusCode()).isEqualTo(200);
+    assertThat(getUsuarios(tokenOtroAdmin).statusCode()).isEqualTo(403);
+    assertThat(patchRole(otroAdmin.getId(), "ADMIN", tokenOtroAdmin).statusCode()).isEqualTo(403);
+  }
+
+  @Test
+  void rolConcedidoAutorizaUnTokenYaEmitido() throws Exception
+  {
+    String tokenUsuario = login("usuario");
+    String tokenAdmin = login("admin");
+    Usuario usuario = usuarioRepository.findByUsername("usuario").orElseThrow();
+
+    assertThat(getUsuarios(tokenUsuario).statusCode()).isEqualTo(403);
+    assertThat(patchRole(usuario.getId(), "ADMIN", tokenAdmin).statusCode()).isEqualTo(200);
+    assertThat(getUsuarios(tokenUsuario).statusCode()).isEqualTo(200);
+  }
+
   private HttpResponse<String> getUsuarios(String token) throws Exception
   {
     HttpRequest request = HttpRequest.newBuilder()
