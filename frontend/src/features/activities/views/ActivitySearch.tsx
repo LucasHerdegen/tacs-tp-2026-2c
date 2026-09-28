@@ -15,8 +15,9 @@ export const ActivitySearch: React.FC = () => {
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
-  const [filterDate, setFilterDate] = useState('');
-  const [filterEstado, setFilterEstado] = useState('PROPUESTA');
+  const [filterFechaInicio, setFilterFechaInicio] = useState('');
+  const [filterFechaFin, setFilterFechaFin] = useState('');
+  const [filterEstado, setFilterEstado] = useState('');
   
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -32,12 +33,19 @@ export const ActivitySearch: React.FC = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setPage(0);
-  }, [filterType, appliedSearchTerm, filterDate, filterEstado, pageSize]);
+  }, [filterType, appliedSearchTerm, filterFechaInicio, filterFechaFin, filterEstado, pageSize]);
 
   useEffect(() => {
     const buscarActividades = async () => {
       if (!token) {
         setError('No estás autenticado.');
+        return;
+      }
+
+      if (filterFechaInicio && filterFechaFin && filterFechaInicio > filterFechaFin) {
+        setError('La fecha de inicio no puede ser posterior a la de fin.');
+        setActivities([]);
+        setTotalPages(0);
         return;
       }
 
@@ -48,7 +56,8 @@ export const ActivitySearch: React.FC = () => {
         const data = await activitiesApi.buscar(
           filterType || null,
           appliedSearchTerm || null,
-          filterDate || null,
+          filterFechaInicio || null,
+          filterFechaFin || null,
           filterEstado || null,
           page,
           pageSize,
@@ -74,7 +83,7 @@ export const ActivitySearch: React.FC = () => {
     };
 
     buscarActividades();
-  }, [filterType, appliedSearchTerm, filterDate, filterEstado, page, pageSize, token]);
+  }, [filterType, appliedSearchTerm, filterFechaInicio, filterFechaFin, filterEstado, page, pageSize, token]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
@@ -90,8 +99,8 @@ export const ActivitySearch: React.FC = () => {
         </h1>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-2">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="md:col-span-2 lg:col-span-2">
           <label className="label-text">
             Buscar por nombre o lugar
           </label>
@@ -113,7 +122,7 @@ export const ActivitySearch: React.FC = () => {
           />
         </div>
 
-        <div>
+        <div className="md:col-span-1 lg:col-span-1">
           <label className="label-text">
             Tipo de actividad
           </label>
@@ -130,7 +139,7 @@ export const ActivitySearch: React.FC = () => {
           </select>
         </div>
 
-        <div>
+        <div className="md:col-span-1 lg:col-span-1">
           <label className="label-text">
             Estado
           </label>
@@ -149,17 +158,29 @@ export const ActivitySearch: React.FC = () => {
           </select>
         </div>
 
-        <div>
-          <label className="label-text">
-            Fecha
-          </label>
-
-          <input
-            type="date"
-            className="input-field"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-          />
+        <div className="md:col-span-4 lg:col-span-2 flex gap-2">
+          <div>
+            <label className="label-text">
+              Fecha desde
+            </label>
+            <input
+              type="date"
+              className="input-field"
+              value={filterFechaInicio}
+              onChange={(e) => setFilterFechaInicio(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label-text">
+              Fecha hasta
+            </label>
+            <input
+              type="date"
+              className="input-field"
+              value={filterFechaFin}
+              onChange={(e) => setFilterFechaFin(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 

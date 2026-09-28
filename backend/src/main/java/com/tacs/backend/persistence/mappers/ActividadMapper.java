@@ -47,7 +47,6 @@ public class ActividadMapper
     domain.setMaximoParticipantes(entity.getMaximoParticipantes());
     domain.setRecordatorioEnviado(entity.isRecordatorioEnviado());
     domain.setOrganizador(usuarioMapper.toDomain(entity.getOrganizador()));
-    domain.setTags(entity.getTags());
     if (entity.getParticipantes() != null) {
       domain.setParticipantes(
           entity.getParticipantes().stream().map(usuarioMapper::toDomain).collect(Collectors.toList()));
@@ -96,7 +95,6 @@ public class ActividadMapper
     entity.setFechaRealizacion(domain.getFechaRealizacion());
     entity.setDuracionEstimada(domain.getDuracionEstimada());
     entity.setMinimoParticipantes(domain.getMinimoParticipantes());
-    entity.setTags(domain.getTags());
     entity.setMaximoParticipantes(domain.getMaximoParticipantes());
     entity.setRecordatorioEnviado(domain.isRecordatorioEnviado());
 

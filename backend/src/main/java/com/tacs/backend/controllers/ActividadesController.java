@@ -93,15 +93,16 @@ class ActividadesController
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @GetMapping
   public ResponseEntity<Page<ActividadDto>> buscarActividades(
-      @RequestParam(required = false) TipoActividad tipo,
-      @RequestParam(required = false) String busqueda,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
-      @RequestParam(required = false) TipoEstadoActividad estado,
-      @RequestParam(required = false) Boolean cupoDisponible,
+      @RequestParam(name = "tipo", required = false) TipoActividad tipo,
+      @RequestParam(name = "busqueda", required = false) String busqueda,
+      @RequestParam(name = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+      @RequestParam(name = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
+      @RequestParam(name = "estado", required = false) TipoEstadoActividad estado,
+      @RequestParam(name = "cupoDisponible", required = false) Boolean cupoDisponible,
       @org.springdoc.core.annotations.ParameterObject org.springframework.data.domain.Pageable pageable)
   {
     return ResponseEntity.ok(
-        actividadesService.buscarActividades(tipo, busqueda, fecha, estado, cupoDisponible, pageable));
+        actividadesService.buscarActividades(tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable));
   }
 
   @Operation(summary = "Unirse a actividad", description = "Agrega un participante a una actividad (Requiere rol USER)")

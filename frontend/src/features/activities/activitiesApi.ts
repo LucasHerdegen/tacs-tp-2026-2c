@@ -64,7 +64,8 @@ export const activitiesApi = {
   buscar(
     tipo: string | null,
     busqueda: string | null,
-    fecha: string | null,
+    fechaInicio: string | null,
+    fechaFin: string | null,
     estado: string | null,
     page: number = 0,
     size: number = 20,
@@ -78,8 +79,11 @@ export const activitiesApi = {
     if (busqueda) {
       params.append('busqueda', busqueda);
     }
-    if (fecha) {
-      params.append('fecha', fecha);
+    if (fechaInicio) {
+      params.append('fechaInicio', fechaInicio);
+    }
+    if (fechaFin) {
+      params.append('fechaFin', fechaFin);
     }
     if (estado) {
       params.append('estado', estado);
