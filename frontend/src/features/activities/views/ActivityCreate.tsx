@@ -25,7 +25,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const LocationMarker: React.FC<{
-  position: { lat: number; lng: number };
+  position: { lat: number; lng: number } | null;
   setPosition: (lat: number, lng: number) => void;
 }> = ({ position, setPosition }) => {
   const map = useMap();
@@ -36,6 +36,10 @@ const LocationMarker: React.FC<{
       map.flyTo(e.latlng, map.getZoom());
     },
   });
+
+  if (!position) {
+    return null;
+  }
 
   return <Marker position={[position.lat, position.lng]} />;
 };
@@ -58,7 +62,7 @@ export const CreateActivity: React.FC = () => {
     descripcion: '',
     tipoActividad: 'AIRE_LIBRE',
     ubicacion: {
-      barrio: '',
+      ciudad: '',
       latitud: null,
       longitud: null
     },
@@ -93,7 +97,7 @@ export const CreateActivity: React.FC = () => {
       ...prev,
       ubicacion: {
         ...prev.ubicacion,
-        [name]: name === 'barrio'
+        [name]: name === 'ciudad'
           ? value
           : value === ''
             ? null
@@ -155,15 +159,15 @@ export const CreateActivity: React.FC = () => {
       return;
     }
 
-    const tieneBarrio =
-      formData.ubicacion.barrio.trim() !== '';
+    const tieneCiudad =
+      formData.ubicacion.ciudad.trim() !== '';
 
     const tieneCoordenadas =
       formData.ubicacion.latitud !== null &&
       formData.ubicacion.longitud !== null;
 
-    if (!tieneBarrio && !tieneCoordenadas) {
-      setError('Completá el barrio o seleccioná una ubicación en el mapa.');
+    if (!tieneCiudad && !tieneCoordenadas) {
+      setError('Completá la ciudad o seleccioná una ubicación en el mapa.');
       return;
     }
 
@@ -272,14 +276,14 @@ export const CreateActivity: React.FC = () => {
               </div>
             </div>
 
-            {/* Ubicación (Barrio, Buscador y Mapa) */}
+            {/* Ubicación (Ciudad, Buscador y Mapa) */}
             <div className="space-y-4">
               <div>
                 <label className="label-text"> Lugar *</label>
                 <input
                   type="text"
-                  name="barrio"
-                  value={formData.ubicacion.barrio}
+                  name="ciudad"
+                  value={formData.ubicacion.ciudad}
                   onChange={handleUbicacionChange}
                   placeholder="Ej: Ramos Mejia / Parque Sarmiento"
                   className="input-field"
@@ -332,16 +336,18 @@ export const CreateActivity: React.FC = () => {
                       zoom={15}
                     />
 
-                    {formData.ubicacion.latitud !== null &&
-                      formData.ubicacion.longitud !== null && (
-                        <LocationMarker
-                          position={{
-                            lat: formData.ubicacion.latitud,
-                            lng: formData.ubicacion.longitud,
-                          }}
-                          setPosition={handleMapClick}
-                        />
-                      )}
+                    <LocationMarker
+                      position={
+                        formData.ubicacion.latitud !== null &&
+                        formData.ubicacion.longitud !== null
+                          ? {
+                              lat: formData.ubicacion.latitud,
+                              lng: formData.ubicacion.longitud,
+                            }
+                          : null
+                      }
+                      setPosition={handleMapClick}
+                    />
                   </MapContainer>
                 </div>
               </div>

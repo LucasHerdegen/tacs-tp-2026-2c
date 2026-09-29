@@ -276,7 +276,7 @@ export const ActivitySearch: React.FC = () => {
 
                     <div className="text-sm text-gray-500 space-y-1 mb-4">
                       <p>
-                        📍 {activity.ubicacion.barrio}
+                        📍 {activity.ubicacion.ciudad}
                       </p>
 
                       <p>

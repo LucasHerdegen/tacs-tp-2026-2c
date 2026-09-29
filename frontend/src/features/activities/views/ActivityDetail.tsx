@@ -211,7 +211,7 @@ export const ActivityDetail: React.FC = () => {
             <span className="text-xl">📍</span>
             <div>
               <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Ubicación</p>
-              <p className="font-medium">{activity.ubicacion.barrio}</p>
+              <p className="font-medium">{activity.ubicacion.ciudad}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

@@ -33,7 +33,7 @@ const ActivityCard: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
         </div>
         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{actividad.descripcion}</p>
         <div className="text-sm text-gray-500 space-y-1 mb-4">
-          <p>📍 {actividad.ubicacion.barrio}</p>
+          <p>📍 {actividad.ubicacion.ciudad}</p>
           <p>📅 {formatFechaHora(actividad.fecha)} hs</p>
           <p>🏷️ {TIPO_ACTIVIDAD_LABEL[actividad.tipoActividad]}</p>
         </div>

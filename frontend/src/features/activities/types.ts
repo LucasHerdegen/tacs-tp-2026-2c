@@ -10,7 +10,7 @@ export type TipoEstadoActividad =
   | 'FINALIZADA';
 
 export interface Ubicacion {
-  barrio: string;
+  ciudad: string;
   latitud: number | null;
   longitud: number | null;
 }
