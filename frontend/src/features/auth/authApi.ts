@@ -22,6 +22,6 @@ export const authApi = {
   },
 
   me(token: string) {
-    return apiRequest<User>('/api/auth/me', { token });
+    return apiRequest<User>('/api/usuarios/me', { token });
   },
 };
