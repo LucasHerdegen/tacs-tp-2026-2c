@@ -53,7 +53,7 @@ public class BuscarActividadesHandler implements ComandoHandler
 
     String busqueda = extraerBusqueda(mensaje.text());
     Page<ActividadDto> resultados = actividadesService.buscarActividades(
-        null, busqueda, null, null, true, PageRequest.of(0, MAXIMO_RESULTADOS));
+        null, busqueda, null, null, null, true, PageRequest.of(0, MAXIMO_RESULTADOS));
 
     List<ActividadDto> disponibles = resultados.stream()
         .filter(actividad -> !yaEsParteDe(actividad, usuarioId))

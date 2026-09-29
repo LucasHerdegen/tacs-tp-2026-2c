@@ -31,7 +31,6 @@ public class ActividadEntity
   private String descripcion;
 
   private TipoActividad tipo;
-
   private UbicacionEntity ubicacion;
 
   private LocalDateTime fechaCreacion;

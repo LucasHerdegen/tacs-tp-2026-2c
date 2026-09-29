@@ -136,7 +136,7 @@ export const MyActivities: React.FC = () => {
               <Card key={votacion.id} className="flex flex-col">
                 <CardBody className="grow">
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{votacion.actividadDto.titulo}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{votacion.actividad.titulo}</h3>
                     <Badge variant="warning">Votación abierta</Badge>
                   </div>
                   <p className="text-sm text-gray-600 mb-1">
@@ -150,7 +150,7 @@ export const MyActivities: React.FC = () => {
                   <Button
                     variant="secondary"
                     className="text-xs px-3 py-1"
-                    onClick={() => navigate(`/activities/${votacion.actividadDto.id}`)}
+                    onClick={() => navigate(`/activities/${votacion.actividad.id}`)}
                   >
                     Ver actividad
                   </Button>

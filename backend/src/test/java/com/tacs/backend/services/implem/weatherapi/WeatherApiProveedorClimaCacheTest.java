@@ -76,7 +76,7 @@ class WeatherApiProveedorClimaCacheTest
     // Una sola expectativa (ExpectedCount.once() por default): si el proveedor
     // pegara 2 veces, MockRestServiceServer falla el server.verify() de abajo.
     server.expect(requestTo(
-            "https://api.weatherapi.com/v1/forecast.json?key=test-key&q=-34.58,-58.43&days=2&aqi=no&alerts=no"))
+            "https://api.weatherapi.com/v1/forecast.json?key=test-key&q=-34.58,-58.43&days=3&aqi=no&alerts=no"))
         .andRespond(withSuccess("""
             {
               "forecast": {
@@ -132,7 +132,7 @@ class WeatherApiProveedorClimaCacheTest
     LocalDate manana = LocalDate.now().plusDays(1);
 
     server.expect(requestTo(
-            "https://api.weatherapi.com/v1/forecast.json?key=test-key&q=-34.58,-58.43&days=2&aqi=no&alerts=no"))
+            "https://api.weatherapi.com/v1/forecast.json?key=test-key&q=-34.58,-58.43&days=3&aqi=no&alerts=no"))
         .andRespond(request ->
         {
           try

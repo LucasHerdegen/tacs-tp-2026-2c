@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../features/auth/authContext';
+import { NotificationBell } from '../../features/notifications/components/NotificationBell';
 
 export const Navbar: React.FC = () => {
   const { status, user, logout } = useAuth();
@@ -31,6 +32,7 @@ export const Navbar: React.FC = () => {
                     </Link>
                   </>
                 )}
+                <NotificationBell />
                 <span className="hidden border-l border-indigo-400 pl-4 text-sm sm:inline">
                   {user?.username}
                   {user?.rol === 'ADMIN' && (

@@ -7,7 +7,7 @@ import { votingApi } from '../votingApi';
 import type { VotacionDto } from '../types';
 
 interface VotingCreateFormProps {
-  actividadId: number;
+  actividadId: string;
   onCreated: (votacion: VotacionDto) => void;
   onCancel: () => void;
 }

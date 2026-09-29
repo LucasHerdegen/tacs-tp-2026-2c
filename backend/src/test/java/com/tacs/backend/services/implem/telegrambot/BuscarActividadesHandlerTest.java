@@ -88,14 +88,14 @@ class BuscarActividadesHandlerTest
 
     handler.manejar(mensaje("/buscar"), null);
 
-    verify(actividadesService, never()).buscarActividades(any(), any(), any(), any(), any(), any());
+    verify(actividadesService, never()).buscarActividades(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
   void sinResultadosAvisaQueNoEncontroNada()
   {
     when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
-    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
+    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of()));
 
     handler.manejar(mensaje("/buscar"), "usr-1");
@@ -109,19 +109,19 @@ class BuscarActividadesHandlerTest
   void conTextoLibreLoUsaComoFiltroDeBusqueda()
   {
     when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
-    when(actividadesService.buscarActividades(isNull(), eq("futbol"), isNull(), isNull(), eq(true), any(Pageable.class)))
+    when(actividadesService.buscarActividades(isNull(), eq("futbol"), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(actividad("act-1", "Futbol 5"))));
 
     handler.manejar(mensaje("/buscar futbol"), "usr-1");
 
-    verify(actividadesService).buscarActividades(isNull(), eq("futbol"), isNull(), isNull(), eq(true), any(Pageable.class));
+    verify(actividadesService).buscarActividades(isNull(), eq("futbol"), isNull(), isNull(), isNull(), eq(true), any(Pageable.class));
   }
 
   @Test
   void conResultadosListaUnBotonSumarsePorCadaUno()
   {
     when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
-    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
+    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(actividad("act-1", "Asado"), actividad("act-2", "Truco"))));
 
     handler.manejar(mensaje("/buscar"), "usr-1");
@@ -140,7 +140,7 @@ class BuscarActividadesHandlerTest
   void excluyeActividadesDondeYaEsOrganizadorOParticipante()
   {
     when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
-    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
+    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(
             actividad("act-organizo", "Asado", "usr-1", List.of()),
             actividad("act-participo", "Truco", "otro-usr", List.of("usr-1")),

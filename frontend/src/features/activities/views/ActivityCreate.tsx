@@ -8,7 +8,6 @@ import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
 import type { ActividadPost } from '../types';
-// import type { TipoActividad } from '../types'; // Hace que falle build mientras no se use.
 import { ApiError } from '../../../lib/api';
 import { useAuth } from '../../auth/authContext';
 import { activitiesApi } from '../activitiesApi';
@@ -60,8 +59,8 @@ export const CreateActivity: React.FC = () => {
     tipoActividad: 'AIRE_LIBRE',
     ubicacion: {
       barrio: '',
-      latitud: -34.6037, // Valor default CABA
-      longitud: -58.3816
+      latitud: null,
+      longitud: null
     },
     fecha: '',
     duracionEstimada: 2,
@@ -94,7 +93,11 @@ export const CreateActivity: React.FC = () => {
       ...prev,
       ubicacion: {
         ...prev.ubicacion,
-        [name]: name === 'barrio' ? value : Number(value)
+        [name]: name === 'barrio'
+          ? value
+          : value === ''
+            ? null
+            : Number(value)
       }
     }));
   };
@@ -152,6 +155,18 @@ export const CreateActivity: React.FC = () => {
       return;
     }
 
+    const tieneBarrio =
+      formData.ubicacion.barrio.trim() !== '';
+
+    const tieneCoordenadas =
+      formData.ubicacion.latitud !== null &&
+      formData.ubicacion.longitud !== null;
+
+    if (!tieneBarrio && !tieneCoordenadas) {
+      setError('Completá el barrio o seleccioná una ubicación en el mapa.');
+      return;
+    }
+
     if (!token) {
       setError('No estás autenticado.');
       return;
@@ -174,6 +189,11 @@ export const CreateActivity: React.FC = () => {
     }
   };
 
+  const mapCenter: [number, number] = [
+    formData.ubicacion.latitud ?? -34.6037,
+    formData.ubicacion.longitud ?? -58.3816
+  ];
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -195,7 +215,7 @@ export const CreateActivity: React.FC = () => {
       <form onSubmit={handleSubmit}>
         <Card>
           <CardBody className="space-y-6">
-            
+
             {/* Título */}
             <div>
               <label className="label-text">Título *</label>
@@ -224,7 +244,7 @@ export const CreateActivity: React.FC = () => {
             </div>
 
             {/* Tipo de Actividad y Fecha */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="label-text">Tipo de Actividad *</label>
                 <select
@@ -259,7 +279,6 @@ export const CreateActivity: React.FC = () => {
                 <input
                   type="text"
                   name="barrio"
-                  required
                   value={formData.ubicacion.barrio}
                   onChange={handleUbicacionChange}
                   placeholder="Ej: Ramos Mejia / Parque Sarmiento"
@@ -270,7 +289,7 @@ export const CreateActivity: React.FC = () => {
               {/* Buscador de dirección */}
               <div>
                 <label className="label-text mb-1 block">
-                  Seleccionar ubicación en el mapa *
+                  Seleccionar ubicación en el mapa
                 </label>
                 <div className="flex gap-2 mb-2">
                   <input
@@ -298,7 +317,7 @@ export const CreateActivity: React.FC = () => {
                 {/* Mapa con Autocentrado */}
                 <div className="h-64 w-full rounded-lg overflow-hidden border border-gray-300">
                   <MapContainer
-                    center={[formData.ubicacion.latitud, formData.ubicacion.longitud]}
+                    center={mapCenter}
                     zoom={13}
                     style={{ height: '100%', width: '100%' }}
                   >
@@ -306,20 +325,23 @@ export const CreateActivity: React.FC = () => {
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
                     />
-                    
+
                     {/* Controla la re-centrada animada del mapa */}
                     <MapController
-                      center={[formData.ubicacion.latitud, formData.ubicacion.longitud]}
+                      center={mapCenter}
                       zoom={15}
                     />
 
-                    <LocationMarker
-                      position={{
-                        lat: formData.ubicacion.latitud,
-                        lng: formData.ubicacion.longitud,
-                      }}
-                      setPosition={handleMapClick}
-                    />
+                    {formData.ubicacion.latitud !== null &&
+                      formData.ubicacion.longitud !== null && (
+                        <LocationMarker
+                          position={{
+                            lat: formData.ubicacion.latitud,
+                            lng: formData.ubicacion.longitud,
+                          }}
+                          setPosition={handleMapClick}
+                        />
+                      )}
                   </MapContainer>
                 </div>
               </div>

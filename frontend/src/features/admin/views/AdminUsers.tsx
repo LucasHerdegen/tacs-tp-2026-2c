@@ -49,7 +49,7 @@ export function AdminUsers() {
   }, [token]);
 
   async function handleRoleChange(targetUser: User, nextRole: UserRole) {
-    if (!token || targetUser.rol === nextRole) return;
+    if (!token || targetUser.rol === nextRole || targetUser.id === authenticatedUser?.id) return;
 
     setUpdatingUserId(targetUser.id);
     setError('');
@@ -114,6 +114,7 @@ export function AdminUsers() {
                   {users.map((listedUser) => {
                     const nextRole: UserRole = listedUser.rol === 'ADMIN' ? 'USER' : 'ADMIN';
                     const isUpdating = updatingUserId === listedUser.id;
+                    const isCurrentUser = listedUser.id === authenticatedUser?.id;
 
                     return (
                       <tr key={listedUser.id} className="hover:bg-gray-50">
@@ -129,17 +130,21 @@ export function AdminUsers() {
                           </Badge>
                         </td>
                         <td className="px-6 py-4">
-                          <Button
-                            disabled={isUpdating}
-                            onClick={() => handleRoleChange(listedUser, nextRole)}
-                            variant={nextRole === 'ADMIN' ? 'primary' : 'secondary'}
-                          >
-                            {isUpdating
-                              ? 'Actualizando…'
-                              : nextRole === 'ADMIN'
-                                ? 'Convertir en ADMIN'
-                                : 'Convertir en USER'}
-                          </Button>
+                          {isCurrentUser ? (
+                            <span className="text-gray-500">No podés cambiar tu rol</span>
+                          ) : (
+                            <Button
+                              disabled={isUpdating}
+                              onClick={() => handleRoleChange(listedUser, nextRole)}
+                              variant={nextRole === 'ADMIN' ? 'primary' : 'secondary'}
+                            >
+                              {isUpdating
+                                ? 'Actualizando…'
+                                : nextRole === 'ADMIN'
+                                  ? 'Convertir en ADMIN'
+                                  : 'Convertir en USER'}
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );

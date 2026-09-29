@@ -135,18 +135,31 @@ public class ActividadesServiceImplem implements ActividadesService
 
   @Override
   public Page<ActividadDto> buscarActividades(TipoActividad tipo, String busqueda,
-                                              LocalDate fecha,
+                                              LocalDate fechaInicio, LocalDate fechaFin,
                                               TipoEstadoActividad estado,
                                               Boolean cupoDisponible,
                                               Pageable pageable)
   {
+    if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin)) {
+        throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
+    }
+
     List<ActividadDto> filtered = actividadesRepository.findAll().stream()
         .filter(a -> tipo == null || a.getTipo().equals(tipo))
         .filter(a -> busqueda == null ||
             normalizar(a.getTitulo()).contains(normalizar(busqueda)) ||
             (a.getUbicacion() != null &&
                 normalizar(a.getUbicacion().getCiudad()).contains(normalizar(busqueda))))
-        .filter(a -> fecha == null || a.getFechaRealizacion().toLocalDate().equals(fecha))
+        .filter(a -> {
+            LocalDate activityDate = a.getFechaRealizacion().toLocalDate();
+            if (fechaInicio != null && activityDate.isBefore(fechaInicio)) {
+                return false;
+            }
+            if (fechaFin != null && activityDate.isAfter(fechaFin)) {
+                return false;
+            }
+            return true;
+        })
         .filter(a -> estado == null || a.getEstado() == estado)
         .filter(
             a -> cupoDisponible == null || !cupoDisponible || a.getParticipantes().size() < a.getMaximoParticipantes())

@@ -47,12 +47,10 @@ public class ActividadMapper
     domain.setMaximoParticipantes(entity.getMaximoParticipantes());
     domain.setRecordatorioEnviado(entity.isRecordatorioEnviado());
     domain.setOrganizador(usuarioMapper.toDomain(entity.getOrganizador()));
-    if (entity.getParticipantes() != null)
-    {
+    if (entity.getParticipantes() != null) {
       domain.setParticipantes(
           entity.getParticipantes().stream().map(usuarioMapper::toDomain).collect(Collectors.toList()));
-    } else
-    {
+    } else {
       domain.setParticipantes(new ArrayList<>());
     }
     domain.setHorasAnticipacion(entity.getHorasAnticipacion());

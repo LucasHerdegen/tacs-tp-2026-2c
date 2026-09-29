@@ -11,8 +11,8 @@ export type TipoEstadoActividad =
 
 export interface Ubicacion {
   barrio: string;
-  latitud: number;
-  longitud: number;
+  latitud: number | null;
+  longitud: number | null;
 }
 
 export interface RangoReprogramacion {
@@ -46,7 +46,7 @@ export interface PronosticoRespuesta {
 }
 
 export interface Actividad {
-  id: number;
+  id: string;
   titulo: string;
   descripcion: string;
   tipoActividad: TipoActividad;

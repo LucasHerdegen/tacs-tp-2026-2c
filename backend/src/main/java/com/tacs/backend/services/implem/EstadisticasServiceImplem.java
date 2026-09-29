@@ -13,12 +13,10 @@ import org.springframework.stereotype.Service;
 class EstadisticasServiceImplem implements EstadisticasService
 {
   private final ActividadesRepository actividadesRepository;
-
   // calculo de estadisticas para el US 14
   @Override
   public EstadisticasDto obtenerEstadisticas()
   {
-    // de quererlo aca puedo sacar un par, esto es como un dashboard
     long creadas = actividadesRepository.count();
     long reprogramadas = actividadesRepository.countByEstado(TipoEstadoActividad.REPROGRAMADA);
     long canceladas = actividadesRepository.countByEstado(TipoEstadoActividad.CANCELADA);

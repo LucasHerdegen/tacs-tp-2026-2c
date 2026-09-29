@@ -10,7 +10,7 @@ import type { AlternativaDto, VotacionDto } from '../types';
 import { VotingCreateForm } from './VotingCreateForm';
 
 interface VotingSectionProps {
-  actividadId: number;
+  actividadId: string;
   organizadorId: UserId;
 }
 
@@ -77,7 +77,7 @@ export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organ
     try {
       const actualizada = await votingApi.votar(
         votacion.id,
-        { usuarioId: user.id, numeroAlternativa },
+        { numeroAlternativa },
         token,
       );
       setVotacion(actualizada);

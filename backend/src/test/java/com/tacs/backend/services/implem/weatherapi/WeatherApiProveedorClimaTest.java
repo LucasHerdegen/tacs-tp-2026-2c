@@ -63,7 +63,7 @@ class WeatherApiProveedorClimaTest
     LocalDateTime fechaHorario = LocalDate.now().plusDays(1).atTime(15, 0);
 
     serverHolder[0].expect(requestTo(
-            "https://api.weatherapi.com/v1/forecast.json?key=test-key&q=-34.58,-58.43&days=2&aqi=no&alerts=no"))
+            "https://api.weatherapi.com/v1/forecast.json?key=test-key&q=-34.58,-58.43&days=3&aqi=no&alerts=no"))
         .andRespond(withSuccess("""
             {
               "forecast": {

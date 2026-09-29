@@ -88,6 +88,7 @@ public class WeatherApiProveedorClima implements ProveedorClima
   private int diasNecesarios(LocalDateTime fechaHorario)
   {
     long diasDesdeHoy = ChronoUnit.DAYS.between(LocalDate.now(), fechaHorario.toLocalDate()) + 1;
-    return (int) Math.min(Math.max(diasDesdeHoy, 1), maxDias);
+    // Se suma 1 día extra como margen de seguridad por diferencias de zona horaria entre el JVM (UTC) y WeatherAPI (Local)
+    return (int) Math.min(Math.max(diasDesdeHoy + 1, 1), maxDias);
   }
 }
