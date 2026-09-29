@@ -470,6 +470,34 @@ class VotacionesServiceImplemTest
   }
 
   @Test
+  void crearVotacionAsignaUnIdACadaAlternativaCreada()
+  {
+    // Alternativa es un objeto embebido dentro de VotacionEntity, no un @Document propio:
+    // Mongo nunca le auto-genera un _id como hace con el documento de nivel superior.
+    // Si construirAlternativa no le asigna uno a mano, la alternativa persiste sin id y
+    // Votacion.cantidadVotos/eliminarVoto revientan con NullPointerException apenas hay un voto.
+    Actividad actividad = crearActividad(null);
+    actividad.setId("61");
+
+    LocalDateTime fechaAlternativa = LocalDateTime.now().plusDays(2);
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(fechaAlternativa)));
+
+    when(actividadesRepository.findById("61")).thenReturn(Optional.of(actividad));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId("61")).thenReturn(Optional.empty());
+    when(proveedorClima.obtenerPronostico(UBICACION, fechaAlternativa)).thenReturn(new Clima(5, 22, 10));
+    when(votacionesRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
+
+    inicializarService();
+    service.crearVotacion("61", dto, "1");
+
+    ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
+    verify(votacionesRepository).save(captor.capture());
+    assertThat(captor.getValue().getAlternativas()).extracting("id").doesNotContainNull();
+  }
+
+  @Test
   void votarRegistraElVotoYDevuelveLaVotacionActualizada()
   {
     Actividad actividad = crearActividad(null);

@@ -478,6 +478,7 @@ class VotacionesServiceImplem implements VotacionesService
   private Alternativa construirAlternativa(LocalDateTime fecha, int numero, Clima clima)
   {
     Alternativa alternativa = new Alternativa();
+    alternativa.setId(new org.bson.types.ObjectId().toHexString());
     alternativa.setFecha(fecha);
     alternativa.setNumeroAlternativa(numero);
     alternativa.setClima(clima);
