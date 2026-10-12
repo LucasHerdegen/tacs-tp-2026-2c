@@ -25,7 +25,12 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -387,5 +392,56 @@ class ActividadesServiceImplemTest
     // hacia el GlobalExceptionHandler (que la mapea a 503).
     assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
         .isInstanceOf(ProveedorClimaIndisponibleException.class);
+  }
+
+  @Test
+  @DisplayName("Buscar actividades delega al repositorio y mapea a DTO exitosamente (Happy Path)")
+  void buscarActividades_ParametrosValidos_DelegaAlRepositorioYRetornaPageDto()
+  {
+    // Arrange
+    TipoActividad tipo = TipoActividad.AIRE_LIBRE;
+    String busqueda = "parque";
+    LocalDate fechaInicio = LocalDate.of(2026, 11, 1);
+    LocalDate fechaFin = LocalDate.of(2026, 11, 5);
+    TipoEstadoActividad estado = TipoEstadoActividad.CONFIRMADA;
+    Boolean cupoDisponible = true;
+    Pageable pageable = PageRequest.of(0, 10);
+
+    ActividadDto dtoMock = mock(ActividadDto.class);
+    Page<Actividad> pageMock = new PageImpl<>(List.of(actividadMock), pageable, 1);
+
+    when(actividadesRepository.buscarActividades(tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable))
+        .thenReturn(pageMock);
+    when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(dtoMock);
+
+    // Act
+    Page<ActividadDto> resultado = actividadesService.buscarActividades(
+        tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
+
+    // Assert
+    assertThat(resultado).isNotNull();
+    assertThat(resultado.getTotalElements()).isEqualTo(1);
+    assertThat(resultado.getContent()).containsExactly(dtoMock);
+
+    verify(actividadesRepository).buscarActividades(tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
+    verify(actividadesRepository, never()).findAll();
+  }
+
+  @Test
+  @DisplayName("Buscar actividades con fecha inicio posterior a fecha fin lanza IllegalArgumentException (Failing Path)")
+  void buscarActividades_FechaInicioPosteriorAFechaFin_LanzaIllegalArgumentException()
+  {
+    // Arrange
+    LocalDate fechaInicio = LocalDate.of(2026, 11, 10);
+    LocalDate fechaFin = LocalDate.of(2026, 11, 5);
+    Pageable pageable = PageRequest.of(0, 10);
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.buscarActividades(
+        null, null, fechaInicio, fechaFin, null, null, pageable))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("La fecha de inicio no puede ser posterior a la fecha de fin");
+
+    verifyNoInteractions(actividadesRepository);
   }
 }

@@ -175,46 +175,15 @@ public class ActividadesServiceImplem implements ActividadesService
                                               Boolean cupoDisponible,
                                               Pageable pageable)
   {
-    if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin)) {
-        throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
+    if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin))
+    {
+      throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
     }
 
-    List<ActividadDto> filtered = actividadesRepository.findAll().stream()
-        .filter(a -> tipo == null || a.getTipo().equals(tipo))
-        .filter(a -> busqueda == null ||
-            normalizar(a.getTitulo()).contains(normalizar(busqueda)) ||
-            (a.getUbicacion() != null &&
-                normalizar(a.getUbicacion().getCiudad()).contains(normalizar(busqueda))))
-        .filter(a -> {
-            LocalDate activityDate = a.getFechaRealizacion().toLocalDate();
-            if (fechaInicio != null && activityDate.isBefore(fechaInicio)) {
-                return false;
-            }
-          return fechaFin == null || !activityDate.isAfter(fechaFin);
-        })
-        .filter(a -> estado == null || a.getEstado() == estado)
-        .filter(
-            a -> cupoDisponible == null || !cupoDisponible || a.getParticipantes().size() < a.getMaximoParticipantes())
-        .map(actividadesMapper::actividadToActividadDto)
-        .toList();
+    Page<Actividad> actividades = actividadesRepository.buscarActividades(
+        tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
 
-    int start = (int) pageable.getOffset();
-    int end = Math.min((start + pageable.getPageSize()), filtered.size());
-    List<ActividadDto> pageContent = (start <= end) ? filtered.subList(start, end) : java.util.Collections.emptyList();
-
-    return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, filtered.size());
-  }
-
-  private String normalizar(String texto)
-  {
-    if (texto == null)
-      return "";
-
-    return java.text.Normalizer
-        .normalize(texto, java.text.Normalizer.Form.NFD)
-        .replaceAll("\\p{M}", "")
-        .toLowerCase()
-        .trim();
+    return actividades.map(actividadesMapper::actividadToActividadDto);
   }
 
   /**

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import com.tacs.backend.domain.actividad.TipoActividad;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public interface ActividadesRepository
 {
@@ -40,10 +41,16 @@ public interface ActividadesRepository
 
   List<Actividad> findAll();
 
-  List<Actividad> findCandidatasParaFinalizacion(java.time.LocalDateTime now);
+  List<Actividad> findCandidatasParaFinalizacion(LocalDateTime now);
 
-  Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha, TipoEstadoActividad estado,
-                                    Boolean cupoDisponible, Pageable pageable);
+  Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fechaInicio, LocalDate fechaFin,
+                                    TipoEstadoActividad estado, Boolean cupoDisponible, Pageable pageable);
+
+  default Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha,
+                                            TipoEstadoActividad estado, Boolean cupoDisponible, Pageable pageable)
+  {
+    return buscarActividades(tipo, busqueda, fecha, fecha, estado, cupoDisponible, pageable);
+  }
 
   long count();
 }

@@ -265,6 +265,14 @@ class ActividadesConcurrenciaIntegrationTest
     }
 
     @Override
+    public Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fechaInicio,
+                                             LocalDate fechaFin, TipoEstadoActividad estado, Boolean cupoDisponible,
+                                             Pageable pageable)
+    {
+      return Page.empty();
+    }
+
+    @Override
     public Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha,
                                              TipoEstadoActividad estado, Boolean cupoDisponible, Pageable pageable)
     {

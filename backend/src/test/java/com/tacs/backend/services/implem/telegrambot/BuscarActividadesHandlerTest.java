@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -141,8 +142,8 @@ class BuscarActividadesHandlerTest
     ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
     verify(telegramBot).execute(captor.capture());
     InlineKeyboardMarkup markup = (InlineKeyboardMarkup) captor.getValue().getReplyMarkup();
-    List<String> callbacks = java.util.Arrays.stream(markup.inlineKeyboard())
-        .flatMap(java.util.Arrays::stream)
+    List<String> callbacks = Arrays.stream(markup.inlineKeyboard())
+        .flatMap(Arrays::stream)
         .map(InlineKeyboardButton::callbackData)
         .toList();
     assertThat(callbacks).containsExactly("sumarse:act-1", "sumarse:act-2");
@@ -163,8 +164,8 @@ class BuscarActividadesHandlerTest
     ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
     verify(telegramBot).execute(captor.capture());
     InlineKeyboardMarkup markup = (InlineKeyboardMarkup) captor.getValue().getReplyMarkup();
-    List<String> callbacks = java.util.Arrays.stream(markup.inlineKeyboard())
-        .flatMap(java.util.Arrays::stream)
+    List<String> callbacks = Arrays.stream(markup.inlineKeyboard())
+        .flatMap(Arrays::stream)
         .map(InlineKeyboardButton::callbackData)
         .toList();
     assertThat(callbacks).containsExactly("sumarse:act-disponible");
@@ -184,8 +185,8 @@ class BuscarActividadesHandlerTest
     ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
     verify(telegramBot).execute(captor.capture());
     InlineKeyboardMarkup markup = (InlineKeyboardMarkup) captor.getValue().getReplyMarkup();
-    List<String> callbacks = java.util.Arrays.stream(markup.inlineKeyboard())
-        .flatMap(java.util.Arrays::stream)
+    List<String> callbacks = Arrays.stream(markup.inlineKeyboard())
+        .flatMap(Arrays::stream)
         .map(InlineKeyboardButton::callbackData)
         .toList();
     assertThat(callbacks).containsExactly("sumarse:act-disponible");
