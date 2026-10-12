@@ -1,25 +1,42 @@
 package com.tacs.backend.handlers;
 
-import com.tacs.backend.exceptions.*;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.InvalidCredentialsException;
+import com.tacs.backend.exceptions.NoParticipanteException;
+import com.tacs.backend.exceptions.NotificacionNotFoundException;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.QuorumInvalidoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
+import com.tacs.backend.exceptions.VotacionCerradaException;
+import com.tacs.backend.exceptions.VotacionNotFoundException;
+import com.tacs.backend.exceptions.YaEsParticipanteException;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.Map;
 import java.util.HashMap;
 
-import com.tacs.backend.exceptions.AccesoDenegadoException;
-import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
-import org.springframework.web.context.request.WebRequest;
-
 @Slf4j
 @ControllerAdvice
-class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 {
   @ExceptionHandler(EstadoInvalidoException.class)
   public ProblemDetail handleEstadoInvalidoException(EstadoInvalidoException ex)
@@ -139,7 +156,7 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
   }
 
   @ExceptionHandler(OptimisticLockingFailureException.class)
-  public ProblemDetail handleOptimisticLockingFailureException(org.springframework.dao.OptimisticLockingFailureException ex)
+  public ProblemDetail handleOptimisticLockingFailureException(OptimisticLockingFailureException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Hubo un conflicto de concurrencia al actualizar el recurso, intente nuevamente.");
   }

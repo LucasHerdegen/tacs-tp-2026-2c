@@ -110,6 +110,7 @@ class ActividadesController
   @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
+  @ApiResponse(responseCode = "409", description = "Capacidad máxima alcanzada o ya es participante", content = @Content)
   @PostMapping("/{id}/participantes")
   public ResponseEntity<Void> unirseActividad(@PathVariable String id, @AuthenticationPrincipal Jwt jwt)
   {
@@ -122,6 +123,7 @@ class ActividadesController
   @ApiResponse(responseCode = "204", description = "Bajado exitosamente")
   @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "403", description = "El organizador no puede bajarse de la actividad", content = @Content)
   @ApiResponse(responseCode = "404", description = "Actividad no encontrada", content = @Content)
   @DeleteMapping("/{id}/participantes")
   public ResponseEntity<Void> bajarseActividad(@PathVariable String id, @AuthenticationPrincipal Jwt jwt)

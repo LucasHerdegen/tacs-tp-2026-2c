@@ -1,6 +1,7 @@
 package com.tacs.backend.persistence.entities;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.DocumentReference;
 import lombok.Getter;
@@ -19,6 +20,9 @@ public class VotacionEntity
 {
   @Id
   private String id;
+
+  @Version
+  private Long version;
 
   private LocalDateTime fechaApertura;
   private LocalDateTime fechaCierre;

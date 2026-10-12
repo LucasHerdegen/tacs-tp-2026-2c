@@ -11,7 +11,15 @@ import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
-import com.tacs.backend.exceptions.*;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.NoParticipanteException;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.QuorumInvalidoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.exceptions.VotacionCerradaException;
+import com.tacs.backend.exceptions.VotacionNotFoundException;
 import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
@@ -20,7 +28,7 @@ import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -30,7 +38,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@RequiredArgsConstructor
 @Service
 class VotacionesServiceImplem implements VotacionesService
 {
@@ -44,6 +51,42 @@ class VotacionesServiceImplem implements VotacionesService
   private final ProveedorClima proveedorClima;
   private final ServicioNotificaciones servicioNotificaciones;
   private final NotificacionInboxService notificacionInboxService;
+  private final OptimisticLockingRetry optimisticLockingRetry;
+
+  public VotacionesServiceImplem(
+      VotacionesRepository votacionesRepository,
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      VotacionMapper votacionMapper,
+      ProveedorClima proveedorClima,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService)
+  {
+    this(votacionesRepository, actividadesRepository, usuarioRepository,
+        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService,
+        new OptimisticLockingRetry());
+  }
+
+  @Autowired
+  public VotacionesServiceImplem(
+      VotacionesRepository votacionesRepository,
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      VotacionMapper votacionMapper,
+      ProveedorClima proveedorClima,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService,
+      OptimisticLockingRetry optimisticLockingRetry)
+  {
+    this.votacionesRepository = votacionesRepository;
+    this.actividadesRepository = actividadesRepository;
+    this.usuarioRepository = usuarioRepository;
+    this.votacionMapper = votacionMapper;
+    this.proveedorClima = proveedorClima;
+    this.servicioNotificaciones = servicioNotificaciones;
+    this.notificacionInboxService = notificacionInboxService;
+    this.optimisticLockingRetry = optimisticLockingRetry;
+  }
 
   // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
@@ -173,31 +216,33 @@ class VotacionesServiceImplem implements VotacionesService
   @Override
   public VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa)
   {
-    Votacion votacion = buscarVotacion(votacionId);
-    validarVotacionAbierta(votacion);
+    return optimisticLockingRetry.ejecutarConReintento(() -> {
+      Votacion votacion = buscarVotacion(votacionId);
+      validarVotacionAbierta(votacion);
 
-    var usuario = usuarioRepository.findById(usuarioId)
-        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+      var usuario = usuarioRepository.findById(usuarioId)
+          .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
-    boolean esParticipante = votacion.getActividad().getParticipantes().stream()
-        .anyMatch(u -> u.getId().equals(usuarioId));
+      boolean esParticipante = votacion.getActividad().getParticipantes().stream()
+          .anyMatch(u -> u.getId().equals(usuarioId));
 
-    if (!esParticipante)
-      throw new NoParticipanteException("Debes ser participante de la actividad para votar");
+      if (!esParticipante)
+        throw new NoParticipanteException("Debes ser participante de la actividad para votar");
 
-    Alternativa alternativa = votacion.getAlternativas().stream()
-        .filter(a -> a.getNumeroAlternativa() == numeroAlternativa)
-        .findFirst()
-        .orElseThrow(() -> new AlternativaNotFoundException("No existe la alternativa numero " + numeroAlternativa));
+      Alternativa alternativa = votacion.getAlternativas().stream()
+          .filter(a -> a.getNumeroAlternativa() == numeroAlternativa)
+          .findFirst()
+          .orElseThrow(() -> new AlternativaNotFoundException("No existe la alternativa numero " + numeroAlternativa));
 
-    Voto voto = new Voto();
-    voto.setUsuario(usuario);
-    voto.setAlternativa(alternativa);
+      Voto voto = new Voto();
+      voto.setUsuario(usuario);
+      voto.setAlternativa(alternativa);
 
-    votacion.registrarVoto(voto);
-    votacion = votacionesRepository.save(votacion);
+      votacion.registrarVoto(voto);
+      votacion = votacionesRepository.save(votacion);
 
-    return votacionMapper.votacionToVotacionDto(votacion);
+      return votacionMapper.votacionToVotacionDto(votacion);
+    });
   }
 
   @Override

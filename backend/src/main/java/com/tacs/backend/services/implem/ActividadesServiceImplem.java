@@ -22,7 +22,7 @@ import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,7 +34,6 @@ import java.util.List;
 
 import com.tacs.backend.mappers.ClimaMapper;
 
-@RequiredArgsConstructor
 @Service
 public class ActividadesServiceImplem implements ActividadesService
 {
@@ -45,8 +44,44 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ClimaMapper climaMapper;
   private final ServicioNotificaciones servicioNotificaciones;
   private final NotificacionInboxService notificacionInboxService;
+  private final OptimisticLockingRetry optimisticLockingRetry;
 
-  @Value("${weatherapi.forecast.max-days}")
+  public ActividadesServiceImplem(
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      ActividadesMapper actividadesMapper,
+      ProveedorClima proveedorClima,
+      ClimaMapper climaMapper,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService)
+  {
+    this(actividadesRepository, usuarioRepository, actividadesMapper,
+        proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
+        new OptimisticLockingRetry());
+  }
+
+  @Autowired
+  public ActividadesServiceImplem(
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      ActividadesMapper actividadesMapper,
+      ProveedorClima proveedorClima,
+      ClimaMapper climaMapper,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService,
+      OptimisticLockingRetry optimisticLockingRetry)
+  {
+    this.actividadesRepository = actividadesRepository;
+    this.usuarioRepository = usuarioRepository;
+    this.actividadesMapper = actividadesMapper;
+    this.proveedorClima = proveedorClima;
+    this.climaMapper = climaMapper;
+    this.servicioNotificaciones = servicioNotificaciones;
+    this.notificacionInboxService = notificacionInboxService;
+    this.optimisticLockingRetry = optimisticLockingRetry;
+  }
+
+  @Value("${weatherapi.forecast.max-days:3}")
   private int maxDiasForecast;
 
   private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
@@ -155,10 +190,7 @@ public class ActividadesServiceImplem implements ActividadesService
             if (fechaInicio != null && activityDate.isBefore(fechaInicio)) {
                 return false;
             }
-            if (fechaFin != null && activityDate.isAfter(fechaFin)) {
-                return false;
-            }
-            return true;
+          return fechaFin == null || !activityDate.isAfter(fechaFin);
         })
         .filter(a -> estado == null || a.getEstado() == estado)
         .filter(
@@ -197,17 +229,19 @@ public class ActividadesServiceImplem implements ActividadesService
   {
     validarExistenciaUsuario(usuarioId);
 
-    var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
-
-    if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes())
-      throw new CapacidadMaximaException("La actividad ya esta al maximo de participantes permitidos");
-
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
-    actividad.agregarParticipante(usuario);
-    actividadesRepository.save(actividad);
+    optimisticLockingRetry.ejecutarConReintento(() -> {
+      var actividad = actividadesRepository.findById(actividadId)
+          .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
+
+      if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes())
+        throw new CapacidadMaximaException("La actividad ya esta al maximo de participantes permitidos");
+
+      actividad.agregarParticipante(usuario);
+      actividadesRepository.save(actividad);
+    });
   }
 
 
@@ -222,14 +256,16 @@ public class ActividadesServiceImplem implements ActividadesService
   {
     validarExistenciaUsuario(usuarioId);
 
-    var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
-
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
-    actividad.removerParticipante(usuario);
-    actividadesRepository.save(actividad);
+    optimisticLockingRetry.ejecutarConReintento(() -> {
+      var actividad = actividadesRepository.findById(actividadId)
+          .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
+
+      actividad.removerParticipante(usuario);
+      actividadesRepository.save(actividad);
+    });
   }
 
   @Override
