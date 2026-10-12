@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -95,5 +96,19 @@ class ConfigurarRangoCallbackHandlerTest
 
     assertThat(respuesta).isEqualTo("Entendido, no se va a reprogramar automaticamente.");
     verify(flujoHandler).manejarRespuestaRango(sesion, false, "usr-1");
+  }
+
+  @Test
+  void sesionDeOtraPersonaEnElMismoChatNoDelegaNada()
+  {
+    TelegramSesionEntity sesion = new TelegramSesionEntity(999L, "usr-1");
+    sesion.setFlujoActual(ConfigurarClimaFlujoHandler.FLUJO);
+    when(sesionRepository.findById(999L)).thenReturn(Optional.of(sesion));
+
+    // "usr-2" aprieta el boton de una sesion que es de "usr-1" en el mismo chat.
+    String respuesta = handler.manejar(callbackQuery("SI"), "usr-2");
+
+    assertThat(respuesta).isEqualTo("Hay una actividad en curso iniciada por otra persona en este chat.");
+    verify(flujoHandler, org.mockito.Mockito.never()).manejarRespuestaRango(any(), any(Boolean.class), any());
   }
 }

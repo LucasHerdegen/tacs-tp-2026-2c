@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@SpringBootTest(properties = "security.jwt.secret=test-secret-key-with-at-least-32-bytes")
+@SpringBootTest(properties = {
+    "security.jwt.secret=test-secret-key-with-at-least-32-bytes",
+    "spring.data.mongodb.auto-index-creation=false"
+})
 class BackendApplicationTests
 {
   @MockitoBean

@@ -9,9 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 /**
- * Arranca el wizard de creacion de actividad. Si el chat ya tenia una
- * sesion de otro flujo en curso, la pisa — /crear siempre empieza de cero.
+ * Arranca el wizard de creacion de actividad. Si el chat ya tenia una sesion
+ * propia de otro flujo en curso, la pisa — /crear siempre empieza de cero.
+ * Si la sesion en curso es de otra persona (en un grupo), no la pisa.
  */
 @Slf4j
 @Component
@@ -22,6 +25,8 @@ public class CrearComandoHandler implements ComandoHandler
       "Primero necesito identificarte. Mandá /start para empezar.";
   private static final String MENSAJE_PIDE_TITULO =
       "Vamos a crear una actividad. ¿Cual es el titulo?";
+  private static final String MENSAJE_FLUJO_DE_OTRA_PERSONA =
+      "Hay una actividad en curso iniciada por otra persona en este chat. Esperá a que termine o se cancele.";
 
   private final TelegramBot telegramBot;
   private final TelegramSesionMongoRepository sesionRepository;
@@ -40,6 +45,14 @@ public class CrearComandoHandler implements ComandoHandler
     if (usuarioId == null)
     {
       telegramBot.execute(new SendMessage(chatId, MENSAJE_NO_IDENTIFICADO));
+      return;
+    }
+
+    Optional<TelegramSesionEntity> sesionExistente = sesionRepository.findById(chatId);
+    if (sesionExistente.isPresent() && sesionExistente.get().getFlujoActual() != null
+        && !TelegramFlujoUtils.perteneceAUsuario(sesionExistente.get(), usuarioId))
+    {
+      telegramBot.execute(new SendMessage(chatId, MENSAJE_FLUJO_DE_OTRA_PERSONA));
       return;
     }
 

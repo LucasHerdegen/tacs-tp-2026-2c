@@ -121,4 +121,29 @@ class MisActividadesHandlerTest
         .toList();
     assertThat(callbacks).containsExactly("bajarse:act-2");
   }
+
+  @Test
+  void conMuchasActividadesSePartenEnVariosMensajesRespetandoElLimiteDeTelegram()
+  {
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+
+    String tituloLargo = "Actividad con un titulo bastante largo para forzar el corte de mensaje";
+    List<ActividadDto> muchas = java.util.stream.IntStream.range(0, 100)
+        .mapToObj(i -> actividad("act-" + i, tituloLargo + " #" + i, "usr-1", TipoEstadoActividad.PROPUESTA))
+        .toList();
+    when(actividadesService.actividadesDelUsuario("usr-1", null)).thenReturn(muchas);
+
+    handler.manejar(mensaje(), "usr-1");
+
+    ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+    verify(telegramBot, org.mockito.Mockito.atLeast(2)).execute(captor.capture());
+
+    List<SendMessage> mensajes = captor.getAllValues();
+    assertThat(mensajes).allSatisfy(m -> assertThat(m.getText().length()).isLessThanOrEqualTo(4096));
+
+    // Ninguna actividad se pierde al partir en varios mensajes: las 100 aparecen en algun mensaje.
+    String textoCompleto = mensajes.stream().map(SendMessage::getText).reduce("", String::concat);
+    for (int i = 0; i < 100; i++)
+      assertThat(textoCompleto).contains("#" + i);
+  }
 }

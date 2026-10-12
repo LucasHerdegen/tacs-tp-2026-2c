@@ -78,4 +78,38 @@ class CrearComandoHandlerTest
     assertThat(captor.getValue().getPasoActual()).isEqualTo(CrearActividadFlujoHandler.PASO_TITULO);
     assertThat(captor.getValue().getUsuarioId()).isEqualTo("usr-1");
   }
+
+  @Test
+  void conUnFlujoDeOtraPersonaYaEnCursoEnElMismoChatNoLoPisa()
+  {
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+    TelegramSesionEntity sesionAjena = new TelegramSesionEntity(999L, "usr-1");
+    sesionAjena.setFlujoActual(CrearActividadFlujoHandler.FLUJO);
+    when(sesionRepository.findById(999L)).thenReturn(java.util.Optional.of(sesionAjena));
+
+    // "usr-2" manda /crear mientras "usr-1" tiene un wizard en curso en el mismo chat.
+    handler.manejar(mensaje(), "usr-2");
+
+    verify(sesionRepository, never()).save(any());
+    ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+    verify(telegramBot).execute(captor.capture());
+    assertThat(captor.getValue().getText()).contains("otra persona");
+  }
+
+  @Test
+  void conUnaSesionPropiaAbandonadaLaPisaYArrancaDeCero()
+  {
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+    TelegramSesionEntity sesionPropia = new TelegramSesionEntity(999L, "usr-1");
+    sesionPropia.setFlujoActual(CrearActividadFlujoHandler.FLUJO);
+    sesionPropia.setPasoActual(CrearActividadFlujoHandler.PASO_CUPO_MAXIMO);
+    when(sesionRepository.findById(999L)).thenReturn(java.util.Optional.of(sesionPropia));
+
+    // La propia "usr-1" manda /crear de nuevo: puede pisar su propia sesion.
+    handler.manejar(mensaje(), "usr-1");
+
+    ArgumentCaptor<TelegramSesionEntity> captor = ArgumentCaptor.forClass(TelegramSesionEntity.class);
+    verify(sesionRepository).save(captor.capture());
+    assertThat(captor.getValue().getPasoActual()).isEqualTo(CrearActividadFlujoHandler.PASO_TITULO);
+  }
 }

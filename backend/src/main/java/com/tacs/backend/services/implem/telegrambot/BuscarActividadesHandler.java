@@ -5,6 +5,7 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
 import com.tacs.backend.services.ActividadesService;
@@ -19,7 +20,9 @@ import java.util.List;
 /**
  * "/buscar [texto]": busca actividades con cupo disponible, opcionalmente
  * filtrando por titulo/ciudad, y ofrece un boton "sumarse:<id>" por resultado.
- * Excluye las que el usuario ya organiza o en las que ya participa.
+ * Excluye las canceladas y las que el usuario ya organiza o en las que ya
+ * participa — todo ANTES de truncar a MAXIMO_RESULTADOS, para no mostrar
+ * menos resultados de los que realmente hay disponibles.
  */
 @Component
 @RequiredArgsConstructor
@@ -52,11 +55,14 @@ public class BuscarActividadesHandler implements ComandoHandler
     }
 
     String busqueda = extraerBusqueda(mensaje.text());
+    
     Page<ActividadDto> resultados = actividadesService.buscarActividades(
-        null, busqueda, null, null, null, true, PageRequest.of(0, MAXIMO_RESULTADOS));
+        null, busqueda, null, null, null, true, PageRequest.of(0, Integer.MAX_VALUE));
 
     List<ActividadDto> disponibles = resultados.stream()
+        .filter(actividad -> actividad.estadoActividad() != TipoEstadoActividad.CANCELADA)
         .filter(actividad -> !yaEsParteDe(actividad, usuarioId))
+        .limit(MAXIMO_RESULTADOS)
         .toList();
 
     if (disponibles.isEmpty())

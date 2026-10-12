@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tacs.backend.domain.clima.Clima;
 
-import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.PronosticoFueraDeCoberturaException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -29,7 +29,8 @@ public record WeatherApiForecastResponse(Forecast forecast)
    * Busca, entre todas las horas de todos los dias ya traidos, la mas
    * cercana a {@code fechaHorario} y la mapea a {@link Clima}. Si no hay
    * ninguna hora dentro de {@link #TOLERANCIA_COINCIDENCIA}, lanza
-   * {@link ProveedorClimaIndisponibleException}.
+   * {@link PronosticoFueraDeCoberturaException} (la llamada fue exitosa, la
+   * fecha pedida simplemente no esta entre los dias que el forecast trajo).
    */
   public Clima climaEnHora(LocalDateTime fechaHorario)
   {
@@ -38,7 +39,7 @@ public record WeatherApiForecastResponse(Forecast forecast)
         .min(Comparator.comparing(hora -> distanciaA(hora, fechaHorario)))
         .filter(hora -> distanciaA(hora, fechaHorario).compareTo(TOLERANCIA_COINCIDENCIA) <= 0)
         .map(Hour::aClima)
-        .orElseThrow(() -> new ProveedorClimaIndisponibleException(
+        .orElseThrow(() -> new PronosticoFueraDeCoberturaException(
             "Sin datos de forecast para " + fechaHorario + " (fuera de la cobertura traida)"));
   }
 

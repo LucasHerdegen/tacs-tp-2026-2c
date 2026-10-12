@@ -301,6 +301,16 @@ class VotacionesServiceImplem implements VotacionesService
               .formatted(quorumMinimo, actividad.getMinimoParticipantes()));
   }
 
+  /**
+   * La fecha ya fue validada contra el rango de reprogramacion de la
+   * actividad (regla de dominio, independiente del proveedor de clima). Si
+   * el proveedor no puede informar el clima para esa fecha — ya sea porque
+   * esta fuera de la cobertura que el plan contratado permite traer, o
+   * porque el proveedor fallo — la alternativa se crea igual, con clima en null, en vez de
+   * rechazar al usuario con un 503: ya elegimos una fecha valida, la falta
+   * de pronostico es informativa, no bloqueante. Mismo criterio que ya usa
+   * la busqueda automatica (ver alternativasFavorablesDelDia).
+   */
   private Alternativa crearAlternativa(AlternativaPostDto dto, int numero, Actividad actividad)
   {
     if (actividad.getRangoReprogramacion() == null || !actividad.getRangoReprogramacion()
@@ -308,7 +318,15 @@ class VotacionesServiceImplem implements VotacionesService
       throw new RangoReprogramacionInvalidoException(
           "La fecha de la alternativa debe estar dentro del rango de reprogramacion permitido por la actividad");
 
-    Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), dto.fecha());
+    Clima pronostico;
+    try
+    {
+      pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), dto.fecha());
+    } catch (ProveedorClimaIndisponibleException e)
+    {
+      pronostico = null;
+    }
+
     return construirAlternativa(dto.fecha(), numero, pronostico);
   }
 
@@ -398,6 +416,7 @@ class VotacionesServiceImplem implements VotacionesService
       LocalDateTime fechaCandidata = diaCandidato.withHour(hora).withMinute(0).withSecond(0).withNano(0);
 
       Clima pronostico;
+
       try
       {
         pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), fechaCandidata);

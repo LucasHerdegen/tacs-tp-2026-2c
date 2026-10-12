@@ -71,6 +71,17 @@ final class TelegramFlujoUtils
         + " para empezar de nuevo."));
   }
 
+  /**
+   * Si la sesion ya tiene un flujo en curso, determina si quien esta actuando
+   * ahora es la misma persona que lo arranco. En un chat privado da siempre
+   * true (nunca hay otra persona en ese chat); en un grupo evita que alguien
+   * continue, pise o cancele el flujo de otro miembro.
+   */
+  static boolean perteneceAUsuario(TelegramSesionEntity sesion, String usuarioId)
+  {
+    return usuarioId != null && usuarioId.equals(sesion.getUsuarioId());
+  }
+
   static Integer parsearEnteroPositivo(String texto)
   {
     try

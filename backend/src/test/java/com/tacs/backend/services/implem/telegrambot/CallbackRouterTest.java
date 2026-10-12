@@ -2,8 +2,7 @@ package com.tacs.backend.services.implem.telegrambot;
 
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
-import com.pengrad.telegrambot.model.Chat;
-import com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage;
+import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.response.BaseResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,10 +34,9 @@ class CallbackRouterTest
   private CallbackQuery callbackQuery;
 
   @Mock
-  private MaybeInaccessibleMessage maybeInaccessibleMessage;
+  private User remitente;
 
-  @Mock
-  private Chat chat;
+  private static final long REMITENTE_ID = 555L;
 
   @BeforeEach
   void setUp()
@@ -51,10 +49,9 @@ class CallbackRouterTest
   void callbackReconocidoDespachaAlHandlerYResponeConSuTexto()
   {
     when(callbackQuery.data()).thenReturn("sumarse:123");
-    when(callbackQuery.maybeInaccessibleMessage()).thenReturn(maybeInaccessibleMessage);
-    when(maybeInaccessibleMessage.chat()).thenReturn(chat);
-    when(chat.id()).thenReturn(999L);
-    when(identidadResolver.resolverUsuarioId(999L)).thenReturn(Optional.of("usr-1"));
+    when(callbackQuery.from()).thenReturn(remitente);
+    when(remitente.id()).thenReturn(REMITENTE_ID);
+    when(identidadResolver.resolverUsuarioId(REMITENTE_ID)).thenReturn(Optional.of("usr-1"));
 
     CallbackHandler handlerSumarse = mock(CallbackHandler.class);
     when(handlerSumarse.prefijo()).thenReturn("sumarse");
@@ -85,5 +82,26 @@ class CallbackRouterTest
     ArgumentCaptor<AnswerCallbackQuery> captor = ArgumentCaptor.forClass(AnswerCallbackQuery.class);
     verify(telegramBot).execute(captor.capture());
     assertThat(captor.getValue().getParameters().get("text")).isEqualTo("No pude procesar esa accion.");
+  }
+
+  @Test
+  void siElHandlerTiraUnaExcepcionNoControladaElBotIgualResponde()
+  {
+    when(callbackQuery.data()).thenReturn("sumarse:123");
+    when(callbackQuery.from()).thenReturn(remitente);
+    when(remitente.id()).thenReturn(REMITENTE_ID);
+    when(identidadResolver.resolverUsuarioId(REMITENTE_ID)).thenReturn(Optional.of("usr-1"));
+
+    CallbackHandler handlerSumarse = mock(CallbackHandler.class);
+    when(handlerSumarse.prefijo()).thenReturn("sumarse");
+    when(handlerSumarse.manejar(callbackQuery, "usr-1")).thenThrow(new RuntimeException("boom"));
+
+    CallbackRouter router = new CallbackRouter(telegramBot, identidadResolver, List.of(handlerSumarse));
+
+    router.despachar(callbackQuery);
+
+    ArgumentCaptor<AnswerCallbackQuery> captor = ArgumentCaptor.forClass(AnswerCallbackQuery.class);
+    verify(telegramBot).execute(captor.capture());
+    assertThat(captor.getValue().getParameters().get("text").toString()).contains("error inesperado");
   }
 }

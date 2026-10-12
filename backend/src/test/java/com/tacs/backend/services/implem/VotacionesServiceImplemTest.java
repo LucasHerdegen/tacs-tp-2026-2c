@@ -498,6 +498,38 @@ class VotacionesServiceImplemTest
   }
 
   @Test
+  void crearVotacionConFechaFueraDeLaCoberturaDelProveedorCreaLaAlternativaConClimaNull()
+  {
+    // La fecha elegida por el usuario ya fue validada contra el rango de
+    // reprogramacion de la actividad (regla de dominio, independiente del
+    // clima): que el proveedor no pueda informar el pronostico para esa
+    // fecha -ya sea por falta de cobertura o por una falla real del
+    // proveedor, ambos casos comparten ProveedorClimaIndisponibleException-
+    // no debe bloquear la creacion de la alternativa con un 503.
+    Actividad actividad = crearActividad(null);
+    actividad.setId("61");
+
+    LocalDateTime fechaAlternativa = LocalDateTime.now().plusDays(2);
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(fechaAlternativa)));
+
+    when(actividadesRepository.findById("61")).thenReturn(Optional.of(actividad));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId("61")).thenReturn(Optional.empty());
+    when(proveedorClima.obtenerPronostico(UBICACION, fechaAlternativa))
+        .thenThrow(new ProveedorClimaIndisponibleException("Sin datos de forecast (fuera de la cobertura traida)"));
+    when(votacionesRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
+
+    inicializarService();
+    service.crearVotacion("61", dto, "1"); // no debe lanzar ProveedorClimaIndisponibleException
+
+    ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
+    verify(votacionesRepository).save(captor.capture());
+    assertThat(captor.getValue().getAlternativas()).singleElement()
+        .extracting(Alternativa::getClima).isNull();
+  }
+
+  @Test
   void votarRegistraElVotoYDevuelveLaVotacionActualizada()
   {
     Actividad actividad = crearActividad(null);

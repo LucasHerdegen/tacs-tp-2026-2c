@@ -39,10 +39,12 @@ public class StartComandoHandler implements ComandoHandler
   public void manejar(Message mensaje, String usuarioId)
   {
     long chatId = mensaje.chat().id();
+    long remitenteId = mensaje.from().id();
 
     if (usuarioId != null)
     {
-      log.info("[Telegram] /start ignorado: chatId={} ya esta vinculado a usuarioId={}", chatId, usuarioId);
+      log.info("[Telegram] /start ignorado: remitenteId={} ya esta vinculado a usuarioId={}", remitenteId,
+          usuarioId);
       telegramBot.execute(new SendMessage(chatId, MENSAJE_YA_VINCULADO));
       return;
     }
@@ -51,18 +53,18 @@ public class StartComandoHandler implements ComandoHandler
 
     if (token == null)
     {
-      log.info("[Telegram] /start sin token: dando de alta un usuario nativo para chatId={}", chatId);
-      altaNativaHandler.crearUsuarioNativo(chatId);
-      log.info("[Telegram] Alta nativa completada para chatId={}", chatId);
+      log.info("[Telegram] /start sin token: dando de alta un usuario nativo para remitenteId={}", remitenteId);
+      altaNativaHandler.crearUsuarioNativo(remitenteId);
+      log.info("[Telegram] Alta nativa completada para remitenteId={}", remitenteId);
       telegramBot.execute(new SendMessage(chatId, MENSAJE_BIENVENIDA_ALTA_NATIVA));
       return;
     }
 
     try
     {
-      log.info("[Telegram] /start con token: intentando vincular chatId={}", chatId);
-      vinculacionHandler.vincular(chatId, token);
-      log.info("[Telegram] Vinculacion completada para chatId={}", chatId);
+      log.info("[Telegram] /start con token: intentando vincular remitenteId={}", remitenteId);
+      vinculacionHandler.vincular(remitenteId, token);
+      log.info("[Telegram] Vinculacion completada para remitenteId={}", remitenteId);
       telegramBot.execute(new SendMessage(chatId, MENSAJE_BIENVENIDA_VINCULACION));
     } catch (TelegramVinculacionInvalidaException e)
     {

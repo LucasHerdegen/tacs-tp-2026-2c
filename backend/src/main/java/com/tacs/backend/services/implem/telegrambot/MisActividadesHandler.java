@@ -27,6 +27,7 @@ public class MisActividadesHandler implements ComandoHandler
       "Primero necesito identificarte. Mandá /start para empezar.";
   private static final String MENSAJE_SIN_ACTIVIDADES =
       "No tenes actividades (ni organizadas ni participadas). Usa /crear o /buscar.";
+  private static final int MAXIMO_CARACTERES_POR_MENSAJE = 4096;
 
   private final TelegramBot telegramBot;
   private final ActividadesService actividadesService;
@@ -59,16 +60,29 @@ public class MisActividadesHandler implements ComandoHandler
     for (ActividadDto actividad : actividades)
     {
       boolean soyOrganizador = actividad.organizador().id().equals(usuarioId);
-      texto.append("\n• ").append(actividad.titulo())
-          .append(" (").append(actividad.fecha().format(FORMATO_FECHA)).append(") — ")
-          .append(actividad.estadoActividad())
-          .append(soyOrganizador ? " (sos el organizador)" : "");
+      String linea = "\n• " + actividad.titulo()
+          + " (" + actividad.fecha().format(FORMATO_FECHA) + ") — "
+          + actividad.estadoActividad()
+          + (soyOrganizador ? " (sos el organizador)" : "");
 
+      if (texto.length() + linea.length() > MAXIMO_CARACTERES_POR_MENSAJE)
+      {
+        enviarMensaje(chatId, texto, markup);
+        texto = new StringBuilder();
+        markup = new InlineKeyboardMarkup();
+      }
+
+      texto.append(linea);
       if (!soyOrganizador)
         markup.addRow(new InlineKeyboardButton("➖ Bajarme — " + actividad.titulo())
             .callbackData(BajarseCallbackHandler.PREFIJO + ":" + actividad.id()));
     }
 
+    enviarMensaje(chatId, texto, markup);
+  }
+
+  private void enviarMensaje(long chatId, StringBuilder texto, InlineKeyboardMarkup markup)
+  {
     SendMessage mensajeSalida = new SendMessage(chatId, texto.toString());
     if (markup.inlineKeyboard().length > 0)
       mensajeSalida.replyMarkup(markup);

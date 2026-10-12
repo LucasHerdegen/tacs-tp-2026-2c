@@ -8,6 +8,7 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import com.tacs.backend.domain.actividad.TipoActividad;
+import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
 import com.tacs.backend.services.ActividadesService;
@@ -68,11 +69,22 @@ class BuscarActividadesHandlerTest
 
   private ActividadDto actividad(String id, String titulo, String organizadorId, List<String> participantesIds)
   {
+    return actividad(id, titulo, organizadorId, participantesIds, null);
+  }
+
+  private ActividadDto actividadConEstado(String id, String titulo, TipoEstadoActividad estado)
+  {
+    return actividad(id, titulo, "otro-usuario", List.of(), estado);
+  }
+
+  private ActividadDto actividad(String id, String titulo, String organizadorId, List<String> participantesIds,
+      TipoEstadoActividad estado)
+  {
     UsuarioDto organizador = new UsuarioDto(organizadorId, "user-" + organizadorId, null, null);
     List<UsuarioDto> participantes = participantesIds.stream()
         .map(pid -> new UsuarioDto(pid, "user-" + pid, null, null)).toList();
     return new ActividadDto(id, titulo, null, TipoActividad.AIRE_LIBRE, null,
-        LocalDateTime.of(2026, 12, 1, 18, 0), 3, 4, 10, organizador, participantes, 24, null, null, null, null);
+        LocalDateTime.of(2026, 12, 1, 18, 0), 3, 4, 10, organizador, participantes, 24, null, null, estado, null);
   }
 
   @Test
@@ -156,5 +168,45 @@ class BuscarActividadesHandlerTest
         .map(InlineKeyboardButton::callbackData)
         .toList();
     assertThat(callbacks).containsExactly("sumarse:act-disponible");
+  }
+
+  @Test
+  void excluyeActividadesCanceladas()
+  {
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+    when(actividadesService.buscarActividades(isNull(), isNull(), isNull(), isNull(), isNull(), eq(true), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(
+            actividadConEstado("act-cancelada", "Asado", TipoEstadoActividad.CANCELADA),
+            actividad("act-disponible", "Futbol"))));
+
+    handler.manejar(mensaje("/buscar"), "usr-1");
+
+    ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+    verify(telegramBot).execute(captor.capture());
+    InlineKeyboardMarkup markup = (InlineKeyboardMarkup) captor.getValue().getReplyMarkup();
+    List<String> callbacks = java.util.Arrays.stream(markup.inlineKeyboard())
+        .flatMap(java.util.Arrays::stream)
+        .map(InlineKeyboardButton::callbackData)
+        .toList();
+    assertThat(callbacks).containsExactly("sumarse:act-disponible");
+  }
+
+  @Test
+  void pideTodosLosCandidatosAlServicioParaFiltrarAntesDeTruncarAMaximoResultados()
+  {
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+    when(actividadesService.buscarActividades(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    handler.manejar(mensaje("/buscar"), "usr-1");
+
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+    verify(actividadesService).buscarActividades(any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
+    // Si pidiera una pagina chica (ej. de tamaño 5) y despues filtrara
+    // canceladas/ya-es-parte-de, podria mostrar menos resultados de los que
+    // realmente hay disponibles. Por eso tiene que pedir muchos mas
+    // candidatos que los que finalmente se muestran, y filtrar antes de
+    // truncar.
+    assertThat(pageableCaptor.getValue().getPageSize()).isGreaterThan(5);
   }
 }

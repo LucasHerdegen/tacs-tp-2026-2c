@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * Resuelve el flujo de "/start <token>": asocia el chatId a un Usuario ya
- * registrado por REST, usando un token de un solo uso generado por
- * TelegramVinculacionService.
+ * Resuelve el flujo de "/start <token>": asocia el remitenteId (la persona,
+ * no el chat) a un Usuario ya registrado por REST, usando un token de un
+ * solo uso generado por TelegramVinculacionService.
  */
 @Component
 @RequiredArgsConstructor
@@ -24,7 +24,7 @@ public class VinculacionHandler
   private final TelegramVinculacionMongoRepository vinculacionRepository;
   private final AuthService authService;
 
-  public UsuarioDto vincular(long chatId, String token)
+  public UsuarioDto vincular(long remitenteId, String token)
   {
     TelegramVinculacionEntity vinculacion = vinculacionRepository.findByToken(token)
         .orElseThrow(() -> new TelegramVinculacionInvalidaException(
@@ -39,7 +39,7 @@ public class VinculacionHandler
           "Ese link de vinculacion vencio. Generá uno nuevo desde la app.");
 
     UsuarioDto usuario = authService.actualizarContacto(vinculacion.getUsuarioId(),
-        new MedioContacto(String.valueOf(chatId), TipoMedioContacto.TELEGRAM));
+        new MedioContacto(String.valueOf(remitenteId), TipoMedioContacto.TELEGRAM));
 
     vinculacion.setUsado(true);
     vinculacionRepository.save(vinculacion);

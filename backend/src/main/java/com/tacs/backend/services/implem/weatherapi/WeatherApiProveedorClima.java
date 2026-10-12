@@ -5,6 +5,7 @@ import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.services.ProveedorClima;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -13,14 +14,20 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Implementacion real de {@link ProveedorClima} contra WeatherAPI.com. 
+ * Implementacion real de {@link ProveedorClima} contra WeatherAPI.com.
  * Batching: {@link #obtenerPronostico} nunca genera una llamada
  * HTTP por hora candidata, siempre pide (y cachea) el forecast completo de
  * los dias necesarios para una ubicacion, y resuelve la hora especifica en
  * memoria contra el payload ya traido ({@link WeatherApiForecastResponse#climaEnHora}).
+ * <p>
+ * Excluida bajo el profile "mock-clima": sin esto, levantar la app con ese
+ * profile (ver {@link com.tacs.backend.services.implem.MockProveedorClima})
+ * registra 2 beans de {@link ProveedorClima} y Spring no sabe cual inyectar
+ * (falla el arranque con NoUniqueBeanDefinitionException).
  */
 @Slf4j
 @Service
+@Profile("!mock-clima")
 public class WeatherApiProveedorClima implements ProveedorClima
 {
   private final RestClient restClient;
