@@ -41,7 +41,7 @@ public class CrearTipoCallbackHandler implements CallbackHandler
 
     String tipoTexto = callbackQuery.data().split(":", 2)[1];
     TipoActividad tipo;
-    
+
     try
     {
       tipo = TipoActividad.valueOf(tipoTexto);

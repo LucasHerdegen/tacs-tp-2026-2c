@@ -10,7 +10,7 @@ import java.time.Duration;
 
 /**
  * Arma el {@link RestClient} usado por WeatherApiProveedorClima, con baseUrl
- * y timeouts de conexion/lectura configurables por properties. 
+ * y timeouts de conexion/lectura configurables por properties.
  */
 
 @Configuration

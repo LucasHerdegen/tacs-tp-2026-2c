@@ -297,13 +297,13 @@ class VotacionesServiceImplemTest
     assertThat(resultado).isEmpty();
 
     // No tiene sentido cancelar una actividad si no devolvio alternativas favorables porque el proveedor estaba caido
-    
+
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
     verify(actividadesRepository, never()).save(any());
     verify(votacionesRepository, never()).save(any());
   }
 
-  /*  
+  /*
   @Test
   void ofreceAlternativasDeLosDiasConDatoAunqueOtroDiaQuedeFueraDeCoberturaDelProveedor()
   {
@@ -316,7 +316,7 @@ class VotacionesServiceImplemTest
     // indisponibilidad de UN dia puntual, no de la busqueda entera: los dias
     // que si tienen dato (exitosos o no) se siguen evaluando normalmente, sin
     // que el dia sin cobertura cancele la actividad ni tire abajo el resto.
-    
+
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(55L);

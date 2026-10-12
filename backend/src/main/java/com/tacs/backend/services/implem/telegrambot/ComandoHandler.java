@@ -3,7 +3,7 @@ package com.tacs.backend.services.implem.telegrambot;
 import com.pengrad.telegrambot.model.Message;
 
 /**
- * Maneja un comando de Telegram (ej. "/start", "/crear"). Los flujos concretos implementan 
+ * Maneja un comando de Telegram (ej. "/start", "/crear"). Los flujos concretos implementan
  * esta interfaz como @Component y quedan registrados automaticamente en el ComandoRouter.
  */
 public interface ComandoHandler

@@ -6,7 +6,6 @@ import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.notificaciones.NotificacionDto;
 import com.tacs.backend.exceptions.NotificacionNotFoundException;
 import com.tacs.backend.repositories.NotificacionRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

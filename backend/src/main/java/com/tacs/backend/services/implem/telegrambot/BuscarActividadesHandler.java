@@ -55,7 +55,7 @@ public class BuscarActividadesHandler implements ComandoHandler
     }
 
     String busqueda = extraerBusqueda(mensaje.text());
-    
+
     Page<ActividadDto> resultados = actividadesService.buscarActividades(
         null, busqueda, null, null, null, true, PageRequest.of(0, Integer.MAX_VALUE));
 
