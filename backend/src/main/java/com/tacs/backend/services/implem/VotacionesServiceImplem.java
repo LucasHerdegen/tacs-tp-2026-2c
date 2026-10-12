@@ -111,6 +111,7 @@ class VotacionesServiceImplem implements VotacionesService
   public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto, String usuarioId)
   {
     Actividad actividad = buscarActividad(actividadId);
+    actividad.validarPermiteAbrirVotacion();
 
     validarOrganizador(actividad, usuarioId);
     validarSinVotacionAbierta(actividadId);
@@ -142,6 +143,7 @@ class VotacionesServiceImplem implements VotacionesService
   public Optional<VotacionDto> abrirVotacionAutomatica(String actividadId)
   {
     Actividad actividad = buscarActividad(actividadId);
+    actividad.validarPermiteAbrirVotacion();
 
     validarSinVotacionAbierta(actividadId);
 
@@ -378,6 +380,7 @@ class VotacionesServiceImplem implements VotacionesService
   private Votacion abrirVotacion(Actividad actividad, int quorumMinimo, LocalDateTime fechaLimite,
                                  List<Alternativa> alternativas)
   {
+    actividad.validarPermiteAbrirVotacion();
     Votacion votacion = new Votacion();
     votacion.setActividad(actividad);
     votacion.setFechaApertura(LocalDateTime.now());

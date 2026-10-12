@@ -10,7 +10,6 @@ import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
-import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
@@ -18,6 +17,7 @@ import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
@@ -44,6 +44,7 @@ public class ActividadesServiceImplem implements ActividadesService
   private final ClimaMapper climaMapper;
   private final ServicioNotificaciones servicioNotificaciones;
   private final NotificacionInboxService notificacionInboxService;
+  private final VotacionesRepository votacionesRepository;
   private final OptimisticLockingRetry optimisticLockingRetry;
 
   public ActividadesServiceImplem(
@@ -57,7 +58,22 @@ public class ActividadesServiceImplem implements ActividadesService
   {
     this(actividadesRepository, usuarioRepository, actividadesMapper,
         proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
-        new OptimisticLockingRetry());
+        null, new OptimisticLockingRetry());
+  }
+
+  public ActividadesServiceImplem(
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      ActividadesMapper actividadesMapper,
+      ProveedorClima proveedorClima,
+      ClimaMapper climaMapper,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService,
+      OptimisticLockingRetry optimisticLockingRetry)
+  {
+    this(actividadesRepository, usuarioRepository, actividadesMapper,
+        proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
+        null, optimisticLockingRetry);
   }
 
   @Autowired
@@ -69,6 +85,7 @@ public class ActividadesServiceImplem implements ActividadesService
       ClimaMapper climaMapper,
       ServicioNotificaciones servicioNotificaciones,
       NotificacionInboxService notificacionInboxService,
+      VotacionesRepository votacionesRepository,
       OptimisticLockingRetry optimisticLockingRetry)
   {
     this.actividadesRepository = actividadesRepository;
@@ -78,6 +95,7 @@ public class ActividadesServiceImplem implements ActividadesService
     this.climaMapper = climaMapper;
     this.servicioNotificaciones = servicioNotificaciones;
     this.notificacionInboxService = notificacionInboxService;
+    this.votacionesRepository = votacionesRepository;
     this.optimisticLockingRetry = optimisticLockingRetry;
   }
 
@@ -205,9 +223,6 @@ public class ActividadesServiceImplem implements ActividadesService
       var actividad = actividadesRepository.findById(actividadId)
           .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
-      if (actividad.getParticipantes().size() >= actividad.getMaximoParticipantes())
-        throw new CapacidadMaximaException("La actividad ya esta al maximo de participantes permitidos");
-
       actividad.agregarParticipante(usuario);
       actividadesRepository.save(actividad);
     });
@@ -282,6 +297,15 @@ public class ActividadesServiceImplem implements ActividadesService
 
     if (nuevoEstado == TipoEstadoActividad.CANCELADA)
     {
+      if (votacionesRepository != null)
+      {
+        votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
+            .ifPresent(votacion -> {
+              votacion.cerrar(null);
+              votacionesRepository.save(votacion);
+            });
+      }
+
       String contenido = "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
           actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
 
