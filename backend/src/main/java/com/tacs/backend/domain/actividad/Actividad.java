@@ -116,15 +116,39 @@ public class Actividad
   }
 
   /**
-   * Agrega un nuevo participante a la actividad, validando la capacidad maxima
+   * Devuelve la fecha y hora estimada de finalizacion de la actividad.
+   */
+  public LocalDateTime getFechaFin()
+  {
+    return this.fechaRealizacion != null ? this.fechaRealizacion.plusHours(this.duracionEstimada) : null;
+  }
+
+  /**
+   * Valida que la actividad admita abrir una votacion (no este CANCELADA ni FINALIZADA).
+   *
+   * @throws EstadoInvalidoException Si la actividad esta CANCELADA o FINALIZADA.
+   */
+  public void validarPermiteAbrirVotacion()
+  {
+    if (this.estado == TipoEstadoActividad.CANCELADA || this.estado == TipoEstadoActividad.FINALIZADA)
+      throw new EstadoInvalidoException("No se puede abrir una votacion sobre una actividad " + this.estado);
+  }
+
+  /**
+   * Agrega un nuevo participante a la actividad, validando la capacidad maxima,
+   * que la actividad no este cancelada ni finalizada,
    * y que el usuario no este previamente inscripto.
    *
    * @param usuario El usuario a inscribir.
+   * @throws EstadoInvalidoException Si la actividad esta cancelada o finalizada.
    * @throws CapacidadMaximaException Si la actividad ya alcanzo el maximo de participantes.
    * @throws YaEsParticipanteException Si el usuario ya esta inscripto (incluye al organizador).
    */
   public void agregarParticipante(Usuario usuario)
   {
+    if (this.estado == TipoEstadoActividad.CANCELADA || this.estado == TipoEstadoActividad.FINALIZADA)
+      throw new EstadoInvalidoException("No se pueden sumar participantes a una actividad " + this.estado);
+
     if (this.participantes.contains(usuario))
       throw new YaEsParticipanteException("Ya sos participante de esta actividad");
 
@@ -192,6 +216,14 @@ public class Actividad
       this.reglasClima = new ReglasClima();
 
     this.reglasClima.actualizar(maxProbabilidadLluvia, minTemperatura, maxTemperatura, maxViento);
+  }
+
+  public void reemplazarReglasClima(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)
+  {
+    if (this.reglasClima == null)
+      this.reglasClima = new ReglasClima();
+
+    this.reglasClima.sobrescribir(maxProbabilidadLluvia, minTemperatura, maxTemperatura, maxViento);
   }
 
   public void actualizarHorasAnticipacion(Integer horas)

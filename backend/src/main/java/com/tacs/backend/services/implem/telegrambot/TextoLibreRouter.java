@@ -5,6 +5,7 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.tacs.backend.persistence.entities.TelegramSesionEntity;
 import com.tacs.backend.persistence.repositories.TelegramSesionMongoRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,11 +20,16 @@ import java.util.stream.Collectors;
  * paso pendiente del wizard de "crear actividad"); si no, es un mensaje
  * suelto sin contexto y se responde con instrucciones basicas.
  */
+@Slf4j
 @Component
 public class TextoLibreRouter
 {
   private static final String MENSAJE_SIN_FLUJO_EN_CURSO =
       "No tengo ninguna conversacion en curso con vos. Usa /ayuda para ver que puedo hacer.";
+  private static final String MENSAJE_FLUJO_DE_OTRA_PERSONA =
+      "Hay una actividad en curso iniciada por otra persona en este chat. Esperá a que termine o cancelá la tuya con /cancelar.";
+  private static final String MENSAJE_ERROR_INESPERADO =
+      "Ocurrió un error inesperado. Intentá de nuevo en unos minutos.";
 
   private final TelegramBot telegramBot;
   private final TelegramSesionMongoRepository sesionRepository;
@@ -43,11 +49,20 @@ public class TextoLibreRouter
   public void despachar(Message mensaje)
   {
     long chatId = mensaje.chat().id();
+    long remitenteId = mensaje.from().id();
     Optional<TelegramSesionEntity> sesion = sesionRepository.findById(chatId);
 
     if (sesion.isEmpty() || sesion.get().getFlujoActual() == null)
     {
       telegramBot.execute(new SendMessage(chatId, MENSAJE_SIN_FLUJO_EN_CURSO));
+      return;
+    }
+
+    String usuarioId = identidadResolver.resolverUsuarioId(remitenteId).orElse(null);
+
+    if (!TelegramFlujoUtils.perteneceAUsuario(sesion.get(), usuarioId))
+    {
+      telegramBot.execute(new SendMessage(chatId, MENSAJE_FLUJO_DE_OTRA_PERSONA));
       return;
     }
 
@@ -58,7 +73,13 @@ public class TextoLibreRouter
       return;
     }
 
-    String usuarioId = identidadResolver.resolverUsuarioId(chatId).orElse(null);
-    handler.manejar(mensaje, sesion.get(), usuarioId);
+    try
+    {
+      handler.manejar(mensaje, sesion.get(), usuarioId);
+    } catch (Exception e)
+    {
+      log.error("[Telegram] Fallo no controlado manejando texto libre (chatId={})", chatId, e);
+      telegramBot.execute(new SendMessage(chatId, MENSAJE_ERROR_INESPERADO));
+    }
   }
 }

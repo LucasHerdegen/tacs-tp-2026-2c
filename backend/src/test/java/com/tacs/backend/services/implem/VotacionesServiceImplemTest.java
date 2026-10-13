@@ -15,6 +15,7 @@ import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
@@ -297,13 +298,13 @@ class VotacionesServiceImplemTest
     assertThat(resultado).isEmpty();
 
     // No tiene sentido cancelar una actividad si no devolvio alternativas favorables porque el proveedor estaba caido
-    
+
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
     verify(actividadesRepository, never()).save(any());
     verify(votacionesRepository, never()).save(any());
   }
 
-  /*  
+  /*
   @Test
   void ofreceAlternativasDeLosDiasConDatoAunqueOtroDiaQuedeFueraDeCoberturaDelProveedor()
   {
@@ -316,7 +317,7 @@ class VotacionesServiceImplemTest
     // indisponibilidad de UN dia puntual, no de la busqueda entera: los dias
     // que si tienen dato (exitosos o no) se siguen evaluando normalmente, sin
     // que el dia sin cobertura cancele la actividad ni tire abajo el resto.
-    
+
     LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
     actividad.setId(55L);
@@ -495,6 +496,86 @@ class VotacionesServiceImplemTest
     ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
     verify(votacionesRepository).save(captor.capture());
     assertThat(captor.getValue().getAlternativas()).extracting("id").doesNotContainNull();
+  }
+
+  @Test
+  void crearVotacionConFechaFueraDeLaCoberturaDelProveedorCreaLaAlternativaConClimaNull()
+  {
+    // La fecha elegida por el usuario ya fue validada contra el rango de
+    // reprogramacion de la actividad (regla de dominio, independiente del
+    // clima): que el proveedor no pueda informar el pronostico para esa
+    // fecha -ya sea por falta de cobertura o por una falla real del
+    // proveedor, ambos casos comparten ProveedorClimaIndisponibleException-
+    // no debe bloquear la creacion de la alternativa con un 503.
+    Actividad actividad = crearActividad(null);
+    actividad.setId("61");
+
+    LocalDateTime fechaAlternativa = LocalDateTime.now().plusDays(2);
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(fechaAlternativa)));
+
+    when(actividadesRepository.findById("61")).thenReturn(Optional.of(actividad));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId("61")).thenReturn(Optional.empty());
+    when(proveedorClima.obtenerPronostico(UBICACION, fechaAlternativa))
+        .thenThrow(new ProveedorClimaIndisponibleException("Sin datos de forecast (fuera de la cobertura traida)"));
+    when(votacionesRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
+
+    inicializarService();
+    service.crearVotacion("61", dto, "1"); // no debe lanzar ProveedorClimaIndisponibleException
+
+    ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
+    verify(votacionesRepository).save(captor.capture());
+    assertThat(captor.getValue().getAlternativas()).singleElement()
+        .extracting(Alternativa::getClima).isNull();
+  }
+
+  @Test
+  void crearVotacionSobreActividadCanceladaLanzaEstadoInvalidoException()
+  {
+    Actividad actividad = crearActividad(null);
+    actividad.setId("1");
+    actividad.setEstado(TipoEstadoActividad.CANCELADA);
+
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(LocalDateTime.now().plusDays(2))));
+
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+
+    inicializarService();
+    assertThatThrownBy(() -> service.crearVotacion("1", dto, "1"))
+        .isInstanceOf(EstadoInvalidoException.class);
+  }
+
+  @Test
+  void crearVotacionSobreActividadFinalizadaLanzaEstadoInvalidoException()
+  {
+    Actividad actividad = crearActividad(null);
+    actividad.setId("1");
+    actividad.setEstado(TipoEstadoActividad.FINALIZADA);
+
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(LocalDateTime.now().plusDays(2))));
+
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+
+    inicializarService();
+    assertThatThrownBy(() -> service.crearVotacion("1", dto, "1"))
+        .isInstanceOf(EstadoInvalidoException.class);
+  }
+
+  @Test
+  void abrirVotacionAutomaticaSobreActividadCanceladaLanzaEstadoInvalidoException()
+  {
+    Actividad actividad = crearActividad(null);
+    actividad.setId("1");
+    actividad.setEstado(TipoEstadoActividad.CANCELADA);
+
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+
+    inicializarService();
+    assertThatThrownBy(() -> service.abrirVotacionAutomatica("1"))
+        .isInstanceOf(EstadoInvalidoException.class);
   }
 
   @Test

@@ -6,6 +6,11 @@ import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.domain.usuario.TipoRol;
+import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.votacion.Votacion;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
@@ -13,6 +18,7 @@ import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
@@ -22,9 +28,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +44,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import com.tacs.backend.dtos.clima.ReglasClimaDto;
 import com.tacs.backend.dtos.actividades.UbicacionDto;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
@@ -66,6 +82,12 @@ class ActividadesServiceImplemTest
   @Mock
   private NotificacionInboxService notificacionInboxService;
 
+  @Mock
+  private VotacionesRepository votacionesRepository;
+
+  @Spy
+  private OptimisticLockingRetry optimisticLockingRetry = new OptimisticLockingRetry();
+
   @InjectMocks
   private ActividadesServiceImplem actividadesService;
 
@@ -93,6 +115,7 @@ class ActividadesServiceImplemTest
 
     actividadMock = new Actividad();
     actividadMock.setId("100");
+    actividadMock.setMaximoParticipantes(10);
 
     // maxDiasForecast se inyecta via @Value en produccion; en el test se
     // setea a mano con el mismo valor que application.properties.
@@ -223,6 +246,56 @@ class ActividadesServiceImplemTest
   }
 
   @Test
+  @DisplayName("Cancelar actividad con votacion abierta - Cierra la votacion exitosamente")
+  void cancelarActividad_ConVotacionAbierta_CierraVotacion()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setId(actividadId);
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
+    actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
+
+    Votacion votacionMock = new Votacion();
+    votacionMock.setAbierta(true);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId(actividadId)).thenReturn(Optional.of(votacionMock));
+
+    // Act
+    actividadesService.cambiarEstado(actividadId, organizadorId, TipoEstadoActividad.CANCELADA);
+
+    // Assert
+    assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    assertThat(votacionMock.isAbierta()).isFalse();
+    verify(votacionesRepository).save(votacionMock);
+    verify(actividadesRepository).save(actividadMock);
+  }
+
+  @Test
+  @DisplayName("Unirse a actividad cancelada - Lanza EstadoInvalidoException")
+  void unirseActividad_ActividadCancelada_ThrowsEstadoInvalidoException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String nuevoUsuarioId = "2";
+    Usuario nuevoUsuario = new Usuario("usuario2", "password", TipoRol.USER);
+    nuevoUsuario.setId(nuevoUsuarioId);
+
+    actividadMock.setId(actividadId);
+    actividadMock.setEstado(TipoEstadoActividad.CANCELADA);
+
+    when(usuarioRepository.existsById(nuevoUsuarioId)).thenReturn(true);
+    when(usuarioRepository.findById(nuevoUsuarioId)).thenReturn(Optional.of(nuevoUsuario));
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.unirseActividad(actividadId, nuevoUsuarioId))
+        .isInstanceOf(EstadoInvalidoException.class);
+  }
+
+  @Test
   @DisplayName("Actualizar reglas de clima exitosamente")
   void actualizarConfiguracionClima_ReglasClima_Success()
   {
@@ -319,6 +392,55 @@ class ActividadesServiceImplemTest
   }
 
   @Test
+  @DisplayName("Falla si la franja horaria permitida es menor a la duracion estimada de la actividad")
+  void actualizarConfiguracionClima_FranjaHorariaMenorQueDuracionEstimada_ThrowsException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setDuracionEstimada(4);
+
+    // Ventana permitida: de 10 a 12 (2 hs), pero la duracion estimada es 4 hs
+    var rangoInvalidoDto = new RangoReprogramacionDto(3, 10, 12);
+    var configDto = new ConfigurarCondicionesDto(null, null, rangoInvalidoDto);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto))
+        .isInstanceOf(RangoReprogramacionInvalidoException.class)
+        .hasMessageContaining("duracion estimada");
+
+    verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Actualiza correctamente si la franja horaria permitida cubre la duracion estimada de la actividad")
+  void actualizarConfiguracionClima_FranjaHorariaValidaConDuracionEstimada_ActualizaCorrectamente()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setDuracionEstimada(2);
+
+    var rangoValidoDto = new RangoReprogramacionDto(3, 10, 14); // ventana de 4 hs >= 2 hs
+    var configDto = new ConfigurarCondicionesDto(null, 24, rangoValidoDto);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
+
+    // Act
+    actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto);
+
+    // Assert
+    verify(actividadesRepository).save(actividadMock);
+    assertThat(actividadMock.getRangoReprogramacion().getHoraInicio()).isEqualTo(10);
+    assertThat(actividadMock.getRangoReprogramacion().getHoraFinal()).isEqualTo(14);
+  }
+
+  @Test
   @DisplayName("Falla si horasAnticipacion supera el tope del plan de WeatherAPI (3 dias = 72hs)")
   void actualizarConfiguracionClima_HorasAnticipacionSuperaElTope_ThrowsException()
   {
@@ -379,5 +501,96 @@ class ActividadesServiceImplemTest
     // hacia el GlobalExceptionHandler (que la mapea a 503).
     assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
         .isInstanceOf(ProveedorClimaIndisponibleException.class);
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad siendo organizador pero no participante - Exitoso")
+  void obtenerClimaActividad_OrganizadorNoParticipante_RetornaPronostico()
+  {
+    // Arrange
+    String actividadId = "100";
+    String usuarioId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setParticipantes(List.of());
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(proveedorClima.obtenerClima(any())).thenReturn(mock(Clima.class));
+    when(proveedorClima.obtenerPronostico(any(), any())).thenReturn(mock(Clima.class));
+
+    // Act
+    var pronostico = actividadesService.obtenerClimaActividad(actividadId, usuarioId);
+
+    // Assert
+    assertThat(pronostico).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad no siendo ni participante ni organizador - Lanza NoParticipanteException")
+  void obtenerClimaActividad_NoParticipanteNiOrganizador_LanzaNoParticipanteException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String usuarioId = "99";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setParticipantes(List.of());
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
+        .isInstanceOf(NoParticipanteException.class);
+  }
+
+  @Test
+  @DisplayName("Buscar actividades delega al repositorio y mapea a DTO exitosamente (Happy Path)")
+  void buscarActividades_ParametrosValidos_DelegaAlRepositorioYRetornaPageDto()
+  {
+    // Arrange
+    TipoActividad tipo = TipoActividad.AIRE_LIBRE;
+    String busqueda = "parque";
+    LocalDate fechaInicio = LocalDate.of(2026, 11, 1);
+    LocalDate fechaFin = LocalDate.of(2026, 11, 5);
+    TipoEstadoActividad estado = TipoEstadoActividad.CONFIRMADA;
+    Boolean cupoDisponible = true;
+    Pageable pageable = PageRequest.of(0, 10);
+
+    ActividadDto dtoMock = mock(ActividadDto.class);
+    Page<Actividad> pageMock = new PageImpl<>(List.of(actividadMock), pageable, 1);
+
+    when(actividadesRepository.buscarActividades(tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable))
+        .thenReturn(pageMock);
+    when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(dtoMock);
+
+    // Act
+    Page<ActividadDto> resultado = actividadesService.buscarActividades(
+        tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
+
+    // Assert
+    assertThat(resultado).isNotNull();
+    assertThat(resultado.getTotalElements()).isEqualTo(1);
+    assertThat(resultado.getContent()).containsExactly(dtoMock);
+
+    verify(actividadesRepository).buscarActividades(tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
+    verify(actividadesRepository, never()).findAll();
+  }
+
+  @Test
+  @DisplayName("Buscar actividades con fecha inicio posterior a fecha fin lanza IllegalArgumentException (Failing Path)")
+  void buscarActividades_FechaInicioPosteriorAFechaFin_LanzaIllegalArgumentException()
+  {
+    // Arrange
+    LocalDate fechaInicio = LocalDate.of(2026, 11, 10);
+    LocalDate fechaFin = LocalDate.of(2026, 11, 5);
+    Pageable pageable = PageRequest.of(0, 10);
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.buscarActividades(
+        null, null, fechaInicio, fechaFin, null, null, pageable))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("La fecha de inicio no puede ser posterior a la fecha de fin");
+
+    verifyNoInteractions(actividadesRepository);
   }
 }

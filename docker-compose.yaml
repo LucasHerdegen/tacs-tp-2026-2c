@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongodb:
     image: mongo:6
@@ -22,6 +20,8 @@ services:
       WEATHERAPI_API_KEY: "${WEATHERAPI_API_KEY:?WEATHERAPI_API_KEY debe estar definida}"
       TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN debe estar definida}"
       TELEGRAM_BOT_USERNAME: "${TELEGRAM_BOT_USERNAME:?TELEGRAM_BOT_USERNAME debe estar definida}"
+      TZ: "America/Argentina/Buenos_Aires"
+      APP_TIMEZONE: "America/Argentina/Buenos_Aires"
 
   frontend:
     build:

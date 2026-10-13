@@ -44,7 +44,7 @@ class VinculacionHandlerTest
   }
 
   @Test
-  void tokenValidoVinculaElChatIdCorrectoYLoMarcaComoUsado()
+  void tokenValidoVinculaElRemitenteIdCorrectoYLoMarcaComoUsado()
   {
     TelegramVinculacionEntity vinculacion = new TelegramVinculacionEntity(
         "tok-1", "usr-1", LocalDateTime.now().plusMinutes(10));
@@ -54,6 +54,7 @@ class VinculacionHandlerTest
         new MedioContacto("999", TipoMedioContacto.TELEGRAM));
     when(authService.actualizarContacto(eq("usr-1"), any())).thenReturn(usuario);
 
+    // 999L es el remitenteId (Message.from().id()), no el chatId.
     UsuarioDto resultado = handler.vincular(999L, "tok-1");
 
     ArgumentCaptor<MedioContacto> medioCaptor = ArgumentCaptor.forClass(MedioContacto.class);

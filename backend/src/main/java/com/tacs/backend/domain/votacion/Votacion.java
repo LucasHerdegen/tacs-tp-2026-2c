@@ -21,6 +21,7 @@ import java.util.Optional;
 public class Votacion
 {
   private String id;
+  private Long version;
   private LocalDateTime fechaApertura;
   private LocalDateTime fechaCierre;
   private boolean abierta = true;

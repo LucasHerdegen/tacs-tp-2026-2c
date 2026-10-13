@@ -31,6 +31,7 @@ public class VotacionMapperEntity
     if (entity == null) return null;
     Votacion domain = new Votacion();
     domain.setId(entity.getId());
+    domain.setVersion(entity.getVersion());
     domain.setFechaApertura(entity.getFechaApertura());
     domain.setFechaCierre(entity.getFechaCierre());
     domain.setAbierta(entity.isAbierta());
@@ -65,6 +66,7 @@ public class VotacionMapperEntity
     if (domain == null) return null;
     VotacionEntity entity = new VotacionEntity();
     entity.setId(domain.getId());
+    entity.setVersion(domain.getVersion());
     entity.setFechaApertura(domain.getFechaApertura());
     entity.setFechaCierre(domain.getFechaCierre());
     entity.setAbierta(domain.isAbierta());

@@ -36,9 +36,12 @@ public class CrearTipoCallbackHandler implements CallbackHandler
     if (sesion.isEmpty() || !CrearActividadFlujoHandler.FLUJO.equals(sesion.get().getFlujoActual()))
       return "Esa opcion ya no es valida.";
 
+    if (!TelegramFlujoUtils.perteneceAUsuario(sesion.get(), usuarioId))
+      return "Hay una actividad en curso iniciada por otra persona en este chat.";
+
     String tipoTexto = callbackQuery.data().split(":", 2)[1];
     TipoActividad tipo;
-    
+
     try
     {
       tipo = TipoActividad.valueOf(tipoTexto);

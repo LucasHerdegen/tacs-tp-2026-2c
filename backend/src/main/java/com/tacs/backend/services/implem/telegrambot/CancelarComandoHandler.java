@@ -20,6 +20,8 @@ public class CancelarComandoHandler implements ComandoHandler
 {
   private static final String MENSAJE_CANCELADO = "Listo, cancele lo que estabas haciendo.";
   private static final String MENSAJE_NADA_QUE_CANCELAR = "No hay nada en curso para cancelar.";
+  private static final String MENSAJE_FLUJO_DE_OTRA_PERSONA =
+      "Hay una actividad en curso iniciada por otra persona en este chat. No la podes cancelar vos.";
 
   private final TelegramBot telegramBot;
   private final TelegramSesionMongoRepository sesionRepository;
@@ -39,6 +41,12 @@ public class CancelarComandoHandler implements ComandoHandler
     if (sesion.isEmpty() || sesion.get().getFlujoActual() == null)
     {
       telegramBot.execute(new SendMessage(chatId, MENSAJE_NADA_QUE_CANCELAR));
+      return;
+    }
+
+    if (!TelegramFlujoUtils.perteneceAUsuario(sesion.get(), usuarioId))
+    {
+      telegramBot.execute(new SendMessage(chatId, MENSAJE_FLUJO_DE_OTRA_PERSONA));
       return;
     }
 

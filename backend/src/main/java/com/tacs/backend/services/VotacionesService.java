@@ -48,7 +48,7 @@ public interface VotacionesService
    * cierre automatico por fechaLimite vencida.
    */
   VotacionDto resolverVotacion(String votacionId, String usuarioId);
-  
+
   VotacionDto resolverVotacion(String votacionId); // Para ser llamado desde los jobs o internamente
 
   void eliminarVotacion(String votacionId, String usuarioId);

@@ -22,6 +22,8 @@ public class ComandoRouter
 {
   private static final String MENSAJE_COMANDO_NO_RECONOCIDO =
       "No reconozco ese comando. Usa /ayuda para ver la lista de comandos disponibles.";
+  private static final String MENSAJE_ERROR_INESPERADO =
+      "Ocurrió un error inesperado procesando tu comando. Intentá de nuevo en unos minutos.";
 
   private final TelegramBot telegramBot;
   private final TelegramIdentidadResolver identidadResolver;
@@ -39,6 +41,7 @@ public class ComandoRouter
   public void despachar(Message mensaje)
   {
     long chatId = mensaje.chat().id();
+    long remitenteId = mensaje.from().id();
     String comando = extraerComando(mensaje.text());
 
     ComandoHandler handler = handlersPorComando.get(comando);
@@ -49,9 +52,18 @@ public class ComandoRouter
       return;
     }
 
-    String usuarioId = identidadResolver.resolverUsuarioId(chatId).orElse(null);
-    log.info("[Telegram] Comando '{}' recibido (chatId={}, usuarioId={})", comando, chatId, usuarioId);
-    handler.manejar(mensaje, usuarioId);
+    String usuarioId = identidadResolver.resolverUsuarioId(remitenteId).orElse(null);
+    log.info("[Telegram] Comando '{}' recibido (chatId={}, remitenteId={}, usuarioId={})", comando, chatId,
+        remitenteId, usuarioId);
+
+    try
+    {
+      handler.manejar(mensaje, usuarioId);
+    } catch (Exception e)
+    {
+      log.error("[Telegram] Fallo no controlado manejando el comando '{}' (chatId={})", comando, chatId, e);
+      telegramBot.execute(new SendMessage(chatId, MENSAJE_ERROR_INESPERADO));
+    }
   }
 
   private String extraerComando(String texto)

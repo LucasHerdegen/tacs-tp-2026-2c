@@ -24,27 +24,30 @@ class AltaNativaHandlerTest
   private AuthService authService;
 
   @Test
-  void creaUnUsuarioConUsernameDerivadoDelChatIdYLoVinculaComoMedioDeContacto()
+  void creaUnUsuarioConUsernameDerivadoDelRemitenteIdYLoVinculaComoMedioDeContacto()
   {
-    UsuarioDto registrado = new UsuarioDto("id-1", "tg_999", TipoRol.USER, null);
+    UsuarioDto registrado = new UsuarioDto("id-1", "tg_555", TipoRol.USER, null);
     when(authService.registrar(any())).thenReturn(registrado);
 
-    UsuarioDto vinculado = new UsuarioDto("id-1", "tg_999", TipoRol.USER,
-        new MedioContacto("999", TipoMedioContacto.TELEGRAM));
+    UsuarioDto vinculado = new UsuarioDto("id-1", "tg_555", TipoRol.USER,
+        new MedioContacto("555", TipoMedioContacto.TELEGRAM));
     when(authService.actualizarContacto(eq("id-1"), any())).thenReturn(vinculado);
 
     AltaNativaHandler handler = new AltaNativaHandler(authService);
 
-    UsuarioDto resultado = handler.crearUsuarioNativo(999L);
+    // 555L es el remitenteId (Message.from().id()), no el chatId: en un grupo
+    // dos personas sin vincular comparten chatId pero nunca remitenteId, asi
+    // que no pueden terminar con el mismo username "tg_<...>".
+    UsuarioDto resultado = handler.crearUsuarioNativo(555L);
 
     ArgumentCaptor<RegistroRequest> registroCaptor = ArgumentCaptor.forClass(RegistroRequest.class);
     org.mockito.Mockito.verify(authService).registrar(registroCaptor.capture());
-    assertThat(registroCaptor.getValue().username()).isEqualTo("tg_999");
+    assertThat(registroCaptor.getValue().username()).isEqualTo("tg_555");
     assertThat(registroCaptor.getValue().password()).isNotBlank();
 
     ArgumentCaptor<MedioContacto> medioCaptor = ArgumentCaptor.forClass(MedioContacto.class);
     org.mockito.Mockito.verify(authService).actualizarContacto(eq("id-1"), medioCaptor.capture());
-    assertThat(medioCaptor.getValue().getValor()).isEqualTo("999");
+    assertThat(medioCaptor.getValue().getValor()).isEqualTo("555");
     assertThat(medioCaptor.getValue().getTipo()).isEqualTo(TipoMedioContacto.TELEGRAM);
 
     assertThat(resultado).isEqualTo(vinculado);

@@ -83,4 +83,21 @@ class CancelarComandoHandlerTest
 
     verify(sesionRepository, never()).deleteById(any(Long.class));
   }
+
+  @Test
+  void conUnFlujoDeOtraPersonaEnElMismoChatNoLoCancela()
+  {
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+    TelegramSesionEntity sesion = new TelegramSesionEntity(999L, "usr-1");
+    sesion.setFlujoActual(CrearActividadFlujoHandler.FLUJO);
+    when(sesionRepository.findById(999L)).thenReturn(Optional.of(sesion));
+
+    // "usr-2" manda /cancelar sobre una sesion que es de "usr-1" en el mismo chat.
+    handler.manejar(mensaje(), "usr-2");
+
+    verify(sesionRepository, never()).deleteById(any(Long.class));
+    ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+    verify(telegramBot).execute(captor.capture());
+    assertThat(captor.getValue().getText()).contains("otra persona");
+  }
 }

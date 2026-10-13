@@ -4,6 +4,7 @@ import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.TipoMedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.JwtService;
@@ -78,6 +79,44 @@ class AuthServiceImplemTest
     assertThatThrownBy(() ->
         service.actualizarContacto(USUARIO_ID, new MedioContacto("123", TipoMedioContacto.TELEGRAM)))
         .isInstanceOf(UsuarioNotFoundException.class);
+  }
+
+  @Test
+  void actualizarRolMismoUsuarioLanzaAccesoDenegadoException()
+  {
+    assertThatThrownBy(() ->
+        service.actualizarRol("1", TipoRol.USER, "1"))
+        .isInstanceOf(AccesoDenegadoException.class)
+        .hasMessage("No podes cambiarte el rol a vos mismo");
+  }
+
+  @Test
+  void actualizarRolQuitarRolAUltimoAdminLanzaAccesoDenegadoException()
+  {
+    Usuario admin = new Usuario("admin", "hash", TipoRol.ADMIN);
+    admin.setId("2");
+
+    when(usuarioRepository.findById("2")).thenReturn(Optional.of(admin));
+    when(usuarioRepository.countByRol(TipoRol.ADMIN)).thenReturn(1L);
+
+    assertThatThrownBy(() ->
+        service.actualizarRol("2", TipoRol.USER, "1"))
+        .isInstanceOf(AccesoDenegadoException.class)
+        .hasMessage("No podes quitarle el rol al unico admin del sistema");
+  }
+
+  @Test
+  void actualizarRolAOtroUsuarioModificaElRolYPersiste()
+  {
+    Usuario usuario = crearUsuario();
+    when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+    when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+    var dto = service.actualizarRol(USUARIO_ID, TipoRol.ADMIN, "admin-id");
+
+    assertThat(dto.rol()).isEqualTo(TipoRol.ADMIN);
+    assertThat(usuario.getRol()).isEqualTo(TipoRol.ADMIN);
+    verify(usuarioRepository).save(usuario);
   }
 
   private Usuario crearUsuario()

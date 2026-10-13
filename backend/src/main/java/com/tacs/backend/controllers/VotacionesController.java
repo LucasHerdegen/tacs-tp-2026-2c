@@ -103,7 +103,9 @@ public class VotacionesController
   @ApiResponse(responseCode = "200", description = "Voto registrado exitosamente", content = @Content(schema = @Schema(implementation = VotacionDto.class)))
   @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
   @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @ApiResponse(responseCode = "403", description = "No es participante de la actividad", content = @Content)
   @ApiResponse(responseCode = "404", description = "Votación no encontrada", content = @Content)
+  @ApiResponse(responseCode = "409", description = "Votación cerrada", content = @Content)
   @PostMapping("/{id}/votos")
   public ResponseEntity<VotacionDto> votar(@PathVariable String id, @RequestBody @Valid VotoPostDto votoPostDto,
                                            @AuthenticationPrincipal Jwt jwt)

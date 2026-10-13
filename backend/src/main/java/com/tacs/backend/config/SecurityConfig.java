@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -20,14 +21,22 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.core.convert.converter.Converter;
+import com.tacs.backend.repositories.UsuarioRepository;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig
 {
   @Value("${cors.allowed-origins:*}")
@@ -58,7 +67,7 @@ public class SecurityConfig
   }
 
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http, com.tacs.backend.repositories.UsuarioRepository usuarioRepository) throws Exception
+  public SecurityFilterChain securityFilterChain(HttpSecurity http, UsuarioRepository usuarioRepository) throws Exception
   {
     return http
         .cors(Customizer.withDefaults())
@@ -88,12 +97,12 @@ public class SecurityConfig
   }
 
   @Bean
-  public JwtAuthenticationConverter jwtAuthenticationConverter(com.tacs.backend.repositories.UsuarioRepository usuarioRepository)
+  public JwtAuthenticationConverter jwtAuthenticationConverter(UsuarioRepository usuarioRepository)
   {
-    org.springframework.core.convert.converter.Converter<org.springframework.security.oauth2.jwt.Jwt, java.util.Collection<org.springframework.security.core.GrantedAuthority>> authoritiesConverter = jwt -> {
+    Converter<Jwt, Collection<GrantedAuthority>> authoritiesConverter = jwt -> {
         String userId = jwt.getClaimAsString("id");
         return usuarioRepository.findById(userId)
-            .map(u -> (java.util.Collection<org.springframework.security.core.GrantedAuthority>) java.util.List.<org.springframework.security.core.GrantedAuthority>of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + u.getRol().name())))
+            .map(u -> (Collection<GrantedAuthority>) List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + u.getRol().name())))
             .orElseGet(Collections::emptyList);
     };
 

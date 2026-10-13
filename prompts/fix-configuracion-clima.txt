@@ -1,0 +1,12 @@
+Buenas. Estaba revisando la configuracion del clima de una actividad (/activities/{id}/weather-config), y me di cuenta de las siguientes cosas:
+
+
+1. Deberias poder poner cualquier cosa en inputs numericos, para que cuando borre todo y ponga un numero no me quede algo como "04" y me quede "4". Es una mala experiencia de usuario.
+2. Falta pop up de confirmacion para guardar configuracion de clima.
+3. Cuando pongo datos invalidos (ej: 5 dias para el rango maximo de dias) salta el error en crudo del backend.
+4. Faltan mensajes de error personalizados para todos los campos de configuracion.
+5. El "Viento maximo" y "temperatura maxima aceptable" figura 0. Creo que no es 0 como tal, sino que no esta definido. No se deberian mostrar datos erroneos, se deberia mostrar algo como "No definido".
+
+Me gustaria que arregles esto, teniendo muy en cuenta /skills, en donde vas a encontrar algunas skills que te van a ser muy utiles.
+
+[file](file;file:///c%3A/Users/Lucas/tacs/tacs-tp-2026-2c/skills/)

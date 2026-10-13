@@ -3,6 +3,7 @@ package com.tacs.backend.services.implem.telegrambot;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
+import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,10 +35,18 @@ class ComandoRouterTest
   @Mock
   private Chat chat;
 
+  @Mock
+  private User remitente;
+
+  // Deliberadamente distinto del chatId (999L): el chat es compartido en un
+  // grupo, el remitente identifica siempre a la misma persona.
+  private static final long REMITENTE_ID = 555L;
+
   private Message mensaje(String texto)
   {
     Message mensaje = mock(Message.class);
     when(mensaje.chat()).thenReturn(chat);
+    when(mensaje.from()).thenReturn(remitente);
     when(mensaje.text()).thenReturn(texto);
     return mensaje;
   }
@@ -46,6 +55,7 @@ class ComandoRouterTest
   void setUp()
   {
     when(chat.id()).thenReturn(999L);
+    when(remitente.id()).thenReturn(REMITENTE_ID);
   }
 
   @Test
@@ -56,7 +66,7 @@ class ComandoRouterTest
     ComandoHandler handlerAyuda = mock(ComandoHandler.class);
     when(handlerAyuda.comando()).thenReturn("/ayuda");
 
-    when(identidadResolver.resolverUsuarioId(999L)).thenReturn(Optional.of("usr-1"));
+    when(identidadResolver.resolverUsuarioId(REMITENTE_ID)).thenReturn(Optional.of("usr-1"));
 
     ComandoRouter router = new ComandoRouter(telegramBot, identidadResolver,
         List.of(handlerStart, handlerAyuda));
@@ -72,7 +82,7 @@ class ComandoRouterTest
   {
     ComandoHandler handlerStart = mock(ComandoHandler.class);
     when(handlerStart.comando()).thenReturn("/start");
-    when(identidadResolver.resolverUsuarioId(999L)).thenReturn(Optional.empty());
+    when(identidadResolver.resolverUsuarioId(REMITENTE_ID)).thenReturn(Optional.empty());
 
     ComandoRouter router = new ComandoRouter(telegramBot, identidadResolver, List.of(handlerStart));
 
@@ -96,5 +106,24 @@ class ComandoRouterTest
     ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
     verify(telegramBot).execute(captor.capture());
     assertThat(captor.getValue().getText()).contains("/ayuda");
+  }
+
+  @Test
+  void siElHandlerTiraUnaExcepcionNoControladaElBotIgualResponde()
+  {
+    ComandoHandler handlerStart = mock(ComandoHandler.class);
+    when(handlerStart.comando()).thenReturn("/start");
+    when(identidadResolver.resolverUsuarioId(REMITENTE_ID)).thenReturn(Optional.of("usr-1"));
+    org.mockito.Mockito.doThrow(new RuntimeException("boom"))
+        .when(handlerStart).manejar(any(), any());
+    when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
+
+    ComandoRouter router = new ComandoRouter(telegramBot, identidadResolver, List.of(handlerStart));
+
+    router.despachar(mensaje("/start"));
+
+    ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+    verify(telegramBot).execute(captor.capture());
+    assertThat(captor.getValue().getText()).contains("error inesperado");
   }
 }

@@ -12,7 +12,8 @@ import java.util.UUID;
 
 /**
  * Alta de un Usuario nuevo directamente desde el bot, sin contrasenia
- * elegida por la persona. El chatId nace ya vinculado como MedioContacto.
+ * elegida por la persona. El remitenteId (la persona, no el chat) nace ya
+ * vinculado como MedioContacto.
  */
 @Component
 @RequiredArgsConstructor
@@ -20,12 +21,12 @@ public class AltaNativaHandler
 {
   private final AuthService authService;
 
-  public UsuarioDto crearUsuarioNativo(long chatId)
+  public UsuarioDto crearUsuarioNativo(long remitenteId)
   {
-    RegistroRequest registro = new RegistroRequest("tg_" + chatId, UUID.randomUUID().toString());
+    RegistroRequest registro = new RegistroRequest("tg_" + remitenteId, UUID.randomUUID().toString());
     UsuarioDto usuario = authService.registrar(registro);
 
     return authService.actualizarContacto(usuario.id(),
-        new MedioContacto(String.valueOf(chatId), TipoMedioContacto.TELEGRAM));
+        new MedioContacto(String.valueOf(remitenteId), TipoMedioContacto.TELEGRAM));
   }
 }

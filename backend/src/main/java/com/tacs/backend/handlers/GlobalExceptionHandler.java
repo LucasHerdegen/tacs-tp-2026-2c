@@ -1,25 +1,45 @@
 package com.tacs.backend.handlers;
 
-import com.tacs.backend.exceptions.*;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
+import com.tacs.backend.exceptions.AlternativaNotFoundException;
+import com.tacs.backend.exceptions.CapacidadMaximaException;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.InvalidCredentialsException;
+import com.tacs.backend.exceptions.NoParticipanteException;
+import com.tacs.backend.exceptions.NotificacionNotFoundException;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.QuorumInvalidoException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
+import com.tacs.backend.exceptions.VotacionCerradaException;
+import com.tacs.backend.exceptions.VotacionNotFoundException;
+import com.tacs.backend.exceptions.YaEsParticipanteException;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.Map;
 import java.util.HashMap;
-
-import com.tacs.backend.exceptions.AccesoDenegadoException;
-import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
-import org.springframework.web.context.request.WebRequest;
+import java.util.regex.PatternSyntaxException;
 
 @Slf4j
 @ControllerAdvice
-class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 {
   @ExceptionHandler(EstadoInvalidoException.class)
   public ProblemDetail handleEstadoInvalidoException(EstadoInvalidoException ex)
@@ -37,7 +57,26 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
   public ProblemDetail handleRangoReprogramacionInvalidoException(
       RangoReprogramacionInvalidoException ex)
   {
-    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    String cleanMessage = ex.getMessage();
+    if (cleanMessage != null)
+    {
+      cleanMessage = cleanMessage.replaceAll(":\\s*limitacion del plan de WeatherAPI contratado.*", "")
+          .replaceAll(":\\s*limitación del plan de WeatherAPI contratado.*", "");
+    }
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, cleanMessage);
+    Map<String, String> errores = new HashMap<>();
+    if (cleanMessage != null && (cleanMessage.contains("hora") || cleanMessage.contains("franja horaria")))
+    {
+      errores.put("horaFinal", cleanMessage);
+      errores.put("rangoReprogramacion.horaFinal", cleanMessage);
+    }
+    else
+    {
+      errores.put("diasReprogramacion", cleanMessage);
+      errores.put("rangoReprogramacion.dias", cleanMessage);
+    }
+    problemDetail.setProperty("errores", errores);
+    return problemDetail;
   }
 
   @ExceptionHandler(AccesoDenegadoException.class)
@@ -125,7 +164,21 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
     {
       return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
-    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    String msg = ex.getMessage();
+    String detail = msg;
+    Map<String, String> errores = new HashMap<>();
+    if (msg != null && msg.contains("horasAnticipacion"))
+    {
+      detail = msg.replaceAll(":\\s*limitacion del plan de WeatherAPI contratado.*", "")
+          .replaceAll(":\\s*limitación del plan de WeatherAPI contratado.*", "");
+      errores.put("horasAnticipacion", detail);
+    }
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+    if (!errores.isEmpty())
+    {
+      problemDetail.setProperty("errores", errores);
+    }
+    return problemDetail;
   }
 
   @ExceptionHandler(IllegalStateException.class)
@@ -139,7 +192,7 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
   }
 
   @ExceptionHandler(OptimisticLockingFailureException.class)
-  public ProblemDetail handleOptimisticLockingFailureException(org.springframework.dao.OptimisticLockingFailureException ex)
+  public ProblemDetail handleOptimisticLockingFailureException(OptimisticLockingFailureException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Hubo un conflicto de concurrencia al actualizar el recurso, intente nuevamente.");
   }
@@ -148,16 +201,44 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
       MethodArgumentNotValidException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
   {
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-        "Error de validacion en los campos enviados");
     Map<String, String> errors = new HashMap<>();
     ex.getBindingResult().getAllErrors().forEach((error) -> {
-      String fieldName = ((FieldError) error).getField();
+      String fieldName = error instanceof FieldError fieldError ? fieldError.getField() : error.getObjectName();
       String errorMessage = error.getDefaultMessage();
       errors.put(fieldName, errorMessage);
     });
+
+    String detailMessage = errors.isEmpty()
+        ? "Error de validacion en los campos enviados"
+        : String.join("; ", errors.values());
+
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detailMessage);
     problemDetail.setProperty("errores", errors);
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
+  {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "El formato de la solicitud no es válido o los datos enviados no son correctos");
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ProblemDetail handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex)
+  {
+    String paramName = ex.getName();
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "El parámetro '" + paramName + "' contiene un valor con formato inválido");
+  }
+
+  @ExceptionHandler(PatternSyntaxException.class)
+  public ProblemDetail handlePatternSyntaxException(PatternSyntaxException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "El término de búsqueda contiene caracteres especiales no válidos");
   }
 
   @ExceptionHandler(Exception.class)
@@ -165,6 +246,6 @@ class GlobalExceptionHandler extends org.springframework.web.servlet.mvc.method.
   {
     log.error("Ocurrió un error inesperado", ex);
     return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
-        "Ocurrio un error inesperado. Por favor, intente nuevamente mas tarde.");
+        "Ocurrió un error inesperado en el servidor. Por favor, intente nuevamente más tarde.");
   }
 }

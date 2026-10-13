@@ -6,7 +6,7 @@ export const activitiesApi = {
   async obtener(id: string, token: string): Promise<Actividad | null> {
     try {
       return await apiRequest<Actividad>(`/api/actividades/${id}`, { token });
-    } catch (error) {
+    } catch {
       return null;
     }
   },
@@ -16,11 +16,11 @@ export const activitiesApi = {
   },
 
   crear(actividad: ActividadPost, token: string) {
-    return apiRequest<void>(
+    return apiRequest<Actividad>(
       '/api/actividades',
       { method: 'POST', token, body: JSON.stringify(actividad) }
-      ); 
-    },
+    ); 
+  },
 
   unirse(actividadId: string, token: string) {
     return apiRequest<void>(

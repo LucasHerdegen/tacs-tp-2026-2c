@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.tacs.backend.dtos.usuario.ActualizarContactoDto;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
@@ -65,19 +64,6 @@ class UsuariosController
   {
     String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.obtenerUsuario(usuarioId));
-  }
-
-  @Operation(summary = "Actualizar mi contacto", description = "Actualiza las preferencias de contacto del usuario autenticado (Requiere rol USER)")
-  @ApiResponse(responseCode = "200", description = "Contacto actualizado", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
-  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
-  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
-  @PatchMapping("/me/contacto")
-  public ResponseEntity<UsuarioDto> actualizarMiContacto(
-      @RequestBody @Valid ActualizarContactoDto dto,
-      @AuthenticationPrincipal Jwt jwt)
-  {
-    String usuarioId = jwt.getClaim("id");
-    return ResponseEntity.ok(authService.actualizarContacto(usuarioId, dto.medioContacto()));
   }
 
   @Operation(summary = "Generar link de vinculacion con Telegram", description = "Genera un token de un solo uso y el deep-link para vincular la cuenta autenticada con un chat de Telegram (Requiere rol USER)")

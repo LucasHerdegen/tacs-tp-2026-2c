@@ -3,6 +3,7 @@ package com.tacs.backend.services.implem.telegrambot;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
+import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import com.tacs.backend.exceptions.TelegramVinculacionInvalidaException;
@@ -37,6 +38,13 @@ class StartComandoHandlerTest
   @Mock
   private Chat chat;
 
+  @Mock
+  private User remitente;
+
+  // Deliberadamente distinto del chatId (999L): el chat es compartido en un
+  // grupo, el remitente identifica siempre a la misma persona.
+  private static final long REMITENTE_ID = 555L;
+
   private StartComandoHandler handler;
 
   @BeforeEach
@@ -50,6 +58,8 @@ class StartComandoHandlerTest
     Message mensaje = mock(Message.class);
     org.mockito.Mockito.lenient().when(chat.id()).thenReturn(999L);
     when(mensaje.chat()).thenReturn(chat);
+    org.mockito.Mockito.lenient().when(remitente.id()).thenReturn(REMITENTE_ID);
+    when(mensaje.from()).thenReturn(remitente);
     org.mockito.Mockito.lenient().when(mensaje.text()).thenReturn(texto);
     return mensaje;
   }
@@ -65,7 +75,7 @@ class StartComandoHandlerTest
   {
     handler.manejar(mensaje("/start"), null);
 
-    verify(altaNativaHandler).crearUsuarioNativo(999L);
+    verify(altaNativaHandler).crearUsuarioNativo(REMITENTE_ID);
     verify(vinculacionHandler, never()).vincular(anyLong(), any());
   }
 
@@ -74,7 +84,7 @@ class StartComandoHandlerTest
   {
     handler.manejar(mensaje("/start tok-123"), null);
 
-    verify(vinculacionHandler).vincular(999L, "tok-123");
+    verify(vinculacionHandler).vincular(REMITENTE_ID, "tok-123");
     verify(altaNativaHandler, never()).crearUsuarioNativo(anyLong());
   }
 
@@ -83,7 +93,7 @@ class StartComandoHandlerTest
   {
     when(telegramBot.execute(any(SendMessage.class))).thenReturn(mock(SendResponse.class));
     doThrow(new TelegramVinculacionInvalidaException("El link vencio"))
-        .when(vinculacionHandler).vincular(999L, "tok-vencido");
+        .when(vinculacionHandler).vincular(REMITENTE_ID, "tok-vencido");
 
     handler.manejar(mensaje("/start tok-vencido"), null);
 

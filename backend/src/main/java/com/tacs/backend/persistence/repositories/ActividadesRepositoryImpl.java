@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
   private final MongoTemplate mongoTemplate;
 
   @Override
-  public Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha,
+  public Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fechaInicio, LocalDate fechaFin,
                                            TipoEstadoActividad estado, Boolean cupoDisponible, Pageable pageable)
   {
     Query query = new Query();
@@ -46,18 +47,29 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
 
     if (busqueda != null && !busqueda.isBlank())
     {
+      String busquedaEscapada = Pattern.quote(busqueda.trim());
       Criteria orCriteria = new Criteria().orOperator(
-          Criteria.where("titulo").regex(busqueda, "i"),
-          Criteria.where("ubicacion.ciudad").regex(busqueda, "i")
+          Criteria.where("titulo").regex(busquedaEscapada, "i"),
+          Criteria.where("ubicacion.ciudad").regex(busquedaEscapada, "i")
       );
       query.addCriteria(orCriteria);
     }
 
-    if (fecha != null)
+    if (fechaInicio != null && fechaFin != null)
     {
-      LocalDateTime startOfDay = fecha.atStartOfDay();
-      LocalDateTime endOfDay = fecha.atTime(23, 59, 59, 999999999);
+      LocalDateTime startOfDay = fechaInicio.atStartOfDay();
+      LocalDateTime endOfDay = fechaFin.atTime(23, 59, 59, 999999999);
       query.addCriteria(Criteria.where("fechaRealizacion").gte(startOfDay).lte(endOfDay));
+    }
+    else if (fechaInicio != null)
+    {
+      LocalDateTime startOfDay = fechaInicio.atStartOfDay();
+      query.addCriteria(Criteria.where("fechaRealizacion").gte(startOfDay));
+    }
+    else if (fechaFin != null)
+    {
+      LocalDateTime endOfDay = fechaFin.atTime(23, 59, 59, 999999999);
+      query.addCriteria(Criteria.where("fechaRealizacion").lte(endOfDay));
     }
 
     if (estado != null)
@@ -65,12 +77,13 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
 
     if (Boolean.TRUE.equals(cupoDisponible))
     {
-      query.addCriteria(new Criteria()
+      query.addCriteria(new Criteria("$expr")
       {
         @Override
         public @NonNull Document getCriteriaObject()
         {
-          return Document.parse("{ \"\": { \"\": [ { \"\": { \"\": [ \"\", [] ] } }, \"\" ] } }");
+          return Document.parse(
+              "{ \"$expr\": { \"$lt\": [ { \"$size\": { \"$ifNull\": [ \"$participantes\", [] ] } }, \"$maximoParticipantes\" ] } }");
         }
       });
     }
@@ -81,6 +94,13 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
     List<Actividad> domainList = entities.stream().map(mapper::toDomain).toList();
 
     return PageableExecutionUtils.getPage(domainList, pageable, () -> total);
+  }
+
+  @Override
+  public Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fecha,
+                                           TipoEstadoActividad estado, Boolean cupoDisponible, Pageable pageable)
+  {
+    return buscarActividades(tipo, busqueda, fecha, fecha, estado, cupoDisponible, pageable);
   }
 
 

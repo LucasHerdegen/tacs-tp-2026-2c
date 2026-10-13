@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 @Service
-class JwtServiceImplem implements JwtService
+public class JwtServiceImplem implements JwtService
 {
   private static final String ISSUER = "https://tacs-api";
 

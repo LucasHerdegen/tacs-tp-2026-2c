@@ -84,4 +84,18 @@ class CrearTipoCallbackHandlerTest
     assertThat(respuesta).isEqualTo("Esa opcion ya no es valida.");
     verify(flujoHandler, never()).manejarSeleccionTipo(any(), any());
   }
+
+  @Test
+  void sesionDeOtraPersonaEnElMismoChatNoDelegaNada()
+  {
+    TelegramSesionEntity sesion = new TelegramSesionEntity(999L, "usr-1");
+    sesion.setFlujoActual(CrearActividadFlujoHandler.FLUJO);
+    when(sesionRepository.findById(999L)).thenReturn(Optional.of(sesion));
+
+    // "usr-2" aprieta el boton de una sesion que es de "usr-1" en el mismo chat.
+    String respuesta = handler.manejar(callbackQuery("crear_tipo:AIRE_LIBRE"), "usr-2");
+
+    assertThat(respuesta).isEqualTo("Hay una actividad en curso iniciada por otra persona en este chat.");
+    verify(flujoHandler, never()).manejarSeleccionTipo(any(), any());
+  }
 }

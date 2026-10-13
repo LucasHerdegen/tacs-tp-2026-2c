@@ -3,6 +3,7 @@ package com.tacs.backend.services.implem.telegrambot;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -14,10 +15,13 @@ import java.util.stream.Collectors;
  * Despacha un boton inline presionado (CallbackQuery) al CallbackHandler
  * registrado para el prefijo de su callback_data (ej. "sumarse:123" -> "sumarse").
  */
+@Slf4j
 @Component
 public class CallbackRouter
 {
   private static final String MENSAJE_ACCION_NO_RECONOCIDA = "No pude procesar esa accion.";
+  private static final String MENSAJE_ERROR_INESPERADO =
+      "Ocurrió un error inesperado. Intentá de nuevo en unos minutos.";
 
   private final TelegramBot telegramBot;
   private final TelegramIdentidadResolver identidadResolver;
@@ -45,10 +49,17 @@ public class CallbackRouter
     }
     else
     {
-      long chatId = callbackQuery.maybeInaccessibleMessage().chat().id();
-      String usuarioId = identidadResolver.resolverUsuarioId(chatId).orElse(null);
-      respuesta = handler.manejar(callbackQuery, usuarioId);
-      mostrarComoAlerta = handler.mostrarComoAlerta();
+      long remitenteId = callbackQuery.from().id();
+      String usuarioId = identidadResolver.resolverUsuarioId(remitenteId).orElse(null);
+      try
+      {
+        respuesta = handler.manejar(callbackQuery, usuarioId);
+        mostrarComoAlerta = handler.mostrarComoAlerta();
+      } catch (Exception e)
+      {
+        log.error("[Telegram] Fallo no controlado manejando el callback '{}'", prefijo, e);
+        respuesta = MENSAJE_ERROR_INESPERADO;
+      }
     }
 
     telegramBot.execute(new AnswerCallbackQuery(callbackQuery.id()).text(respuesta).showAlert(mostrarComoAlerta));
