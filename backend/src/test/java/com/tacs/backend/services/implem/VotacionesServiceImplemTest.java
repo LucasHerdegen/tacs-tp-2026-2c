@@ -15,6 +15,7 @@ import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
@@ -527,6 +528,54 @@ class VotacionesServiceImplemTest
     verify(votacionesRepository).save(captor.capture());
     assertThat(captor.getValue().getAlternativas()).singleElement()
         .extracting(Alternativa::getClima).isNull();
+  }
+
+  @Test
+  void crearVotacionSobreActividadCanceladaLanzaEstadoInvalidoException()
+  {
+    Actividad actividad = crearActividad(null);
+    actividad.setId("1");
+    actividad.setEstado(TipoEstadoActividad.CANCELADA);
+
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(LocalDateTime.now().plusDays(2))));
+
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+
+    inicializarService();
+    assertThatThrownBy(() -> service.crearVotacion("1", dto, "1"))
+        .isInstanceOf(EstadoInvalidoException.class);
+  }
+
+  @Test
+  void crearVotacionSobreActividadFinalizadaLanzaEstadoInvalidoException()
+  {
+    Actividad actividad = crearActividad(null);
+    actividad.setId("1");
+    actividad.setEstado(TipoEstadoActividad.FINALIZADA);
+
+    VotacionPostDto dto = new VotacionPostDto(2, LocalDateTime.now(),
+        List.of(new AlternativaPostDto(LocalDateTime.now().plusDays(2))));
+
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+
+    inicializarService();
+    assertThatThrownBy(() -> service.crearVotacion("1", dto, "1"))
+        .isInstanceOf(EstadoInvalidoException.class);
+  }
+
+  @Test
+  void abrirVotacionAutomaticaSobreActividadCanceladaLanzaEstadoInvalidoException()
+  {
+    Actividad actividad = crearActividad(null);
+    actividad.setId("1");
+    actividad.setEstado(TipoEstadoActividad.CANCELADA);
+
+    when(actividadesRepository.findById("1")).thenReturn(Optional.of(actividad));
+
+    inicializarService();
+    assertThatThrownBy(() -> service.abrirVotacionAutomatica("1"))
+        .isInstanceOf(EstadoInvalidoException.class);
   }
 
   @Test

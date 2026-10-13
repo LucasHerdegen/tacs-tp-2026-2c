@@ -22,7 +22,7 @@ public class Estados
 
     estados.put(TipoEstadoActividad.REPROGRAMADA, new EstadoActividad(
         TipoEstadoActividad.REPROGRAMADA,
-        List.of(TipoEstadoActividad.CONFIRMADA, TipoEstadoActividad.CANCELADA, TipoEstadoActividad.REPROGRAMADA)
+        List.of(TipoEstadoActividad.CONFIRMADA, TipoEstadoActividad.CANCELADA, TipoEstadoActividad.REPROGRAMADA, TipoEstadoActividad.FINALIZADA)
     ));
 
     estados.put(TipoEstadoActividad.CANCELADA, new EstadoActividad(

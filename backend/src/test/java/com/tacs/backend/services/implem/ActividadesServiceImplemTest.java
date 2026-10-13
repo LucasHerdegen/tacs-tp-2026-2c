@@ -6,6 +6,9 @@ import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.domain.usuario.TipoRol;
+import com.tacs.backend.domain.votacion.Votacion;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
@@ -13,6 +16,7 @@ import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
@@ -76,6 +80,9 @@ class ActividadesServiceImplemTest
   @Mock
   private NotificacionInboxService notificacionInboxService;
 
+  @Mock
+  private VotacionesRepository votacionesRepository;
+
   @Spy
   private OptimisticLockingRetry optimisticLockingRetry = new OptimisticLockingRetry();
 
@@ -106,6 +113,7 @@ class ActividadesServiceImplemTest
 
     actividadMock = new Actividad();
     actividadMock.setId("100");
+    actividadMock.setMaximoParticipantes(10);
 
     // maxDiasForecast se inyecta via @Value en produccion; en el test se
     // setea a mano con el mismo valor que application.properties.
@@ -233,6 +241,56 @@ class ActividadesServiceImplemTest
         TipoEstadoActividad.CANCELADA))
         .isInstanceOf(ActividadNotFoundException.class)
         .hasMessage("Actividad no encontrada");
+  }
+
+  @Test
+  @DisplayName("Cancelar actividad con votacion abierta - Cierra la votacion exitosamente")
+  void cancelarActividad_ConVotacionAbierta_CierraVotacion()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setId(actividadId);
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
+    actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
+
+    Votacion votacionMock = new Votacion();
+    votacionMock.setAbierta(true);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId(actividadId)).thenReturn(Optional.of(votacionMock));
+
+    // Act
+    actividadesService.cambiarEstado(actividadId, organizadorId, TipoEstadoActividad.CANCELADA);
+
+    // Assert
+    assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    assertThat(votacionMock.isAbierta()).isFalse();
+    verify(votacionesRepository).save(votacionMock);
+    verify(actividadesRepository).save(actividadMock);
+  }
+
+  @Test
+  @DisplayName("Unirse a actividad cancelada - Lanza EstadoInvalidoException")
+  void unirseActividad_ActividadCancelada_ThrowsEstadoInvalidoException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String nuevoUsuarioId = "2";
+    Usuario nuevoUsuario = new Usuario("usuario2", "password", TipoRol.USER);
+    nuevoUsuario.setId(nuevoUsuarioId);
+
+    actividadMock.setId(actividadId);
+    actividadMock.setEstado(TipoEstadoActividad.CANCELADA);
+
+    when(usuarioRepository.existsById(nuevoUsuarioId)).thenReturn(true);
+    when(usuarioRepository.findById(nuevoUsuarioId)).thenReturn(Optional.of(nuevoUsuario));
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.unirseActividad(actividadId, nuevoUsuarioId))
+        .isInstanceOf(EstadoInvalidoException.class);
   }
 
   @Test

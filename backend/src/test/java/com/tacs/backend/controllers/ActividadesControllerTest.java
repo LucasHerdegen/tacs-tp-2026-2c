@@ -1,6 +1,7 @@
 package com.tacs.backend.controllers;
 
 import com.tacs.backend.config.SecurityConfig;
+import com.tacs.backend.config.TimeConfig;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.usuario.TipoRol;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -34,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ActividadesController.class)
-@Import({SecurityConfig.class, JwtServiceImplem.class})
+@Import({SecurityConfig.class, JwtServiceImplem.class, TimeConfig.class})
 @TestPropertySource(properties = {
     "security.jwt.secret=test-secret-key-with-at-least-32-bytes",
     "security.jwt.expiration-seconds=3600"
@@ -202,5 +205,63 @@ class ActividadesControllerTest
         .andExpect(status().isNoContent());
 
     verify(actividadesService).bajarseActividad("act-1", "user-id");
+  }
+
+  @Test
+  void crearActividadParaDentroDeUnaHoraDevuelveCreated() throws Exception
+  {
+    when(actividadesService.createActividad(any(), any())).thenReturn(mockActividadDto);
+
+    String body = """
+        {
+          "titulo": "Asado de fin de año",
+          "descripcion": "Despedida del año",
+          "tipoActividad": "AIRE_LIBRE",
+          "ubicacion": {
+            "direccion": "Av. Corrientes 1234",
+            "latitud": -34.6037,
+            "longitud": -58.3816
+          },
+          "fecha": "%s",
+          "duracionEstimada": 120,
+          "cantidadMinima": 2,
+          "cantidadMaxima": 10
+        }
+        """.formatted(LocalDateTime.now().plusHours(1).toString());
+
+    mockMvc.perform(post("/api/actividades")
+            .header("Authorization", "Bearer " + tokenYo)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
+  void crearActividadConFechaPasadaDevuelveBadRequest() throws Exception
+  {
+    String body = """
+        {
+          "titulo": "Asado de fin de año",
+          "descripcion": "Despedida del año",
+          "tipoActividad": "AIRE_LIBRE",
+          "ubicacion": {
+            "ciudad": "CABA",
+            "latitud": -34.6037,
+            "longitud": -58.3816
+          },
+          "fecha": "%s",
+          "duracionEstimada": 120,
+          "cantidadMinima": 2,
+          "cantidadMaxima": 10
+        }
+        """.formatted(LocalDateTime.now().minusDays(1).toString());
+
+    mockMvc.perform(post("/api/actividades")
+            .header("Authorization", "Bearer " + tokenYo)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errores.fecha").value("La fecha debe ser futura"))
+        .andExpect(jsonPath("$.detail").value("La fecha debe ser futura"));
   }
 }

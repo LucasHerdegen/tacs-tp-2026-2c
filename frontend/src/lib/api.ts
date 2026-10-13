@@ -2,19 +2,59 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 export class ApiError extends Error {
   public readonly status: number;
+  public readonly fieldErrors?: Record<string, string>;
+  public readonly data?: unknown;
 
   constructor(
     message: string,
     status: number,
+    fieldErrors?: Record<string, string>,
+    data?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.fieldErrors = fieldErrors;
+    this.data = data;
   }
 }
 
 interface ApiRequestOptions extends RequestInit {
   token?: string;
+}
+
+function parseJsonSafely(body: unknown): unknown {
+  if (typeof body === 'string' && body.trim()) {
+    const trimmed = body.trim();
+    if (
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return body;
+      }
+    }
+  }
+  return body;
+}
+
+export function extractFieldErrors(body: unknown): Record<string, string> | undefined {
+  const parsed = parseJsonSafely(body);
+  if (parsed && typeof parsed === 'object') {
+    const record = parsed as Record<string, unknown>;
+    if (record.errores && typeof record.errores === 'object' && !Array.isArray(record.errores)) {
+      const fieldErrors: Record<string, string> = {};
+      for (const [key, value] of Object.entries(record.errores)) {
+        if (typeof value === 'string' && value.trim()) {
+          fieldErrors[key] = value.trim();
+        }
+      }
+      return Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined;
+    }
+  }
+  return undefined;
 }
 
 function isTechnicalMessage(msg: string): boolean {
@@ -79,24 +119,9 @@ function getFriendlyFallback(status: number): string {
 
 export function extractErrorMessage(body: unknown, status: number): string {
   const fallback = getFriendlyFallback(status);
+  const parsedBody = parseJsonSafely(body);
 
-  // 1. Si el body es un string, verificar si en realidad es un JSON serializado
-  let parsedBody = body;
-  if (typeof body === 'string' && body.trim()) {
-    const trimmed = body.trim();
-    if (
-      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-      (trimmed.startsWith('[') && trimmed.endsWith(']'))
-    ) {
-      try {
-        parsedBody = JSON.parse(trimmed);
-      } catch {
-        parsedBody = body;
-      }
-    }
-  }
-
-  // 2. Si es un error 500 o mayor, nunca mostrar texto técnico crudo
+  // 1. Si es un error 500 o mayor, nunca mostrar texto técnico crudo
   if (status >= 500) {
     if (parsedBody && typeof parsedBody === 'object') {
       const record = parsedBody as Record<string, unknown>;
@@ -108,22 +133,22 @@ export function extractErrorMessage(body: unknown, status: number): string {
     return fallback;
   }
 
-  // 3. Si parsedBody es un objeto (JSON / ProblemDetail / Validation)
+  // 2. Si parsedBody es un objeto (JSON / ProblemDetail / Validation)
   if (parsedBody && typeof parsedBody === 'object') {
     const record = parsedBody as Record<string, unknown>;
 
-    // 3a. Errores de validación de campos: { "errores": { "fechaLimite": "La fecha limite debe ser futura" } }
-    if (record.errores && typeof record.errores === 'object') {
-      const fieldErrors = Object.entries(record.errores as Record<string, unknown>)
-        .map(([_, msg]) => (typeof msg === 'string' ? msg.trim() : ''))
-        .filter((msg) => Boolean(msg) && !isTechnicalMessage(msg));
-
-      if (fieldErrors.length > 0) {
-        return fieldErrors.join('. ');
+    // 2a. Errores de validación de campos: { "errores": { "fechaLimite": "La fecha limite debe ser futura" } }
+    const fieldErrors = extractFieldErrors(parsedBody);
+    if (fieldErrors) {
+      const cleanErrors = Object.values(fieldErrors).filter(
+        (msg) => !isTechnicalMessage(msg),
+      );
+      if (cleanErrors.length > 0) {
+        return cleanErrors.join('. ');
       }
     }
 
-    // 3b. Mensajes estándar de negocio (detail / message / error)
+    // 2b. Mensajes estándar de negocio (detail / message / error)
     const candidate = record.detail ?? record.message ?? record.error;
     if (typeof candidate === 'string' && candidate.trim()) {
       const trimmed = candidate.trim();
@@ -135,7 +160,7 @@ export function extractErrorMessage(body: unknown, status: number): string {
     return fallback;
   }
 
-  // 4. Si es un string simple no-JSON
+  // 3. Si es un string simple no-JSON
   if (typeof parsedBody === 'string' && parsedBody.trim()) {
     const trimmed = parsedBody.trim();
     if (!trimmed.startsWith('<') && !trimmed.startsWith('{') && !isTechnicalMessage(trimmed)) {
@@ -190,9 +215,12 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
+    const fieldErrors = extractFieldErrors(body);
     throw new ApiError(
       extractErrorMessage(body, response.status),
       response.status,
+      fieldErrors,
+      body,
     );
   }
 
