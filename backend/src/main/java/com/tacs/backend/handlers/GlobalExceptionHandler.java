@@ -26,13 +26,16 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.regex.PatternSyntaxException;
 
 @Slf4j
 @ControllerAdvice
@@ -177,11 +180,35 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
   }
 
+  @Override
+  protected ResponseEntity<Object> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
+  {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "El formato de la solicitud no es válido o los datos enviados no son correctos");
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ProblemDetail handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex)
+  {
+    String paramName = ex.getName();
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "El parámetro '" + paramName + "' contiene un valor con formato inválido");
+  }
+
+  @ExceptionHandler(PatternSyntaxException.class)
+  public ProblemDetail handlePatternSyntaxException(PatternSyntaxException ex)
+  {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+        "El término de búsqueda contiene caracteres especiales no válidos");
+  }
+
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleAllOtherExceptions(Exception ex)
   {
     log.error("Ocurrió un error inesperado", ex);
     return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
-        "Ocurrio un error inesperado. Por favor, intente nuevamente mas tarde.");
+        "Ocurrió un error inesperado en el servidor. Por favor, intente nuevamente más tarde.");
   }
 }

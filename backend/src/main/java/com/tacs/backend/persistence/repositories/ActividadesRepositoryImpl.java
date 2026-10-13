@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
@@ -46,9 +47,10 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
 
     if (busqueda != null && !busqueda.isBlank())
     {
+      String busquedaEscapada = Pattern.quote(busqueda.trim());
       Criteria orCriteria = new Criteria().orOperator(
-          Criteria.where("titulo").regex(busqueda, "i"),
-          Criteria.where("ubicacion.ciudad").regex(busqueda, "i")
+          Criteria.where("titulo").regex(busquedaEscapada, "i"),
+          Criteria.where("ubicacion.ciudad").regex(busquedaEscapada, "i")
       );
       query.addCriteria(orCriteria);
     }

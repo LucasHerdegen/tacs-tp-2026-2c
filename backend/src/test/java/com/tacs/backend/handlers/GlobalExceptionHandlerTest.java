@@ -7,6 +7,15 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.mockito.Mockito;
+import java.util.regex.PatternSyntaxException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GlobalExceptionHandlerTest
@@ -47,5 +56,58 @@ class GlobalExceptionHandlerTest
 
     assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(problemDetail.getDetail()).contains("conflicto de concurrencia");
+  }
+
+  @Test
+  void httpMessageNotReadableExceptionDevuelveMensajeAmigableEn400()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    HttpMessageNotReadableException ex =
+        new HttpMessageNotReadableException("JSON parse error: Cannot deserialize", new MockHttpInputMessage(new byte[0]));
+    WebRequest request = Mockito.mock(WebRequest.class);
+
+    ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
+    ProblemDetail problemDetail = (ProblemDetail) response.getBody();
+    assertThat(problemDetail.getDetail()).isEqualTo("El formato de la solicitud no es válido o los datos enviados no son correctos");
+  }
+
+  @Test
+  void methodArgumentTypeMismatchExceptionDevuelveMensajeAmigableEn400()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    MethodArgumentTypeMismatchException ex =
+        new MethodArgumentTypeMismatchException("invalido", String.class, "tipo", null, null);
+
+    ProblemDetail problemDetail = handler.handleMethodArgumentTypeMismatchException(ex);
+
+    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(problemDetail.getDetail()).contains("El parámetro 'tipo' contiene un valor con formato inválido");
+  }
+
+  @Test
+  void patternSyntaxExceptionDevuelveMensajeAmigableEn400()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    PatternSyntaxException ex = new PatternSyntaxException("Dangling meta character '+'", "++++", 0);
+
+    ProblemDetail problemDetail = handler.handlePatternSyntaxException(ex);
+
+    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(problemDetail.getDetail()).isEqualTo("El término de búsqueda contiene caracteres especiales no válidos");
+  }
+
+  @Test
+  void exceptionInesperadaMapeaA500ConMensajeAmigableSinExponerStackTrace()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    Exception ex = new RuntimeException("NullPointerException oculta");
+
+    ProblemDetail problemDetail = handler.handleAllOtherExceptions(ex);
+
+    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
+    assertThat(problemDetail.getDetail()).isEqualTo("Ocurrió un error inesperado en el servidor. Por favor, intente nuevamente más tarde.");
   }
 }
