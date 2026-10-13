@@ -57,7 +57,26 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
   public ProblemDetail handleRangoReprogramacionInvalidoException(
       RangoReprogramacionInvalidoException ex)
   {
-    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    String cleanMessage = ex.getMessage();
+    if (cleanMessage != null)
+    {
+      cleanMessage = cleanMessage.replaceAll(":\\s*limitacion del plan de WeatherAPI contratado.*", "")
+          .replaceAll(":\\s*limitación del plan de WeatherAPI contratado.*", "");
+    }
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, cleanMessage);
+    Map<String, String> errores = new HashMap<>();
+    if (cleanMessage != null && (cleanMessage.contains("hora") || cleanMessage.contains("franja horaria")))
+    {
+      errores.put("horaFinal", cleanMessage);
+      errores.put("rangoReprogramacion.horaFinal", cleanMessage);
+    }
+    else
+    {
+      errores.put("diasReprogramacion", cleanMessage);
+      errores.put("rangoReprogramacion.dias", cleanMessage);
+    }
+    problemDetail.setProperty("errores", errores);
+    return problemDetail;
   }
 
   @ExceptionHandler(AccesoDenegadoException.class)
@@ -145,7 +164,21 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
     {
       return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
-    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    String msg = ex.getMessage();
+    String detail = msg;
+    Map<String, String> errores = new HashMap<>();
+    if (msg != null && msg.contains("horasAnticipacion"))
+    {
+      detail = msg.replaceAll(":\\s*limitacion del plan de WeatherAPI contratado.*", "")
+          .replaceAll(":\\s*limitación del plan de WeatherAPI contratado.*", "");
+      errores.put("horasAnticipacion", detail);
+    }
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+    if (!errores.isEmpty())
+    {
+      problemDetail.setProperty("errores", errores);
+    }
+    return problemDetail;
   }
 
   @ExceptionHandler(IllegalStateException.class)

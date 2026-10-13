@@ -47,4 +47,12 @@ public class ReglasClima
     if (maxViento != null)
       this.maxViento = maxViento;
   }
+
+  public void sobrescribir(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)
+  {
+    this.maxProbabilidadLluvia = maxProbabilidadLluvia;
+    this.minTemperatura = minTemperatura;
+    this.maxTemperatura = maxTemperatura;
+    this.maxViento = maxViento;
+  }
 }

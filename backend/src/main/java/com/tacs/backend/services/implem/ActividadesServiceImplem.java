@@ -334,11 +334,22 @@ public class ActividadesServiceImplem implements ActividadesService
 
     if (dto.reglasClima() != null)
     {
-      actividad.actualizarReglasClima(
+      Double maxTemp = dto.reglasClima().maxTemperatura();
+      if (maxTemp != null && maxTemp == 0.0)
+      {
+        maxTemp = null;
+      }
+      Double maxViento = dto.reglasClima().maxViento();
+      if (maxViento != null && maxViento == 0.0)
+      {
+        maxViento = null;
+      }
+
+      actividad.reemplazarReglasClima(
           dto.reglasClima().maxProbabilidadLluvia(),
           dto.reglasClima().minTemperatura(),
-          dto.reglasClima().maxTemperatura(),
-          dto.reglasClima().maxViento()
+          maxTemp,
+          maxViento
       );
     }
 
@@ -359,6 +370,17 @@ public class ActividadesServiceImplem implements ActividadesService
         throw new RangoReprogramacionInvalidoException(
             "El rango de reprogramacion no puede superar %d dias: limitacion del plan de WeatherAPI contratado"
                 .formatted(maxDiasForecast));
+
+      if (dto.rangoReprogramacion().horaInicio() != null && dto.rangoReprogramacion().horaFinal() != null)
+      {
+        int ventanaHoras = dto.rangoReprogramacion().horaFinal() - dto.rangoReprogramacion().horaInicio();
+        if (actividad.getDuracionEstimada() > 0 && ventanaHoras < actividad.getDuracionEstimada())
+        {
+          throw new RangoReprogramacionInvalidoException(
+              "La franja horaria permitida (%d hs) no puede ser menor a la duracion estimada de la actividad (%d hs)"
+                  .formatted(ventanaHoras, actividad.getDuracionEstimada()));
+        }
+      }
 
       actividad.actualizarRangoReprogramacion(
           dto.rangoReprogramacion().dias(),

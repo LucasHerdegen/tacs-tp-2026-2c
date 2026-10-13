@@ -218,6 +218,14 @@ public class Actividad
     this.reglasClima.actualizar(maxProbabilidadLluvia, minTemperatura, maxTemperatura, maxViento);
   }
 
+  public void reemplazarReglasClima(Double maxProbabilidadLluvia, Double minTemperatura, Double maxTemperatura, Double maxViento)
+  {
+    if (this.reglasClima == null)
+      this.reglasClima = new ReglasClima();
+
+    this.reglasClima.sobrescribir(maxProbabilidadLluvia, minTemperatura, maxTemperatura, maxViento);
+  }
+
   public void actualizarHorasAnticipacion(Integer horas)
   {
     if (horas != null)

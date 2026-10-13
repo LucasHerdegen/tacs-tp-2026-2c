@@ -48,7 +48,16 @@ export function extractFieldErrors(body: unknown): Record<string, string> | unde
       const fieldErrors: Record<string, string> = {};
       for (const [key, value] of Object.entries(record.errores)) {
         if (typeof value === 'string' && value.trim()) {
-          fieldErrors[key] = value.trim();
+          const val = value.trim();
+          fieldErrors[key] = val;
+          // Aliases for nested weather and activity fields
+          if (key === 'rangoReprogramacion.dias') fieldErrors['diasReprogramacion'] = val;
+          if (key === 'rangoReprogramacion.horaInicio') fieldErrors['horaInicio'] = val;
+          if (key === 'rangoReprogramacion.horaFinal') fieldErrors['horaFinal'] = val;
+          if (key === 'reglasClima.maxProbabilidadLluvia') fieldErrors['maxProbabilidadLluvia'] = val;
+          if (key === 'reglasClima.minTemperatura') fieldErrors['minTemperatura'] = val;
+          if (key === 'reglasClima.maxTemperatura') fieldErrors['maxTemperatura'] = val;
+          if (key === 'reglasClima.maxViento') fieldErrors['maxViento'] = val;
         }
       }
       return Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined;
@@ -87,6 +96,9 @@ function isTechnicalMessage(msg: string): boolean {
     'patternsyntaxexception',
     'pattern syntax',
     'regex',
+    'weatherapi',
+    'limitacion del plan',
+    'limitación del plan',
   ];
   const lower = msg.toLowerCase();
   return technicalKeywords.some((keyword) => lower.includes(keyword));

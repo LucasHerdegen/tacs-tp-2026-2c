@@ -2,6 +2,7 @@ package com.tacs.backend.handlers;
 
 import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.mockito.Mockito;
+import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,5 +111,51 @@ class GlobalExceptionHandlerTest
 
     assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
     assertThat(problemDetail.getDetail()).isEqualTo("Ocurrió un error inesperado en el servidor. Por favor, intente nuevamente más tarde.");
+  }
+
+  @Test
+  void rangoReprogramacionInvalidoExceptionDevuelveProblemDetailConErroresYMensajeLimpio()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    RangoReprogramacionInvalidoException ex =
+        new RangoReprogramacionInvalidoException("El rango de reprogramacion no puede superar 3 dias: limitacion del plan de WeatherAPI contratado");
+
+    ProblemDetail problemDetail = handler.handleRangoReprogramacionInvalidoException(ex);
+
+    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(problemDetail.getDetail()).isEqualTo("El rango de reprogramacion no puede superar 3 dias");
+    assertThat(problemDetail.getProperties()).containsKey("errores");
+  }
+
+  @Test
+  void illegalArgumentExceptionHorasAnticipacionDevuelveProblemDetailConErroresYMensajeLimpio()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    IllegalArgumentException ex =
+        new IllegalArgumentException("horasAnticipacion no puede superar 72 horas (3 dias): limitacion del plan de WeatherAPI contratado");
+
+    ProblemDetail problemDetail = handler.handleIllegalArgumentException(ex);
+
+    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(problemDetail.getDetail()).isEqualTo("horasAnticipacion no puede superar 72 horas (3 dias)");
+    assertThat(problemDetail.getProperties()).containsKey("errores");
+  }
+
+  @Test
+  void rangoReprogramacionInvalidoExceptionHorariaMapeaAHoraFinalEnErrores()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    RangoReprogramacionInvalidoException ex =
+        new RangoReprogramacionInvalidoException("La franja horaria permitida (2 hs) no puede ser menor a la duracion estimada de la actividad (4 hs)");
+
+    ProblemDetail problemDetail = handler.handleRangoReprogramacionInvalidoException(ex);
+
+    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(problemDetail.getDetail()).contains("franja horaria permitida");
+    assertThat(problemDetail.getProperties()).containsKey("errores");
+    @SuppressWarnings("unchecked")
+    Map<String, String> errores = (Map<String, String>) problemDetail.getProperties().get("errores");
+    assertThat(errores).containsKey("horaFinal");
+    assertThat(errores.get("horaFinal")).contains("franja horaria permitida");
   }
 }

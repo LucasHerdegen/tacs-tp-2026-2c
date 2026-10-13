@@ -258,6 +258,72 @@ export const ActivityDetail: React.FC = () => {
               ) : (
                 <p className="text-sm text-gray-500">No pudimos obtener el pronóstico.</p>
               )}
+
+              {/* Parámetros climáticos y reprogramación configurados */}
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-xs uppercase font-bold tracking-wider text-gray-500 flex items-center gap-1.5">
+                    <span>⚙️</span> Condiciones Aceptables Configuradas
+                  </h3>
+                  {esOrganizador && !estaCancelada && (
+                    <Link
+                      to={`/activities/${activity.id}/weather-config`}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
+                    >
+                      {activity.reglasClima ? 'Modificar' : 'Configurar'}
+                    </Link>
+                  )}
+                </div>
+
+                {activity.reglasClima ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Lluvia Máx.</p>
+                      <p className="text-base font-bold text-gray-900 mt-0.5">
+                        {activity.reglasClima.maxProbabilidadLluvia}%
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Viento Máx.</p>
+                      <p className="text-base font-bold text-gray-900 mt-0.5">
+                        {activity.reglasClima.maxViento != null && activity.reglasClima.maxViento !== 0
+                          ? `${activity.reglasClima.maxViento} km/h`
+                          : <span className="text-gray-400 font-medium text-xs">Sin límite</span>}
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Temp. Aceptable</p>
+                      <p className="text-xs font-bold text-gray-900 mt-1">
+                        {activity.reglasClima.minTemperatura != null || (activity.reglasClima.maxTemperatura != null && activity.reglasClima.maxTemperatura !== 0)
+                          ? `${activity.reglasClima.minTemperatura != null ? `${activity.reglasClima.minTemperatura}°C` : '-∞'} a ${activity.reglasClima.maxTemperatura != null && activity.reglasClima.maxTemperatura !== 0 ? `${activity.reglasClima.maxTemperatura}°C` : '+∞'}`
+                          : <span className="text-gray-400 font-medium text-xs">Sin límite</span>}
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Reprogramación</p>
+                      <p className="text-xs font-bold text-gray-900 mt-1 truncate" title={activity.rangoReprogramacion ? `Hasta ${activity.rangoReprogramacion.dias}d (${activity.rangoReprogramacion.horaInicio} a ${activity.rangoReprogramacion.horaFinal} hs)` : `${activity.horasAnticipacion ?? 24}h aviso`}>
+                        {activity.rangoReprogramacion
+                          ? `Hasta ${activity.rangoReprogramacion.dias}d (${activity.rangoReprogramacion.horaInicio}-${activity.rangoReprogramacion.horaFinal}h)`
+                          : `${activity.horasAnticipacion ?? 24}h aviso`}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3 text-center">
+                    <p className="text-xs text-gray-500">
+                      Usa monitoreo estándar del sistema.
+                      {esOrganizador && !estaCancelada && (
+                        <Link to={`/activities/${activity.id}/weather-config`} className="text-indigo-600 font-medium hover:underline ml-1">
+                          Personalizar reglas
+                        </Link>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardBody>
           </Card>
 

@@ -6,7 +6,7 @@ export const activitiesApi = {
   async obtener(id: string, token: string): Promise<Actividad | null> {
     try {
       return await apiRequest<Actividad>(`/api/actividades/${id}`, { token });
-    } catch (error) {
+    } catch {
       return null;
     }
   },

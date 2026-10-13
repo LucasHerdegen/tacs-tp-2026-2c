@@ -390,6 +390,55 @@ class ActividadesServiceImplemTest
   }
 
   @Test
+  @DisplayName("Falla si la franja horaria permitida es menor a la duracion estimada de la actividad")
+  void actualizarConfiguracionClima_FranjaHorariaMenorQueDuracionEstimada_ThrowsException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setDuracionEstimada(4);
+
+    // Ventana permitida: de 10 a 12 (2 hs), pero la duracion estimada es 4 hs
+    var rangoInvalidoDto = new RangoReprogramacionDto(3, 10, 12);
+    var configDto = new ConfigurarCondicionesDto(null, null, rangoInvalidoDto);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto))
+        .isInstanceOf(RangoReprogramacionInvalidoException.class)
+        .hasMessageContaining("duracion estimada");
+
+    verify(actividadesRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Actualiza correctamente si la franja horaria permitida cubre la duracion estimada de la actividad")
+  void actualizarConfiguracionClima_FranjaHorariaValidaConDuracionEstimada_ActualizaCorrectamente()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setDuracionEstimada(2);
+
+    var rangoValidoDto = new RangoReprogramacionDto(3, 10, 14); // ventana de 4 hs >= 2 hs
+    var configDto = new ConfigurarCondicionesDto(null, 24, rangoValidoDto);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
+
+    // Act
+    actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto);
+
+    // Assert
+    verify(actividadesRepository).save(actividadMock);
+    assertThat(actividadMock.getRangoReprogramacion().getHoraInicio()).isEqualTo(10);
+    assertThat(actividadMock.getRangoReprogramacion().getHoraFinal()).isEqualTo(14);
+  }
+
+  @Test
   @DisplayName("Falla si horasAnticipacion supera el tope del plan de WeatherAPI (3 dias = 72hs)")
   void actualizarConfiguracionClima_HorasAnticipacionSuperaElTope_ThrowsException()
   {
