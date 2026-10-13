@@ -235,4 +235,33 @@ class ActividadesControllerTest
             .content(body))
         .andExpect(status().isCreated());
   }
+
+  @Test
+  void crearActividadConFechaPasadaDevuelveBadRequest() throws Exception
+  {
+    String body = """
+        {
+          "titulo": "Asado de fin de año",
+          "descripcion": "Despedida del año",
+          "tipoActividad": "AIRE_LIBRE",
+          "ubicacion": {
+            "ciudad": "CABA",
+            "latitud": -34.6037,
+            "longitud": -58.3816
+          },
+          "fecha": "%s",
+          "duracionEstimada": 120,
+          "cantidadMinima": 2,
+          "cantidadMaxima": 10
+        }
+        """.formatted(LocalDateTime.now().minusDays(1).toString());
+
+    mockMvc.perform(post("/api/actividades")
+            .header("Authorization", "Bearer " + tokenYo)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errores.fecha").value("La fecha debe ser futura"))
+        .andExpect(jsonPath("$.detail").value("La fecha debe ser futura"));
+  }
 }

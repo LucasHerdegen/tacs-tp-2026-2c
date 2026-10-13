@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -54,12 +54,22 @@ export const MyActivities: React.FC = () => {
   useDocumentTitle('Mis Actividades');
   const { user, token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [organizadas, setOrganizadas] = useState<Actividad[]>([]);
   const [sumadas, setSumadas] = useState<Actividad[]>([]);
   const [votacionesAbiertas, setVotacionesAbiertas] = useState<VotacionDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(
+    (location.state as { successMessage?: string } | null)?.successMessage ?? null
+  );
+
+  useEffect(() => {
+    if (location.state && (location.state as { successMessage?: string }).successMessage) {
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (!token || !user) return;
@@ -97,6 +107,23 @@ export const MyActivities: React.FC = () => {
   return (
     <div className="space-y-10">
       <h1 className="text-3xl font-bold text-gray-900">Mis Actividades</h1>
+
+      {successMessage && (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">✅</span>
+            <span>{successMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-950 font-bold ml-4 cursor-pointer text-base"
+            aria-label="Cerrar notificación"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>

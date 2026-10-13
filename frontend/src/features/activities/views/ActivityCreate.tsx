@@ -7,10 +7,11 @@ import 'leaflet/dist/leaflet.css';
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle';
-import type { ActividadPost } from '../types';
+import type { ActividadPost, TipoActividad } from '../types';
 import { ApiError } from '../../../lib/api';
 import { useAuth } from '../../auth/authContext';
 import { activitiesApi } from '../activitiesApi';
+import { formatFechaHora } from '../../../utils/dateTime';
 
 // Fix para los íconos por defecto de Leaflet en React
 type LeafletIconDefaultPrototype = L.Icon.Default & {
@@ -24,16 +25,19 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+const TIPO_ACTIVIDAD_LABEL: Record<TipoActividad, string> = {
+  AIRE_LIBRE: 'Aire libre',
+  TECHADA: 'Techada',
+  MIXTA: 'Mixta',
+};
+
 const LocationMarker: React.FC<{
   position: { lat: number; lng: number } | null;
   setPosition: (lat: number, lng: number) => void;
 }> = ({ position, setPosition }) => {
-  const map = useMap();
-
   useMapEvents({
     click(e) {
       setPosition(e.latlng.lat, e.latlng.lng);
-      map.flyTo(e.latlng, map.getZoom());
     },
   });
 
@@ -46,18 +50,45 @@ const LocationMarker: React.FC<{
 
 const MapController: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom = 15 }) => {
   const map = useMap();
+  const prevCenterRef = React.useRef<[number, number] | null>(null);
+
   React.useEffect(() => {
-    map.flyTo(center, zoom, { duration: 1.5 });
+    const [lat, lng] = center;
+    if (!prevCenterRef.current) {
+      prevCenterRef.current = [lat, lng];
+      return;
+    }
+
+    const [prevLat, prevLng] = prevCenterRef.current;
+    if (prevLat !== lat || prevLng !== lng) {
+      prevCenterRef.current = [lat, lng];
+      map.flyTo([lat, lng], zoom, { duration: 1.2 });
+    }
   }, [center, zoom, map]);
 
   return null;
 };
 
+interface FormState {
+  titulo: string;
+  descripcion: string;
+  tipoActividad: TipoActividad;
+  ubicacion: {
+    ciudad: string;
+    latitud: number | null;
+    longitud: number | null;
+  };
+  fecha: string;
+  duracionEstimada: number | '';
+  cantidadMinima: number | '';
+  cantidadMaxima: number | '';
+}
+
 export const CreateActivity: React.FC = () => {
   useDocumentTitle('Crear Nueva Actividad');
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState<ActividadPost>({
+  const [formData, setFormData] = useState<FormState>({
     titulo: '',
     descripcion: '',
     tipoActividad: 'AIRE_LIBRE',
@@ -72,10 +103,21 @@ export const CreateActivity: React.FC = () => {
     cantidadMaxima: 10
   });
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+
+  const clearFieldError = (name: string) => {
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -86,9 +128,12 @@ export const CreateActivity: React.FC = () => {
         name === 'duracionEstimada' ||
         name === 'cantidadMinima' ||
         name === 'cantidadMaxima'
-          ? Number(value)
+          ? (value === '' ? '' : Number(value))
           : value
     }));
+
+    clearFieldError(name);
+    if (error) setError(null);
   };
 
   const handleUbicacionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +149,11 @@ export const CreateActivity: React.FC = () => {
             : Number(value)
       }
     }));
+
+    if (name === 'ciudad') {
+      clearFieldError('ciudad');
+    }
+    if (error) setError(null);
   };
 
   // Actualiza las coordenadas en el estado
@@ -130,8 +180,22 @@ export const CreateActivity: React.FC = () => {
       const data = await response.json();
 
       if (data && data.length > 0) {
-        const { lat, lon } = data[0];
+        const { lat, lon, display_name } = data[0];
         handleMapClick(parseFloat(lat), parseFloat(lon));
+        // Si el campo de lugar está vacío, autocompletamos con la dirección encontrada
+        if (!formData.ubicacion.ciudad.trim()) {
+          const suggestedPlace = searchQuery.trim() || (typeof display_name === 'string' ? display_name.split(',')[0] : '');
+          if (suggestedPlace) {
+            setFormData(prev => ({
+              ...prev,
+              ubicacion: {
+                ...prev.ubicacion,
+                ciudad: suggestedPlace
+              }
+            }));
+            clearFieldError('ciudad');
+          }
+        }
       } else {
         alert('No se encontraron resultados para esa dirección.');
       }
@@ -142,61 +206,116 @@ export const CreateActivity: React.FC = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.titulo.trim()) {
+      errors.titulo = 'El título es obligatorio.';
+    }
+
+    if (!formData.tipoActividad) {
+      errors.tipoActividad = 'El tipo de actividad es obligatorio.';
+    }
+
+    if (!formData.fecha) {
+      errors.fecha = 'La fecha y hora son obligatorias.';
+    } else {
+      const fechaSeleccionada = new Date(formData.fecha);
+      const ahora = new Date();
+      if (isNaN(fechaSeleccionada.getTime())) {
+        errors.fecha = 'La fecha ingresada no es válida.';
+      } else if (fechaSeleccionada <= ahora) {
+        errors.fecha = 'La fecha y hora deben ser posteriores al momento actual.';
+      }
+    }
+
+    if (!formData.ubicacion.ciudad.trim()) {
+      errors.ciudad = 'El lugar es obligatorio.';
+    }
+
+    if (formData.duracionEstimada === '' || Number(formData.duracionEstimada) < 1) {
+      errors.duracionEstimada = 'La duración estimada debe ser de al menos 1 hora.';
+    }
+
+    if (formData.cantidadMinima === '' || Number(formData.cantidadMinima) < 2) {
+      errors.cantidadMinima = 'La capacidad mínima debe ser de al menos 2 personas.';
+    }
+
+    if (formData.cantidadMaxima === '' || Number(formData.cantidadMaxima) < 2) {
+      errors.cantidadMaxima = 'La capacidad máxima debe ser de al menos 2 personas.';
+    } else if (
+      formData.cantidadMinima !== '' &&
+      Number(formData.cantidadMinima) > Number(formData.cantidadMaxima)
+    ) {
+      errors.cantidadMaxima = 'La capacidad máxima no puede ser menor a la capacidad mínima.';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const { token } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validación según reglas del Backend
-    if (formData.cantidadMinima > formData.cantidadMaxima) {
-      setError('La cantidad mínima de participantes no puede ser mayor a la cantidad máxima');
+    if (!validateForm()) {
       return;
     }
 
-    if (formData.cantidadMinima < 2) {
-      setError('La actividad debe contar con por lo menos 2 personas');
-      return;
-    }
+    setShowConfirmModal(true);
+  };
 
-    const tieneCiudad =
-      formData.ubicacion.ciudad.trim() !== '';
-
-    const tieneCoordenadas =
-      formData.ubicacion.latitud !== null &&
-      formData.ubicacion.longitud !== null;
-
-    if (!tieneCiudad && !tieneCoordenadas) {
-      setError('Completá la ciudad o seleccioná una ubicación en el mapa.');
-      return;
-    }
-
+  const handleConfirmCreate = async () => {
     if (!token) {
       setError('No estás autenticado.');
+      setShowConfirmModal(false);
       return;
     }
 
     setIsSubmitting(true);
+    setError(null);
+
+    const payload: ActividadPost = {
+      titulo: formData.titulo.trim(),
+      descripcion: formData.descripcion.trim(),
+      tipoActividad: formData.tipoActividad,
+      ubicacion: {
+        ciudad: formData.ubicacion.ciudad.trim(),
+        latitud: formData.ubicacion.latitud,
+        longitud: formData.ubicacion.longitud
+      },
+      fecha: formData.fecha,
+      duracionEstimada: Number(formData.duracionEstimada),
+      cantidadMinima: Number(formData.cantidadMinima),
+      cantidadMaxima: Number(formData.cantidadMaxima)
+    };
 
     try {
-      await activitiesApi.crear(formData, token);
-
-      navigate('/activities');
+      await activitiesApi.crear(payload, token);
+      setShowConfirmModal(false);
+      navigate('/my-activities', {
+        state: { successMessage: '¡La actividad se ha creado exitosamente!' }
+      });
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Ocurrió un error al intentar crear la actividad.'
-      );
+      setShowConfirmModal(false);
+      if (err instanceof ApiError) {
+        if (err.fieldErrors) {
+          setFieldErrors(prev => ({ ...prev, ...err.fieldErrors }));
+        }
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado al intentar crear la actividad.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const mapCenter: [number, number] = [
-    formData.ubicacion.latitud ?? -34.6037,
-    formData.ubicacion.longitud ?? -58.3816
-  ];
+  const lat = formData.ubicacion.latitud ?? -34.6037;
+  const lng = formData.ubicacion.longitud ?? -58.3816;
+  const mapCenter = React.useMemo<[number, number]>(() => [lat, lng], [lat, lng]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -211,12 +330,13 @@ export const CreateActivity: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium">
-          ⚠️ {error}
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handlePreSubmit} noValidate>
         <Card>
           <CardBody className="space-y-6">
 
@@ -226,12 +346,14 @@ export const CreateActivity: React.FC = () => {
               <input
                 type="text"
                 name="titulo"
-                required
                 value={formData.titulo}
                 onChange={handleChange}
                 placeholder="Ej: Partido de Fútbol 5 / Asado de fin de año"
-                className="input-field"
+                className={`input-field ${fieldErrors.titulo ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
               />
+              {fieldErrors.titulo && (
+                <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.titulo}</p>
+              )}
             </div>
 
             {/* Descripción */}
@@ -255,45 +377,53 @@ export const CreateActivity: React.FC = () => {
                   name="tipoActividad"
                   value={formData.tipoActividad}
                   onChange={handleChange}
-                  className="input-field bg-white"
+                  className={`input-field bg-white ${fieldErrors.tipoActividad ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                 >
                   <option value={'AIRE_LIBRE'}>Aire Libre</option>
                   <option value={'TECHADA'}>Techada</option>
                   <option value={'MIXTA'}>Mixta</option>
                 </select>
+                {fieldErrors.tipoActividad && (
+                  <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.tipoActividad}</p>
+                )}
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <label className="label-text">Fecha y Hora *</label>
                 <input
                   type="datetime-local"
                   name="fecha"
-                  required
                   value={formData.fecha}
                   onChange={handleChange}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.fecha ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                 />
+                {fieldErrors.fecha && (
+                  <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.fecha}</p>
+                )}
               </div>
             </div>
 
             {/* Ubicación (Ciudad, Buscador y Mapa) */}
             <div className="space-y-4">
               <div>
-                <label className="label-text"> Lugar *</label>
+                <label className="label-text">Lugar *</label>
                 <input
                   type="text"
                   name="ciudad"
                   value={formData.ubicacion.ciudad}
                   onChange={handleUbicacionChange}
                   placeholder="Ej: Ramos Mejia / Parque Sarmiento"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.ciudad ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                 />
+                {fieldErrors.ciudad && (
+                  <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.ciudad}</p>
+                )}
               </div>
 
               {/* Buscador de dirección */}
               <div>
                 <label className="label-text mb-1 block">
-                  Seleccionar ubicación en el mapa
+                  Ubicación en el mapa (opcional)
                 </label>
                 <div className="flex gap-2 mb-2">
                   <input
@@ -315,11 +445,11 @@ export const CreateActivity: React.FC = () => {
                 </div>
 
                 <p className="text-xs text-gray-500 mb-2">
-                  Buscá un lugar arriba o hacé click directamente en el mapa para ajustar la marca.
+                  Buscá una dirección arriba o hacé click directamente en el mapa para marcar la ubicación geográfica.
                 </p>
 
                 {/* Mapa con Autocentrado */}
-                <div className="h-64 w-full rounded-lg overflow-hidden border border-gray-300">
+                <div className="h-64 w-full rounded-lg overflow-hidden border border-gray-300 relative z-0 isolate">
                   <MapContainer
                     center={mapCenter}
                     zoom={13}
@@ -361,11 +491,13 @@ export const CreateActivity: React.FC = () => {
                   type="number"
                   name="duracionEstimada"
                   min="1"
-                  required
                   value={formData.duracionEstimada}
                   onChange={handleChange}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.duracionEstimada ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                 />
+                {fieldErrors.duracionEstimada && (
+                  <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.duracionEstimada}</p>
+                )}
               </div>
 
               <div>
@@ -374,11 +506,13 @@ export const CreateActivity: React.FC = () => {
                   type="number"
                   name="cantidadMinima"
                   min="2"
-                  required
                   value={formData.cantidadMinima}
                   onChange={handleChange}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.cantidadMinima ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                 />
+                {fieldErrors.cantidadMinima && (
+                  <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.cantidadMinima}</p>
+                )}
               </div>
 
               <div>
@@ -387,11 +521,13 @@ export const CreateActivity: React.FC = () => {
                   type="number"
                   name="cantidadMaxima"
                   min="2"
-                  required
                   value={formData.cantidadMaxima}
                   onChange={handleChange}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.cantidadMaxima ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                 />
+                {fieldErrors.cantidadMaxima && (
+                  <p className="mt-1 text-xs text-red-600 font-medium">⚠️ {fieldErrors.cantidadMaxima}</p>
+                )}
               </div>
             </div>
 
@@ -403,13 +539,113 @@ export const CreateActivity: React.FC = () => {
                 </Button>
               </Link>
               <Button variant="primary" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creando...' : 'Crear Actividad'}
+                Crear Actividad
               </Button>
             </div>
 
           </CardBody>
         </Card>
       </form>
+
+      {/* Pop-up Modal de Confirmación */}
+      {showConfirmModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+        >
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📋</span>
+                <h3 id="confirm-modal-title" className="text-xl font-bold text-gray-900">
+                  Confirmar Nueva Actividad
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isSubmitting}
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1 cursor-pointer"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-sm text-gray-700">
+              <p className="font-medium text-gray-800">
+                ¿Estás seguro de que deseas crear esta actividad con los siguientes datos?
+              </p>
+
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-200">
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Título:</span>
+                  <span className="font-semibold text-gray-900 text-right">{formData.titulo}</span>
+                </div>
+                {formData.descripcion && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-500 font-medium">Descripción:</span>
+                    <span className="text-gray-800 text-right line-clamp-2">{formData.descripcion}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Tipo:</span>
+                  <span className="font-medium text-gray-900">{TIPO_ACTIVIDAD_LABEL[formData.tipoActividad]}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Fecha y hora:</span>
+                  <span className="font-medium text-gray-900">
+                    {formData.fecha ? `${formatFechaHora(formData.fecha)} hs` : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Lugar:</span>
+                  <span className="font-semibold text-gray-900">{formData.ubicacion.ciudad}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Duración:</span>
+                  <span className="font-medium text-gray-900">{formData.duracionEstimada} hs</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Capacidad:</span>
+                  <span className="font-medium text-gray-900">
+                    Mín. {formData.cantidadMinima} / Máx. {formData.cantidadMaxima} participantes
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Ubicación geográfica:</span>
+                  <span className="font-medium text-gray-600">
+                    {formData.ubicacion.latitud !== null && formData.ubicacion.longitud !== null
+                      ? `(${formData.ubicacion.latitud}, ${formData.ubicacion.longitud})`
+                      : 'No especificada en mapa'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                onClick={handleConfirmCreate}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Creando...' : 'Confirmar y Crear'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

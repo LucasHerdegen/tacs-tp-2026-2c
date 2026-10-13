@@ -165,14 +165,18 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
       MethodArgumentNotValidException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
   {
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-        "Error de validacion en los campos enviados");
     Map<String, String> errors = new HashMap<>();
     ex.getBindingResult().getAllErrors().forEach((error) -> {
-      String fieldName = ((FieldError) error).getField();
+      String fieldName = error instanceof FieldError fieldError ? fieldError.getField() : error.getObjectName();
       String errorMessage = error.getDefaultMessage();
       errors.put(fieldName, errorMessage);
     });
+
+    String detailMessage = errors.isEmpty()
+        ? "Error de validacion en los campos enviados"
+        : String.join("; ", errors.values());
+
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detailMessage);
     problemDetail.setProperty("errores", errors);
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
   }

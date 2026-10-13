@@ -1,0 +1,13 @@
+Buenas. Estaba revisando la ruta /activities/new en frontend. y me di cuanta de las siguientes cosas:
+
+1. Faltan mensajes de error personalizados por cada campo invalido dentro del formulario.
+2. Se devuelven errores crudos cuando hay algo mal en el backend (por ejemplo, cuando la fecha puesta es pasada a la actual).
+3. En los imputs numericos, si se borra todo queda un 0, haciendo que si borro todo y ponga el numero 4, quede 04, penalizando la experiencia de usuario.
+4. Deberia haber un pop-up de confirmacion para crear la actividad.
+5. El lugar figura que es obligatorio (*), pero deja crear actividad sin lugar.
+6. Cuando se crea la actividad, se redirecciona a /activities, cuando deberia redireccionar a /my-activities (con algun mensaje que indique que la creacion se realizo con exito)
+7. Cada vez que se cambia un input, el mapa vibra.
+
+Me gustaria que arregles esto, teniendo muy en cuenta /skills, en donde vas a encontrar algunas skills que te van a ser muy utiles.
+
+[file](file;file:///c%3A/Users/Lucas/tacs/tacs-tp-2026-2c/skills/)
