@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -50,9 +50,9 @@ const LocationMarker: React.FC<{
 
 const MapController: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom = 15 }) => {
   const map = useMap();
-  const prevCenterRef = React.useRef<[number, number] | null>(null);
+  const prevCenterRef = useRef<[number, number] | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const [lat, lng] = center;
     if (!prevCenterRef.current) {
       prevCenterRef.current = [lat, lng];
@@ -84,6 +84,12 @@ interface FormState {
   cantidadMaxima: number | '';
 }
 
+interface AddressSuggestion {
+  lat: string;
+  lon: string;
+  display_name: string;
+}
+
 export const CreateActivity: React.FC = () => {
   useDocumentTitle('Crear Nueva Actividad');
   const navigate = useNavigate();
@@ -105,10 +111,24 @@ export const CreateActivity: React.FC = () => {
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<AddressSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [locatingError, setLocatingError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+
+  // Calcula la fecha y hora mínima en formato YYYY-MM-DDTHH:mm local
+  const minDateTime = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }, []);
 
   const clearFieldError = (name: string) => {
     setFieldErrors(prev => {
@@ -156,16 +176,63 @@ export const CreateActivity: React.FC = () => {
     if (error) setError(null);
   };
 
-  // Actualiza las coordenadas en el estado
-  const handleMapClick = (lat: number, lng: number) => {
+  // Actualiza las coordenadas en el estado y realiza reverse geocoding si el lugar está vacío
+  const handleMapClick = async (lat: number, lng: number) => {
+    const formattedLat = Number(lat.toFixed(6));
+    const formattedLng = Number(lng.toFixed(6));
+
     setFormData(prev => ({
       ...prev,
       ubicacion: {
         ...prev.ubicacion,
-        latitud: Number(lat.toFixed(6)),
-        longitud: Number(lng.toFixed(6))
+        latitud: formattedLat,
+        longitud: formattedLng
       }
     }));
+
+    // Reverse geocoding con OpenStreetMap Nominatim
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${formattedLat}&lon=${formattedLng}`
+      );
+      const data = await response.json();
+      if (data && data.display_name) {
+        const parts = data.display_name.split(',').map((p: string) => p.trim());
+        const suggested = parts.slice(0, 2).join(', ');
+        if (suggested) {
+          setFormData(prev => ({
+            ...prev,
+            ubicacion: {
+              ...prev.ubicacion,
+              ciudad: suggested
+            }
+          }));
+          clearFieldError('ciudad');
+        }
+      }
+    } catch (err) {
+      console.warn('Reverse geocoding error:', err);
+    }
+  };
+
+  const selectAddress = (item: AddressSuggestion) => {
+    const lat = parseFloat(item.lat);
+    const lon = parseFloat(item.lon);
+    const cleanName = item.display_name.split(',').slice(0, 2).join(', ').trim();
+    const formattedLat = Number(lat.toFixed(6));
+    const formattedLng = Number(lon.toFixed(6));
+
+    setFormData(prev => ({
+      ...prev,
+      ubicacion: {
+        ...prev.ubicacion,
+        latitud: formattedLat,
+        longitud: formattedLng,
+        ciudad: cleanName || searchQuery.trim()
+      }
+    }));
+    clearFieldError('ciudad');
+    setSearchResults([]);
   };
 
   const handleSearchAddress = async (e?: React.FormEvent) => {
@@ -173,28 +240,20 @@ export const CreateActivity: React.FC = () => {
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
+    setSearchResults([]);
+    setLocatingError(null);
+
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
+        `https://nominatim.openstreetmap.org/search?format=json&limit=4&q=${encodeURIComponent(searchQuery)}`
       );
       const data = await response.json();
 
-      if (data && data.length > 0) {
-        const { lat, lon, display_name } = data[0];
-        handleMapClick(parseFloat(lat), parseFloat(lon));
-        // Si el campo de lugar está vacío, autocompletamos con la dirección encontrada
-        if (!formData.ubicacion.ciudad.trim()) {
-          const suggestedPlace = searchQuery.trim() || (typeof display_name === 'string' ? display_name.split(',')[0] : '');
-          if (suggestedPlace) {
-            setFormData(prev => ({
-              ...prev,
-              ubicacion: {
-                ...prev.ubicacion,
-                ciudad: suggestedPlace
-              }
-            }));
-            clearFieldError('ciudad');
-          }
+      if (Array.isArray(data) && data.length > 0) {
+        if (data.length === 1) {
+          selectAddress(data[0]);
+        } else {
+          setSearchResults(data);
         }
       } else {
         alert('No se encontraron resultados para esa dirección.');
@@ -204,6 +263,45 @@ export const CreateActivity: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocatingError('Tu navegador no soporta geolocalización.');
+      return;
+    }
+
+    setIsLocating(true);
+    setLocatingError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        handleMapClick(lat, lng);
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setLocatingError('No se pudo acceder a tu ubicación (permiso denegado o no disponible).');
+        setIsLocating(false);
+      },
+      { timeout: 8000 }
+    );
+  };
+
+  const handleClearMarker = () => {
+    setFormData(prev => ({
+      ...prev,
+      ubicacion: {
+        ...prev.ubicacion,
+        latitud: null,
+        longitud: null,
+        ciudad: ''
+      }
+    }));
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const validateForm = (): boolean => {
@@ -293,10 +391,13 @@ export const CreateActivity: React.FC = () => {
     };
 
     try {
-      await activitiesApi.crear(payload, token);
+      const nuevaActividad = await activitiesApi.crear(payload, token);
       setShowConfirmModal(false);
       navigate('/my-activities', {
-        state: { successMessage: '¡La actividad se ha creado exitosamente!' }
+        state: {
+          successMessage: '¡La actividad se ha creado exitosamente!',
+          newActivityId: nuevaActividad?.id
+        }
       });
     } catch (err) {
       setShowConfirmModal(false);
@@ -315,7 +416,7 @@ export const CreateActivity: React.FC = () => {
 
   const lat = formData.ubicacion.latitud ?? -34.6037;
   const lng = formData.ubicacion.longitud ?? -58.3816;
-  const mapCenter = React.useMemo<[number, number]>(() => [lat, lng], [lat, lng]);
+  const mapCenter = useMemo<[number, number]>(() => [lat, lng], [lat, lng]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -393,6 +494,7 @@ export const CreateActivity: React.FC = () => {
                 <input
                   type="datetime-local"
                   name="fecha"
+                  min={minDateTime}
                   value={formData.fecha}
                   onChange={handleChange}
                   className={`input-field ${fieldErrors.fecha ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
@@ -420,32 +522,82 @@ export const CreateActivity: React.FC = () => {
                 )}
               </div>
 
-              {/* Buscador de dirección */}
+              {/* Buscador de dirección y Geolocation */}
               <div>
-                <label className="label-text mb-1 block">
-                  Ubicación en el mapa (opcional)
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Ej: Av. Corrientes 1234, CABA"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearchAddress())}
-                    className="input-field text-sm"
-                  />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="label-text block">
+                    Ubicación en el mapa (opcional)
+                  </label>
+                  {formData.ubicacion.latitud !== null && formData.ubicacion.longitud !== null && (
+                    <button
+                      type="button"
+                      onClick={handleClearMarker}
+                      className="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1 cursor-pointer transition"
+                    >
+                      ✕ Quitar marcador
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 mb-2 relative">
+                  <div className="flex-grow flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ej: Av. Corrientes 1234, CABA"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearchAddress())}
+                      className="input-field text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleSearchAddress}
+                      disabled={isSearching}
+                    >
+                      {isSearching ? 'Buscando...' : 'Buscar'}
+                    </Button>
+                  </div>
+
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={handleSearchAddress}
-                    disabled={isSearching}
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLocating}
+                    className="whitespace-nowrap flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+                    title="Usar ubicación GPS actual"
                   >
-                    {isSearching ? 'Buscando...' : 'Buscar'}
+                    <span>📍</span>
+                    <span>{isLocating ? 'Ubicando...' : 'Mi ubicación'}</span>
                   </Button>
                 </div>
 
+                {locatingError && (
+                  <p className="text-xs text-amber-600 mb-2">⚠️ {locatingError}</p>
+                )}
+
+                {/* Lista de sugerencias si la búsqueda trajo varios resultados */}
+                {searchResults.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-lg mb-3 p-1.5 space-y-1 text-sm z-20">
+                    <p className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Seleccioná la ubicación correcta:
+                    </p>
+                    {searchResults.map((result, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => selectAddress(result)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-indigo-50 hover:text-indigo-900 transition flex items-start gap-2 cursor-pointer"
+                      >
+                        <span className="text-indigo-600 mt-0.5">📍</span>
+                        <span className="line-clamp-2 text-xs text-gray-800">{result.display_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <p className="text-xs text-gray-500 mb-2">
-                  Buscá una dirección arriba o hacé click directamente en el mapa para marcar la ubicación geográfica.
+                  💡 Buscá una dirección, usá tu ubicación o hacé click en el mapa. El nombre del lugar se sugerirá automáticamente.
                 </p>
 
                 {/* Mapa con Autocentrado */}

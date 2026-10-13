@@ -16,11 +16,11 @@ export const activitiesApi = {
   },
 
   crear(actividad: ActividadPost, token: string) {
-    return apiRequest<void>(
+    return apiRequest<Actividad>(
       '/api/actividades',
       { method: 'POST', token, body: JSON.stringify(actividad) }
-      ); 
-    },
+    ); 
+  },
 
   unirse(actividadId: string, token: string) {
     return apiRequest<void>(
