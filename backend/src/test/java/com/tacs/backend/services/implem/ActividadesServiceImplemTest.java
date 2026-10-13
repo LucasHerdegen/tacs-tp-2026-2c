@@ -7,8 +7,10 @@ import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.domain.usuario.TipoRol;
+import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
@@ -499,6 +501,46 @@ class ActividadesServiceImplemTest
     // hacia el GlobalExceptionHandler (que la mapea a 503).
     assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
         .isInstanceOf(ProveedorClimaIndisponibleException.class);
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad siendo organizador pero no participante - Exitoso")
+  void obtenerClimaActividad_OrganizadorNoParticipante_RetornaPronostico()
+  {
+    // Arrange
+    String actividadId = "100";
+    String usuarioId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setParticipantes(List.of());
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(proveedorClima.obtenerClima(any())).thenReturn(mock(Clima.class));
+    when(proveedorClima.obtenerPronostico(any(), any())).thenReturn(mock(Clima.class));
+
+    // Act
+    var pronostico = actividadesService.obtenerClimaActividad(actividadId, usuarioId);
+
+    // Assert
+    assertThat(pronostico).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad no siendo ni participante ni organizador - Lanza NoParticipanteException")
+  void obtenerClimaActividad_NoParticipanteNiOrganizador_LanzaNoParticipanteException()
+  {
+    // Arrange
+    String actividadId = "100";
+    String usuarioId = "99";
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setParticipantes(List.of());
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
+        .isInstanceOf(NoParticipanteException.class);
   }
 
   @Test

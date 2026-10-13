@@ -24,9 +24,13 @@ export const ActivityDetail: React.FC = () => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Estados para el modal de cancelación
+  // Estados para el modal de cancelación, baja y vista de listas
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [mostrarTodosParticipantes, setMostrarTodosParticipantes] = useState(false);
+  const [mostrarHistorialReprogramaciones, setMostrarHistorialReprogramaciones] = useState(false);
 
   useDocumentTitle(activity ? activity.titulo : 'Detalle de Actividad');
 
@@ -43,7 +47,8 @@ export const ActivityDetail: React.FC = () => {
     let pronosticoEncontrado: PronosticoRespuesta | null = null;
 
     const yaParticipa = actividadEncontrada?.participantes.some((p) => p.id === user.id);
-    if (actividadEncontrada && yaParticipa && actividadEncontrada.estadoActividad !== 'CANCELADA') {
+    const esOrg = actividadEncontrada?.organizador?.id === user.id;
+    if (actividadEncontrada && (yaParticipa || esOrg) && actividadEncontrada.estadoActividad !== 'CANCELADA') {
       try {
         pronosticoEncontrado = await activitiesApi.clima(actividadId, token);
       } catch (error) {
@@ -89,21 +94,40 @@ export const ActivityDetail: React.FC = () => {
     };
   }, [obtenerDetalle]);
 
-  async function handleJoinLeave() {
+  async function handleJoin() {
     if (!token || !user || !activity || estaCancelada) return;
     setBusy(true);
     setError('');
     try {
-      if (esParticipante) {
-        await activitiesApi.bajarse(activity.id, token);
-      } else {
-        await activitiesApi.unirse(activity.id, token);
-      }
+      await activitiesApi.unirse(activity.id, token);
       await cargarTodo();
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'No pudimos actualizar tu participación.');
+      setError(requestError instanceof ApiError ? requestError.message : 'No pudimos sumarte a la actividad.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleConfirmLeave() {
+    if (!token || !user || !activity || estaCancelada) return;
+    setLeaving(true);
+    setError('');
+    try {
+      await activitiesApi.bajarse(activity.id, token);
+      setShowLeaveModal(false);
+      await cargarTodo();
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'No pudimos darte de baja de la actividad.');
+    } finally {
+      setLeaving(false);
+    }
+  }
+
+  function handleParticipationClick() {
+    if (esParticipante) {
+      setShowLeaveModal(true);
+    } else {
+      void handleJoin();
     }
   }
 
@@ -123,19 +147,111 @@ export const ActivityDetail: React.FC = () => {
     }
   }
 
+  // 🔹 Formateador de Horarios y Duración
+  const getFormattedSchedule = () => {
+    if (!activity) return { fechaTexto: '', horarioTexto: '', duracionTexto: '' };
+    try {
+      const inicio = new Date(activity.fecha);
+      const duracion = activity.duracionEstimada || 1;
+      const fin = new Date(inicio.getTime() + duracion * 3600 * 1000);
+
+      const fechaRaw = inicio.toLocaleDateString('es-AR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      const fechaTexto = fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1);
+
+      const horaInicio = inicio.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      const horaFin = fin.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+      return {
+        fechaTexto,
+        horarioTexto: `${horaInicio} a ${horaFin} hs`,
+        duracionTexto: `${duracion} ${duracion === 1 ? 'hora' : 'horas'}`
+      };
+    } catch {
+      return {
+        fechaTexto: activity.fecha,
+        horarioTexto: '',
+        duracionTexto: `${activity.duracionEstimada || 1} hs`
+      };
+    }
+  };
+
+  // 🔹 Semáforo Climático Inteligente
+  const checkWeatherStatus = () => {
+    if (!pronostico || !activity?.reglasClima) return null;
+    const { probabilidadLluvia, viento, temperatura } = pronostico.pronosticoFuturo;
+    const { maxProbabilidadLluvia, maxViento, minTemperatura, maxTemperatura } = activity.reglasClima;
+
+    const alertas: string[] = [];
+
+    const lluviaOk = maxProbabilidadLluvia == null || probabilidadLluvia <= maxProbabilidadLluvia;
+    if (!lluviaOk) {
+      alertas.push(`Lluvia (${probabilidadLluvia}%) supera el máx. pactado de ${maxProbabilidadLluvia}%`);
+    }
+
+    const vientoOk = maxViento == null || maxViento === 0 || viento <= maxViento;
+    if (!vientoOk) {
+      alertas.push(`Viento (${viento} km/h) supera el límite de ${maxViento} km/h`);
+    }
+
+    const tempMinOk = minTemperatura == null || temperatura >= minTemperatura;
+    if (!tempMinOk) {
+      alertas.push(`Temperatura (${temperatura}°C) es menor a la mínima de ${minTemperatura}°C`);
+    }
+
+    const tempMaxOk = maxTemperatura == null || maxTemperatura === 0 || temperatura <= maxTemperatura;
+    if (!tempMaxOk) {
+      alertas.push(`Temperatura (${temperatura}°C) supera la máxima de ${maxTemperatura}°C`);
+    }
+
+    const apto = alertas.length === 0;
+
+    return {
+      apto,
+      alertas,
+      lluviaOk,
+      vientoOk,
+      tempOk: tempMinOk && tempMaxOk
+    };
+  };
+
+  // 🔹 Badge de estado de ciclo de vida
+  const getEstadoBadge = (estado: string) => {
+    switch (estado) {
+      case 'CANCELADA':
+        return <Badge variant="error" className="px-3 py-1 font-bold">CANCELADA</Badge>;
+      case 'CONFIRMADA':
+        return <Badge variant="success" className="px-3 py-1 font-bold">CONFIRMADA</Badge>;
+      case 'REPROGRAMADA':
+        return <Badge variant="warning" className="px-3 py-1 font-bold bg-purple-100 text-purple-800 border-purple-200">REPROGRAMADA</Badge>;
+      case 'FINALIZADA':
+        return <Badge variant="neutral" className="px-3 py-1 font-bold bg-gray-100 text-gray-700">FINALIZADA</Badge>;
+      case 'PROPUESTA':
+      default:
+        return <Badge variant="warning" className="px-3 py-1 font-bold">PROPUESTA</Badge>;
+    }
+  };
+
   // 🔹 Estado declarativo para el botón de Acción de Participación
   const getParticipationButtonConfig = () => {
     if (estaCancelada) {
       return { text: 'Actividad Cancelada', disabled: true, variant: 'secondary' as const };
     }
+    if (activity?.estadoActividad === 'FINALIZADA') {
+      return { text: 'Actividad Finalizada', disabled: true, variant: 'secondary' as const };
+    }
     if (esParticipante) {
-      return { text: 'Bajarme de la actividad', disabled: busy, variant: 'danger' as const };
+      return { text: 'Bajarme de la actividad', disabled: busy || leaving, variant: 'danger' as const };
     }
     const isFull = activity ? activity.participantes.length >= activity.maximoParticipantes : false;
     if (isFull) {
-      return { text: 'Actividad Llena', disabled: true, variant: 'primary' as const };
+      return { text: 'Actividad Completa (Sin cupos)', disabled: true, variant: 'secondary' as const };
     }
-    return { text: 'Sumarme a la actividad', disabled: busy, variant: 'primary' as const };
+    return { text: 'Sumarme a la actividad', disabled: busy || leaving, variant: 'primary' as const };
   };
 
   if (!actividadId) {
@@ -162,9 +278,21 @@ export const ActivityDetail: React.FC = () => {
 
   const isFull = activity.participantes.length >= activity.maximoParticipantes;
   const participationBtn = getParticipationButtonConfig();
+  const schedule = getFormattedSchedule();
+  const weatherStatus = checkWeatherStatus();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+
+      {/* Navegación de retorno */}
+      <div>
+        <Link
+          to="/activities"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+        >
+          <span>←</span> Volver al listado de actividades
+        </Link>
+      </div>
 
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">
@@ -183,42 +311,126 @@ export const ActivityDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Cartel Informativo si está Finalizada */}
+      {activity.estadoActividad === 'FINALIZADA' && (
+        <div className="bg-gray-100 border border-gray-200 text-gray-800 p-4 rounded-xl flex items-center gap-3">
+          <span className="text-2xl">🏁</span>
+          <div>
+            <h4 className="font-bold">Actividad Finalizada</h4>
+            <p className="text-sm text-gray-600">Esta actividad ya se ha realizado.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner Informativo si está Reprogramada */}
+      {activity.estadoActividad === 'REPROGRAMADA' && (
+        <div className="bg-purple-50 border border-purple-200 text-purple-900 p-4 rounded-xl flex items-start gap-3">
+          <span className="text-2xl">🔄</span>
+          <div className="space-y-1 w-full">
+            <h4 className="font-bold text-purple-950">Actividad Reprogramada</h4>
+            <p className="text-sm text-purple-800">
+              Esta actividad fue reprogramada debido a condiciones climáticas u organizativas. Nueva fecha pactada: <strong>{schedule.fechaTexto} ({schedule.horarioTexto})</strong>.
+            </p>
+            {activity.cambiosFecha && activity.cambiosFecha.length > 0 && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarHistorialReprogramaciones(prev => !prev)}
+                  className="text-xs font-semibold text-purple-700 hover:text-purple-950 underline cursor-pointer"
+                >
+                  {mostrarHistorialReprogramaciones
+                    ? 'Ocultar historial de reprogramaciones'
+                    : `Ver historial de reprogramaciones (${activity.cambiosFecha.length})`}
+                </button>
+                {mostrarHistorialReprogramaciones && (
+                  <div className="mt-2 space-y-1.5 bg-white/80 border border-purple-200 rounded-lg p-3 text-xs">
+                    {activity.cambiosFecha.map((cambio, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col sm:flex-row sm:justify-between text-purple-900 py-1 border-b border-purple-100 last:border-b-0 gap-1"
+                      >
+                        <span className="text-purple-700 font-medium">
+                          Reprogramado el {new Date(cambio.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} hs:
+                        </span>
+                        <span>
+                          De <span className="line-through text-purple-400">{new Date(cambio.fechaAntigua).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} hs</span> a{' '}
+                          <span className="font-bold text-purple-950">{new Date(cambio.fechaNueva).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} hs</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header Info */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 flex items-center gap-2">
-          {estaCancelada ? (
-            <Badge variant="error" className="px-3 py-1">CANCELADA</Badge>
-          ) : (
-            <Badge variant="info" className="px-3 py-1">{activity.tipoActividad}</Badge>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {getEstadoBadge(activity.estadoActividad)}
+            <Badge variant="info" className="px-3 py-1 font-semibold">{activity.tipoActividad}</Badge>
+          </div>
 
           {esOrganizador && !estaCancelada && (
             <Link to={`/activities/${activity.id}/weather-config`}>
-              <Button variant="secondary" className="text-xs py-1 px-3">
+              <Button variant="secondary" className="text-xs py-1.5 px-3">
                 ⚙️ Configurar clima
               </Button>
             </Link>
           )}
         </div>
         
-        <h1 className={`text-3xl font-bold mb-2 text-gray-900`}>
+        <h1 className="text-3xl font-bold mb-2 text-gray-900">
           {activity.titulo}
         </h1>
-        <p className="text-gray-600 text-lg mb-6">{activity.descripcion}</p>
 
-        <div className="flex flex-col sm:flex-row gap-6 text-gray-700">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">📍</span>
+        {/* Organizador */}
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+          <span>Organizado por</span>
+          <span className="font-semibold text-gray-800 flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-bold">
+              {(activity.organizador?.username || 'U').charAt(0).toUpperCase()}
+            </span>
+            {activity.organizador?.username}
+            {user?.id === activity.organizador?.id && (
+              <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-normal">Tú</span>
+            )}
+          </span>
+        </div>
+
+        <p className="text-gray-600 text-base mb-6 leading-relaxed">{activity.descripcion}</p>
+
+        {/* Cuadrícula de Fecha, Horario y Ubicación */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700 pt-5 border-t border-gray-100">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">📅</span>
             <div>
-              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Ubicación</p>
-              <p className="font-medium">{activity.ubicacion.ciudad}</p>
+              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Fecha y Horario</p>
+              <p className="font-semibold text-gray-900">{schedule.fechaTexto}</p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                {schedule.horarioTexto} <span className="text-gray-400">({schedule.duracionTexto})</span>
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">📅</span>
+
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">📍</span>
             <div>
-              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Fecha y Hora</p>
-              <p className="font-medium">{new Date(activity.fecha).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })} hs</p>
+              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Ubicación</p>
+              <p className="font-semibold text-gray-900">{activity.ubicacion.ciudad}</p>
+              {activity.ubicacion.latitud != null && activity.ubicacion.longitud != null && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${activity.ubicacion.latitud},${activity.ubicacion.longitud}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5 mt-0.5 hover:underline"
+                >
+                  Ver en Google Maps ↗
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -243,16 +455,106 @@ export const ActivityDetail: React.FC = () => {
 
               {estaCancelada ? (
                 <p className="text-sm text-gray-500 italic">El pronóstico no está disponible para actividades canceladas.</p>
-              ) : !esParticipante ? (
+              ) : (!esParticipante && !esOrganizador) ? (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                   <p className="text-gray-600 mb-2">Sumate a la actividad para ver el pronóstico y participar de votaciones si el clima empeora.</p>
                 </div>
               ) : pronostico ? (
-                <div className="rounded-lg p-6 border bg-gray-50 border-gray-200">
-                  <div className="flex gap-6 text-sm font-medium">
-                    <span>Temp: {pronostico.pronosticoFuturo.temperatura}°C</span>
-                    <span>Viento: {pronostico.pronosticoFuturo.viento} km/h</span>
-                    <span>Lluvia: {pronostico.pronosticoFuturo.probabilidadLluvia}%</span>
+                <div className="space-y-4">
+                  {/* Semáforo Inteligente General */}
+                  {weatherStatus && (
+                    weatherStatus.apto ? (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
+                        <span className="text-base">☀️</span>
+                        <div>
+                          <span className="font-bold">Condiciones Óptimas:</span> El pronóstico actual cumple con todas las reglas climáticas acordadas.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-1.5">
+                        <div className="flex items-center gap-2 font-bold text-rose-900">
+                          <span className="text-base">⚠️</span>
+                          <span>Condiciones Desfavorables Detectadas:</span>
+                        </div>
+                        <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-800 pl-1">
+                          {weatherStatus.alertas.map((alerta, idx) => (
+                            <li key={idx}>{alerta}</li>
+                          ))}
+                        </ul>
+                        <p className="text-[11px] text-rose-700 italic pt-0.5">
+                          Si estas condiciones persisten con {activity.horasAnticipacion ?? 24} hs de anticipación, se habilitará la votación para reprogramar.
+                        </p>
+                      </div>
+                    )
+                  )}
+
+                  {/* Grid de 3 Métricas con Semáforo Individual */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Temperatura */}
+                    <div className={`p-3.5 rounded-xl border ${
+                      weatherStatus
+                        ? weatherStatus.tempOk
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : 'bg-rose-50 border-rose-200 text-rose-950'
+                        : 'bg-gray-50 border-gray-200 text-gray-900'
+                    }`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs uppercase font-semibold tracking-wider text-gray-500">Temperatura</span>
+                        <span className="text-base">🌡️</span>
+                      </div>
+                      <p className="text-2xl font-bold mt-1">
+                        {pronostico.pronosticoFuturo.temperatura}°C
+                      </p>
+                      {weatherStatus && (
+                        <p className={`text-[11px] font-medium mt-1 ${weatherStatus.tempOk ? 'text-emerald-700' : 'text-rose-700 font-bold'}`}>
+                          {weatherStatus.tempOk ? '✓ Dentro de rango' : '✕ Fuera de rango'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Viento */}
+                    <div className={`p-3.5 rounded-xl border ${
+                      weatherStatus
+                        ? weatherStatus.vientoOk
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : 'bg-rose-50 border-rose-200 text-rose-950'
+                        : 'bg-gray-50 border-gray-200 text-gray-900'
+                    }`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs uppercase font-semibold tracking-wider text-gray-500">Viento</span>
+                        <span className="text-base">💨</span>
+                      </div>
+                      <p className="text-2xl font-bold mt-1">
+                        {pronostico.pronosticoFuturo.viento} <span className="text-sm font-normal">km/h</span>
+                      </p>
+                      {weatherStatus && (
+                        <p className={`text-[11px] font-medium mt-1 ${weatherStatus.vientoOk ? 'text-emerald-700' : 'text-rose-700 font-bold'}`}>
+                          {weatherStatus.vientoOk ? '✓ Aceptable' : '✕ Supera límite'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Lluvia */}
+                    <div className={`p-3.5 rounded-xl border ${
+                      weatherStatus
+                        ? weatherStatus.lluviaOk
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : 'bg-rose-50 border-rose-200 text-rose-950'
+                        : 'bg-gray-50 border-gray-200 text-gray-900'
+                    }`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs uppercase font-semibold tracking-wider text-gray-500">Lluvia</span>
+                        <span className="text-base">🌧️</span>
+                      </div>
+                      <p className="text-2xl font-bold mt-1">
+                        {pronostico.pronosticoFuturo.probabilidadLluvia}%
+                      </p>
+                      {weatherStatus && (
+                        <p className={`text-[11px] font-medium mt-1 ${weatherStatus.lluviaOk ? 'text-emerald-700' : 'text-rose-700 font-bold'}`}>
+                          {weatherStatus.lluviaOk ? '✓ Aceptable' : '✕ Supera límite'}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -333,34 +635,137 @@ export const ActivityDetail: React.FC = () => {
           )}
         </div>
 
-        {/* Columna Derecha: Panel de Participación */}
-        <div>
+        {/* Columna Derecha: Panel de Participación y Lista de Inscriptos */}
+        <div className="space-y-6">
           <Card className="sticky top-6">
             <CardBody>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Cupos</h3>
+              {/* Tarjeta distintiva para el Organizador */}
+              {esOrganizador && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5 font-medium mb-4">
+                  <span className="text-lg shrink-0">👑</span>
+                  <div>
+                    <span className="font-bold block text-sm">Eres el organizador</span>
+                    <p className="text-xs text-indigo-700 mt-0.5">
+                      Gestionas los cupos, las reglas de clima y la coordinación de esta actividad.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Cupos y Quórum</h3>
+              
+              {/* Barra de progreso de cupos */}
               <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                 <div
                   className={`h-2.5 rounded-full ${estaCancelada ? 'bg-gray-400' : isFull ? 'bg-red-500' : 'bg-indigo-600'}`}
-                  style={{ width: `${(activity.participantes.length / activity.maximoParticipantes) * 100}%` }}
+                  style={{
+                    width: `${activity.maximoParticipantes > 0
+                      ? Math.min(100, (activity.participantes.length / activity.maximoParticipantes) * 100)
+                      : 0}%`
+                  }}
                 ></div>
               </div>
-              <p className="text-sm text-gray-600 mb-6 font-medium">
-                {activity.participantes.length} de {activity.maximoParticipantes} lugares ocupados
-              </p>
+              <div className="flex justify-between text-xs text-gray-600 mb-3 font-medium">
+                <span>{activity.participantes.length} inscriptos</span>
+                <span>Máx. {activity.maximoParticipantes}</span>
+              </div>
+
+              {/* Indicador de Quórum */}
+              {!estaCancelada && activity.estadoActividad !== 'FINALIZADA' && (
+                <div className="mb-5">
+                  {activity.participantes.length >= activity.minimoParticipantes ? (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2 font-medium">
+                      <span className="text-base">🎉</span>
+                      <div>
+                        <span className="font-bold">¡Quórum asegurado!</span>
+                        <p className="text-[11px] text-emerald-700">Se alcanzó el mínimo de {activity.minimoParticipantes} inscriptos.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2 font-medium">
+                      <span className="text-base">⏳</span>
+                      <div>
+                        <span className="font-bold">Faltan {activity.minimoParticipantes - activity.participantes.length} inscriptos</span>
+                        <p className="text-[11px] text-amber-700">Mínimo para confirmar: {activity.minimoParticipantes} personas.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Botón principal accionado dinámicamente según el estado */}
-              {!esOrganizador && (<Button
-                variant={participationBtn.variant}
-                onClick={handleJoinLeave}
-                disabled={participationBtn.disabled}
-                className="w-full text-base py-3"
-              >
-                {participationBtn.text}
-              </Button>)}
+              {!esOrganizador && (
+                <Button
+                  variant={participationBtn.variant}
+                  onClick={handleParticipationClick}
+                  disabled={participationBtn.disabled}
+                  className="w-full text-base py-3 cursor-pointer"
+                >
+                  {busy ? 'Procesando...' : participationBtn.text}
+                </Button>
+              )}
 
-              <p className="text-xs text-gray-500 mt-4 text-center">
-                Mínimo requerido para confirmar: {activity.minimoParticipantes}
-              </p>
+              {/* Sección Social: Lista de Participantes Inscriptos */}
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs uppercase font-bold tracking-wider text-gray-500">
+                    Inscriptos ({activity.participantes.length})
+                  </h4>
+                  {activity.participantes.length > 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setMostrarTodosParticipantes(prev => !prev)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                    >
+                      {mostrarTodosParticipantes ? 'Ver menos' : `Ver todos (${activity.participantes.length})`}
+                    </button>
+                  )}
+                </div>
+
+                {activity.participantes.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Aún no hay inscriptos. ¡Sé el primero!</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(mostrarTodosParticipantes
+                      ? activity.participantes
+                      : activity.participantes.slice(0, 4)
+                    ).map((participante) => {
+                      const isCreator = participante.id === activity.organizador?.id;
+                      const isMe = user?.id === participante.id;
+                      const initial = (participante.username || 'U').charAt(0).toUpperCase();
+
+                      return (
+                        <div
+                          key={participante.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100 text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              {initial}
+                            </div>
+                            <span className="font-medium text-gray-900 truncate">
+                              {participante.username}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            {isCreator && (
+                              <span className="bg-amber-100 text-amber-800 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                👑 Org.
+                              </span>
+                            )}
+                            {isMe && (
+                              <span className="bg-indigo-100 text-indigo-800 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                                Tú
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Botón de Cancelar Actividad (solo visible si es organizador y NO está cancelada aún) */}
               {esOrganizador && !estaCancelada && (
@@ -369,7 +774,7 @@ export const ActivityDetail: React.FC = () => {
                     variant="danger"
                     type="button"
                     onClick={() => setShowCancelModal(true)}
-                    className="w-full text-sm"
+                    className="w-full text-sm cursor-pointer"
                   >
                     🚫 Cancelar actividad
                   </Button>
@@ -381,18 +786,95 @@ export const ActivityDetail: React.FC = () => {
 
       </div>
 
+      {/* Modal de Confirmación de Baja de Participante */}
+      {showLeaveModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="leave-modal-title"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-gray-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0 font-bold">
+                ⚠️
+              </div>
+              <div>
+                <h3 id="leave-modal-title" className="text-lg font-bold text-gray-900">
+                  ¿Deseas bajarte de la actividad?
+                </h3>
+                <p className="text-xs text-gray-500">Confirmación de desinscripción</p>
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-600 space-y-2">
+              <p>
+                Vas a darte de baja de <strong className="text-gray-900 font-semibold">"{activity.titulo}"</strong>.
+              </p>
+              {activity.participantes.length >= activity.maximoParticipantes ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+                  <span className="font-bold">⚠️ Atención:</span> La actividad está actualmente completa ({activity.participantes.length}/{activity.maximoParticipantes}). Si te bajas ahora, liberarás tu lugar y otro usuario podría ocuparlo.
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600">
+                  Liberarás tu cupo en la actividad ({activity.participantes.length}/{activity.maximoParticipantes}). Si decides volver a unirte más tarde, dependerá de la disponibilidad de lugares.
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+              <Button
+                variant="secondary"
+                type="button"
+                disabled={leaving}
+                onClick={() => setShowLeaveModal(false)}
+              >
+                Volver
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                disabled={leaving}
+                onClick={handleConfirmLeave}
+              >
+                {leaving ? 'Bajándome...' : 'Sí, darme de baja'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Confirmación de Cancelación */}
       {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900">
-              ¿Cancelar esta actividad?
-            </h3>
-            <p className="text-sm text-gray-600">
-              Esta acción no se puede deshacer. Se borrará la actividad <strong>"{activity.titulo}"</strong> y se notificara a los participantes.
-            </p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-modal-title"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-gray-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xl shrink-0 font-bold">
+                🚫
+              </div>
+              <div>
+                <h3 id="cancel-modal-title" className="text-lg font-bold text-gray-900">
+                  ¿Cancelar esta actividad?
+                </h3>
+                <p className="text-xs text-gray-500">Acción irreversible</p>
+              </div>
+            </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="text-sm text-gray-600 space-y-2">
+              <p>
+                Esta acción no se puede deshacer. Se cancelará la actividad <strong className="text-gray-900 font-semibold">"{activity.titulo}"</strong> de forma definitiva.
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-900">
+                Se notificará a todos los inscriptos ({activity.participantes.length} {activity.participantes.length === 1 ? 'persona' : 'personas'}) y se cerrarán las votaciones asociadas.
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
               <Button
                 variant="secondary"
                 type="button"

@@ -263,9 +263,11 @@ public class ActividadesServiceImplem implements ActividadesService
 
     boolean esParticipante = actividad.getParticipantes().stream()
         .anyMatch(u -> u.getId().equals(usuarioId));
+    boolean esOrganizador = actividad.getOrganizador() != null
+        && actividad.getOrganizador().getId().equals(usuarioId);
 
-    if (!esParticipante)
-      throw new NoParticipanteException("Debes ser participante de la actividad para ver su clima");
+    if (!esParticipante && !esOrganizador)
+      throw new NoParticipanteException("Debes ser participante u organizador de la actividad para ver su clima");
 
 
     ClimaDto climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
