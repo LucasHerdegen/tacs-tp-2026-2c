@@ -2,112 +2,145 @@ package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
+import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
-import com.tacs.backend.domain.votacion.Voto;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.VotacionMapper;
+import com.tacs.backend.persistence.mappers.ActividadMapper;
+import com.tacs.backend.persistence.mappers.AlternativaMapper;
+import com.tacs.backend.persistence.mappers.UsuarioMapper;
+import com.tacs.backend.persistence.mappers.VotacionMapperEntity;
+import com.tacs.backend.persistence.mappers.VotoMapper;
+import com.tacs.backend.persistence.repositories.ActividadesMongoRepository;
+import com.tacs.backend.persistence.repositories.ActividadesRepositoryImpl;
+import com.tacs.backend.persistence.repositories.UsuarioMongoRepository;
+import com.tacs.backend.persistence.repositories.UsuarioRepositoryImpl;
+import com.tacs.backend.persistence.repositories.VotacionesMongoRepository;
+import com.tacs.backend.persistence.repositories.VotacionesRepositoryImpl;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
+import com.tacs.backend.services.VotacionesService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
+import org.springframework.cache.CacheManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@DataMongoTest(properties = {
+    "spring.mongodb.uri=${MONGODB_URI:mongodb://localhost:27017/tacs_test}",
+    "spring.data.mongodb.auto-index-creation=true"
+})
+@Import({
+    VotacionesServiceImplem.class,
+    VotacionesRepositoryImpl.class,
+    ActividadesRepositoryImpl.class,
+    UsuarioRepositoryImpl.class,
+    VotacionMapperEntity.class,
+    ActividadMapper.class,
+    AlternativaMapper.class,
+    VotoMapper.class,
+    UsuarioMapper.class,
+    VotacionMapper.class,
+    ActividadesMapper.class,
+    OptimisticLockingRetry.class
+})
 class VotacionesConcurrenciaIntegrationTest
 {
-  @Mock
+  @Autowired
+  private VotacionesService votacionesService;
+
+  @Autowired
+  private VotacionesRepository votacionesRepository;
+
+  @Autowired
   private ActividadesRepository actividadesRepository;
 
-  @Mock
+  @Autowired
   private UsuarioRepository usuarioRepository;
 
-  @Mock
+  @Autowired
+  private VotacionesMongoRepository votacionesMongoRepository;
+
+  @Autowired
+  private ActividadesMongoRepository actividadesMongoRepository;
+
+  @Autowired
+  private UsuarioMongoRepository usuarioMongoRepository;
+
+  @MockitoBean
   private ProveedorClima proveedorClima;
 
-  @Mock
+  @MockitoBean
   private ServicioNotificaciones servicioNotificaciones;
 
-  @Mock
+  @MockitoBean
   private NotificacionInboxService notificacionInboxService;
 
-  private VotacionesServiceImplem votacionesService;
-  private FakeConcurrentVotacionesRepository fakeVotacionesRepository;
-  private VotacionMapper votacionMapper;
+  @MockitoBean
+  private CacheManager cacheManager;
 
   @BeforeEach
   void setUp()
   {
-    fakeVotacionesRepository = new FakeConcurrentVotacionesRepository();
-    votacionMapper = new VotacionMapper(new ActividadesMapper());
-    OptimisticLockingRetry retry = new OptimisticLockingRetry(50);
+    votacionesMongoRepository.deleteAll();
+    actividadesMongoRepository.deleteAll();
+    usuarioMongoRepository.deleteAll();
+  }
 
-    votacionesService = new VotacionesServiceImplem(
-        fakeVotacionesRepository,
-        actividadesRepository,
-        usuarioRepository,
-        votacionMapper,
-        proveedorClima,
-        servicioNotificaciones,
-        notificacionInboxService,
-        retry
-    );
+  @AfterEach
+  void tearDown()
+  {
+    votacionesMongoRepository.deleteAll();
+    actividadesMongoRepository.deleteAll();
+    usuarioMongoRepository.deleteAll();
   }
 
   @Test
-  @DisplayName("10 votos simultáneos dejan exactamente 10 votos registrados sin perder ninguno")
-  void diezVotosSimultaneosDejanDiezVotosRegistrados() throws Exception
+  @DisplayName("10 votos simultáneos dejan exactamente 10 votos registrados en MongoDB sin perder ninguno")
+  void votar_diezVotosSimultaneos_dejaDiezVotosRegistrados() throws Exception
   {
     // Arrange
     int cantidadVotantes = 10;
     List<Usuario> votantes = new ArrayList<>();
     for (int i = 1; i <= cantidadVotantes; i++)
-    {
-      Usuario u = new Usuario("user" + i, "pass", TipoRol.USER);
-      u.setId("usr-" + i);
-      votantes.add(u);
-      when(usuarioRepository.findById("usr-" + i)).thenReturn(Optional.of(u));
-    }
+      votantes.add(usuarioRepository.save(new Usuario("user-" + i, "pass", TipoRol.USER)));
 
-    Usuario organizador = new Usuario("org", "pass", TipoRol.USER);
-    organizador.setId("org-1");
+    Usuario organizador = usuarioRepository.save(new Usuario("organizador", "pass", TipoRol.USER));
 
     Actividad actividad = new Actividad(
         "Fútbol", "picado", TipoActividad.AIRE_LIBRE,
         new Ubicacion("Palermo", -34.58, -58.43),
         LocalDateTime.now().plusDays(2), 2, LocalDateTime.now(), 2, 20, organizador
     );
-    actividad.setId("act-1");
+    actividad.cambiarEstado(TipoEstadoActividad.CONFIRMADA);
     for (Usuario votante : votantes)
-    {
       actividad.agregarParticipante(votante);
-    }
+    actividad = actividadesRepository.save(actividad);
 
     Alternativa alt1 = new Alternativa();
     alt1.setId("alt-1");
@@ -120,17 +153,15 @@ class VotacionesConcurrenciaIntegrationTest
     alt2.setFecha(LocalDateTime.now().plusDays(4));
 
     Votacion votacion = new Votacion();
-    votacion.setId("vot-1");
-    votacion.setVersion(0L);
     votacion.setAbierta(true);
     votacion.setActividad(actividad);
     votacion.agregarAlternativa(alt1);
     votacion.agregarAlternativa(alt2);
     votacion.setQuorumMinimo(2);
+    votacion = votacionesRepository.save(votacion);
+    String votacionId = votacion.getId();
 
-    fakeVotacionesRepository.save(votacion);
-
-    // Act: 10 hilos votan al mismo instante
+    // Act: 10 hilos votan al mismo instante contra MongoDB real
     ExecutorService executor = Executors.newFixedThreadPool(cantidadVotantes);
     CountDownLatch readyLatch = new CountDownLatch(cantidadVotantes);
     CountDownLatch startLatch = new CountDownLatch(1);
@@ -140,14 +171,14 @@ class VotacionesConcurrenciaIntegrationTest
     for (int i = 0; i < cantidadVotantes; i++)
     {
       final String usuarioId = votantes.get(i).getId();
-      final int alternativaElegida = (i % 2) + 1; // mitad a la 1, mitad a la 2
+      final int alternativaElegida = (i % 2) + 1;
 
       CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
         readyLatch.countDown();
         try
         {
           startLatch.await();
-          votacionesService.votar("vot-1", usuarioId, alternativaElegida);
+          votacionesService.votar(votacionId, usuarioId, alternativaElegida);
         }
         catch (InterruptedException e)
         {
@@ -160,13 +191,13 @@ class VotacionesConcurrenciaIntegrationTest
     }
 
     readyLatch.await(5, TimeUnit.SECONDS);
-    startLatch.countDown(); // Disparar todos los votos en paralelo
+    startLatch.countDown();
 
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(10, TimeUnit.SECONDS);
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(20, TimeUnit.SECONDS);
     executor.shutdown();
 
-    // Assert: los 10 votos estan registrados
-    Votacion resultadoFinal = fakeVotacionesRepository.findById("vot-1").orElseThrow();
+    // Assert: los 10 votos estan registrados en MongoDB
+    Votacion resultadoFinal = votacionesRepository.findById(votacionId).orElseThrow();
     assertThat(resultadoFinal.getVotos()).hasSize(10);
 
     for (Usuario votante : votantes)
@@ -179,95 +210,92 @@ class VotacionesConcurrenciaIntegrationTest
     }
   }
 
-  private static class FakeConcurrentVotacionesRepository implements VotacionesRepository
+  @Test
+  @DisplayName("Votos simultáneos con usuarios ajenos rechazan con NoParticipanteException sin perder votos válidos")
+  void votar_votosSimultaneosConUsuariosNoParticipantes_registraParticipantesYRechazaAjenos() throws Exception
   {
-    private final AtomicReference<Votacion> storage = new AtomicReference<>();
+    // Arrange: 6 participantes y 4 usuarios no participantes intentan votar simultaneamente
+    List<Usuario> participantes = new ArrayList<>();
+    for (int i = 1; i <= 6; i++)
+      participantes.add(usuarioRepository.save(new Usuario("participante-" + i, "pass", TipoRol.USER)));
 
-    @Override
-    public synchronized Votacion save(Votacion votacion)
+    List<Usuario> ajenos = new ArrayList<>();
+    for (int i = 1; i <= 4; i++)
+      ajenos.add(usuarioRepository.save(new Usuario("ajeno-" + i, "pass", TipoRol.USER)));
+
+    Usuario organizador = usuarioRepository.save(new Usuario("organizador", "pass", TipoRol.USER));
+
+    Actividad actividad = new Actividad(
+        "Asado", "Encuentro", TipoActividad.AIRE_LIBRE,
+        new Ubicacion("Caballito", -34.61, -58.44),
+        LocalDateTime.now().plusDays(2), 3, LocalDateTime.now(), 2, 20, organizador
+    );
+    actividad.cambiarEstado(TipoEstadoActividad.CONFIRMADA);
+    for (Usuario p : participantes)
+      actividad.agregarParticipante(p);
+    actividad = actividadesRepository.save(actividad);
+
+    Alternativa alt1 = new Alternativa();
+    alt1.setId("alt-1");
+    alt1.setNumeroAlternativa(1);
+    alt1.setFecha(LocalDateTime.now().plusDays(3));
+
+    Votacion votacion = new Votacion();
+    votacion.setAbierta(true);
+    votacion.setActividad(actividad);
+    votacion.agregarAlternativa(alt1);
+    votacion.setQuorumMinimo(2);
+    votacion = votacionesRepository.save(votacion);
+    String votacionId = votacion.getId();
+
+    List<Usuario> todosLosIntentos = new ArrayList<>();
+    todosLosIntentos.addAll(participantes);
+    todosLosIntentos.addAll(ajenos);
+
+    int totalHilos = todosLosIntentos.size();
+    ExecutorService executor = Executors.newFixedThreadPool(totalHilos);
+    CountDownLatch readyLatch = new CountDownLatch(totalHilos);
+    CountDownLatch startLatch = new CountDownLatch(1);
+
+    AtomicInteger exitos = new AtomicInteger(0);
+    AtomicInteger rechazadosNoParticipante = new AtomicInteger(0);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+    for (Usuario u : todosLosIntentos)
     {
-      Votacion current = storage.get();
-      if (current != null && !Objects.equals(votacion.getVersion(), current.getVersion()))
-      {
-        throw new OptimisticLockingFailureException(
-            "Conflicto de version: entidad tenia " + votacion.getVersion() + " pero guardada tiene " + current.getVersion()
-        );
-      }
+      CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+        readyLatch.countDown();
+        try
+        {
+          startLatch.await();
+          votacionesService.votar(votacionId, u.getId(), 1);
+          exitos.incrementAndGet();
+        }
+        catch (NoParticipanteException e)
+        {
+          rechazadosNoParticipante.incrementAndGet();
+        }
+        catch (InterruptedException e)
+        {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }, executor);
 
-      Votacion cloned = cloneVotacion(votacion);
-      cloned.setVersion((cloned.getVersion() == null ? 0L : cloned.getVersion()) + 1L);
-      storage.set(cloned);
-      return cloneVotacion(cloned);
+      futures.add(future);
     }
 
-    @Override
-    public synchronized Optional<Votacion> findById(String id)
-    {
-      return Optional.ofNullable(storage.get()).map(this::cloneVotacion);
-    }
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
 
-    @Override
-    public List<Votacion> findByAbiertaAndActividadOrganizadorId(boolean abierta, String organizadorId)
-    {
-      return List.of();
-    }
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(20, TimeUnit.SECONDS);
+    executor.shutdown();
 
-    @Override
-    public List<Votacion> findByAbiertaAndActividadParticipantesId(boolean abierta, String usuarioId)
-    {
-      return List.of();
-    }
+    // Assert
+    assertThat(exitos.get()).isEqualTo(6);
+    assertThat(rechazadosNoParticipante.get()).isEqualTo(4);
 
-    @Override
-    public Optional<Votacion> findByAbiertaTrueAndActividadId(String actividadId)
-    {
-      return findById(actividadId);
-    }
-
-    @Override
-    public List<Votacion> findByAbiertaTrueAndFechaLimiteBefore(LocalDateTime ahora)
-    {
-      return List.of();
-    }
-
-    @Override
-    public List<Votacion> findByAbiertaYUsuarioInvolucrado(boolean abierta, String usuarioId)
-    {
-      return List.of();
-    }
-
-    @Override
-    public void delete(Votacion votacion)
-    {
-      storage.set(null);
-    }
-
-    private Votacion cloneVotacion(Votacion original)
-    {
-      if (original == null) return null;
-      Votacion clone = new Votacion();
-      clone.setId(original.getId());
-      clone.setVersion(original.getVersion());
-      clone.setAbierta(original.isAbierta());
-      clone.setFechaApertura(original.getFechaApertura());
-      clone.setFechaCierre(original.getFechaCierre());
-      clone.setFechaLimite(original.getFechaLimite());
-      clone.setQuorumMinimo(original.getQuorumMinimo());
-      clone.setActividad(original.getActividad());
-      clone.setAlternativas(new ArrayList<>(original.getAlternativas()));
-
-      List<Voto> votosClonados = new ArrayList<>();
-      for (Voto v : original.getVotos())
-      {
-        Voto vCopy = new Voto();
-        vCopy.setId(v.getId());
-        vCopy.setUsuario(v.getUsuario());
-        vCopy.setAlternativa(v.getAlternativa());
-        votosClonados.add(vCopy);
-      }
-      clone.setVotos(votosClonados);
-      clone.setAlternativaGanadora(original.getAlternativaGanadora());
-      return clone;
-    }
+    Votacion resultadoFinal = votacionesRepository.findById(votacionId).orElseThrow();
+    assertThat(resultadoFinal.getVotos()).hasSize(6);
   }
 }
