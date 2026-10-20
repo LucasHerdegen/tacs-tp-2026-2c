@@ -46,11 +46,7 @@ public class FinalizacionActividadJob
     return actividadesRepository.findCandidatasParaFinalizacion(ahora).stream()
         .filter(actividad -> {
           LocalDateTime fechaFin = actividad.getFechaFin();
-          if (fechaFin != null)
-          {
-            return !ahora.isBefore(fechaFin);
-          }
-          return actividad.getFechaRealizacion() != null && !ahora.isBefore(actividad.getFechaRealizacion());
+          return fechaFin != null && !ahora.isBefore(fechaFin);
         })
         .toList();
   }
@@ -68,15 +64,9 @@ public class FinalizacionActividadJob
         String contenido = "La actividad '%s' fue cancelada: no alcanzó la cantidad mínima de participantes requerida."
             .formatted(entidad.getTitulo());
 
-        if (servicioNotificaciones != null)
-        {
-          servicioNotificaciones.notificarATodos(contenido, entidad.getParticipantes());
-        }
-        if (notificacionInboxService != null)
-        {
-          notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-              entidad.getId(), null, entidad.getParticipantes());
-        }
+        servicioNotificaciones.notificarATodos(contenido, entidad.getParticipantes());
+        notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+            entidad.getId(), null, entidad.getParticipantes());
       }
       else
       {

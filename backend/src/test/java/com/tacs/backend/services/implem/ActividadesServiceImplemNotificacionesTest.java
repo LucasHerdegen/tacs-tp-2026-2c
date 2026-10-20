@@ -11,6 +11,7 @@ import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -70,6 +72,12 @@ class ActividadesServiceImplemNotificacionesTest
 
   @Mock
   private NotificacionInboxService notificacionInboxService;
+
+  @Mock
+  private VotacionesRepository votacionesRepository;
+
+  @Spy
+  private OptimisticLockingRetry optimisticLockingRetry = new OptimisticLockingRetry();
 
   @InjectMocks
   private ActividadesServiceImplem service;

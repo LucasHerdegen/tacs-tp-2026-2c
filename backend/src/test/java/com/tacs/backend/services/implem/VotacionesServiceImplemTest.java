@@ -81,7 +81,8 @@ class VotacionesServiceImplemTest
   private void inicializarService()
   {
     service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository,
-        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService);
+        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService,
+        new OptimisticLockingRetry());
   }
 
   @Test
@@ -216,7 +217,7 @@ class VotacionesServiceImplemTest
     Votacion votacionCreada = captor.getValue();
 
     assertThat(votacionCreada.getAlternativas()).hasSize(1);
-    assertThat(votacionCreada.getAlternativas().get(0).getFecha()).isEqualTo(fechaFavorable);
+    assertThat(votacionCreada.getAlternativas().getFirst().getFecha()).isEqualTo(fechaFavorable);
     assertThat(votacionCreada.getQuorumMinimo()).isEqualTo(4); // = minimoParticipantes de la actividad
     assertThat(votacionCreada.isAbierta()).isTrue();
   }

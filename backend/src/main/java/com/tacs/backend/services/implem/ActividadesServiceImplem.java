@@ -22,7 +22,8 @@ import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.tacs.backend.mappers.ClimaMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,9 +33,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import com.tacs.backend.mappers.ClimaMapper;
-
 @Service
+@RequiredArgsConstructor
 public class ActividadesServiceImplem implements ActividadesService
 {
   private final ActividadesRepository actividadesRepository;
@@ -46,58 +46,6 @@ public class ActividadesServiceImplem implements ActividadesService
   private final NotificacionInboxService notificacionInboxService;
   private final VotacionesRepository votacionesRepository;
   private final OptimisticLockingRetry optimisticLockingRetry;
-
-  public ActividadesServiceImplem(
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      ActividadesMapper actividadesMapper,
-      ProveedorClima proveedorClima,
-      ClimaMapper climaMapper,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService)
-  {
-    this(actividadesRepository, usuarioRepository, actividadesMapper,
-        proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
-        null, new OptimisticLockingRetry());
-  }
-
-  public ActividadesServiceImplem(
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      ActividadesMapper actividadesMapper,
-      ProveedorClima proveedorClima,
-      ClimaMapper climaMapper,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService,
-      OptimisticLockingRetry optimisticLockingRetry)
-  {
-    this(actividadesRepository, usuarioRepository, actividadesMapper,
-        proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
-        null, optimisticLockingRetry);
-  }
-
-  @Autowired
-  public ActividadesServiceImplem(
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      ActividadesMapper actividadesMapper,
-      ProveedorClima proveedorClima,
-      ClimaMapper climaMapper,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService,
-      VotacionesRepository votacionesRepository,
-      OptimisticLockingRetry optimisticLockingRetry)
-  {
-    this.actividadesRepository = actividadesRepository;
-    this.usuarioRepository = usuarioRepository;
-    this.actividadesMapper = actividadesMapper;
-    this.proveedorClima = proveedorClima;
-    this.climaMapper = climaMapper;
-    this.servicioNotificaciones = servicioNotificaciones;
-    this.notificacionInboxService = notificacionInboxService;
-    this.votacionesRepository = votacionesRepository;
-    this.optimisticLockingRetry = optimisticLockingRetry;
-  }
 
   @Value("${weatherapi.forecast.max-days:3}")
   private int maxDiasForecast;
@@ -299,14 +247,11 @@ public class ActividadesServiceImplem implements ActividadesService
 
     if (nuevoEstado == TipoEstadoActividad.CANCELADA)
     {
-      if (votacionesRepository != null)
-      {
-        votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
-            .ifPresent(votacion -> {
-              votacion.cerrar(null);
-              votacionesRepository.save(votacion);
-            });
-      }
+      votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
+          .ifPresent(votacion -> {
+            votacion.cerrar(null);
+            votacionesRepository.save(votacion);
+          });
 
       String contenido = "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
           actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));

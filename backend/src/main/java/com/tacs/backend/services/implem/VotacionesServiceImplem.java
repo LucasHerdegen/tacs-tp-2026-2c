@@ -28,7 +28,8 @@ import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 class VotacionesServiceImplem implements VotacionesService
 {
   private static final int GRANULARIDAD_BUSQUEDA_HORAS = 2;
@@ -52,41 +54,6 @@ class VotacionesServiceImplem implements VotacionesService
   private final ServicioNotificaciones servicioNotificaciones;
   private final NotificacionInboxService notificacionInboxService;
   private final OptimisticLockingRetry optimisticLockingRetry;
-
-  public VotacionesServiceImplem(
-      VotacionesRepository votacionesRepository,
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      VotacionMapper votacionMapper,
-      ProveedorClima proveedorClima,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService)
-  {
-    this(votacionesRepository, actividadesRepository, usuarioRepository,
-        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService,
-        new OptimisticLockingRetry());
-  }
-
-  @Autowired
-  public VotacionesServiceImplem(
-      VotacionesRepository votacionesRepository,
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      VotacionMapper votacionMapper,
-      ProveedorClima proveedorClima,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService,
-      OptimisticLockingRetry optimisticLockingRetry)
-  {
-    this.votacionesRepository = votacionesRepository;
-    this.actividadesRepository = actividadesRepository;
-    this.usuarioRepository = usuarioRepository;
-    this.votacionMapper = votacionMapper;
-    this.proveedorClima = proveedorClima;
-    this.servicioNotificaciones = servicioNotificaciones;
-    this.notificacionInboxService = notificacionInboxService;
-    this.optimisticLockingRetry = optimisticLockingRetry;
-  }
 
   // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
@@ -545,7 +512,7 @@ class VotacionesServiceImplem implements VotacionesService
   private Alternativa construirAlternativa(LocalDateTime fecha, int numero, Clima clima)
   {
     Alternativa alternativa = new Alternativa();
-    alternativa.setId(new org.bson.types.ObjectId().toHexString());
+    alternativa.setId(new ObjectId().toHexString());
     alternativa.setFecha(fecha);
     alternativa.setNumeroAlternativa(numero);
     alternativa.setClima(clima);
