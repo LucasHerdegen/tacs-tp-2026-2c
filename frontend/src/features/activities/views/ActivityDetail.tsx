@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-// import { useNavigate } from 'react-router-dom'; // Hace que falle build mientras no se use.
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -16,7 +15,6 @@ export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const actividadId = id ?? '';
   const { user, token } = useAuth();
-  // const navigate = useNavigate(); // Hace que falle build mientras no se use.
 
   const [activity, setActivity] = useState<Actividad | null>(null);
   const [pronostico, setPronostico] = useState<PronosticoRespuesta | null>(null);
@@ -193,7 +191,7 @@ export const ActivityDetail: React.FC = () => {
       alertas.push(`Lluvia (${probabilidadLluvia}%) supera el máx. pactado de ${maxProbabilidadLluvia}%`);
     }
 
-    const vientoOk = maxViento == null || maxViento === 0 || viento <= maxViento;
+    const vientoOk = maxViento == null || viento <= maxViento;
     if (!vientoOk) {
       alertas.push(`Viento (${viento} km/h) supera el límite de ${maxViento} km/h`);
     }
@@ -203,7 +201,7 @@ export const ActivityDetail: React.FC = () => {
       alertas.push(`Temperatura (${temperatura}°C) es menor a la mínima de ${minTemperatura}°C`);
     }
 
-    const tempMaxOk = maxTemperatura == null || maxTemperatura === 0 || temperatura <= maxTemperatura;
+    const tempMaxOk = maxTemperatura == null || temperatura <= maxTemperatura;
     if (!tempMaxOk) {
       alertas.push(`Temperatura (${temperatura}°C) supera la máxima de ${maxTemperatura}°C`);
     }
@@ -270,7 +268,9 @@ export const ActivityDetail: React.FC = () => {
   if (!activity) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-gray-900">Actividad no encontrada</h2>
+        <h2 className="text-2xl font-bold text-gray-900">
+          {error || 'Actividad no encontrada'}
+        </h2>
         <Link to="/activities" className="text-indigo-600 hover:underline mt-4 inline-block">Volver al buscador</Link>
       </div>
     );
@@ -589,7 +589,7 @@ export const ActivityDetail: React.FC = () => {
                     <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
                       <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Viento Máx.</p>
                       <p className="text-base font-bold text-gray-900 mt-0.5">
-                        {activity.reglasClima.maxViento != null && activity.reglasClima.maxViento !== 0
+                        {activity.reglasClima.maxViento != null
                           ? `${activity.reglasClima.maxViento} km/h`
                           : <span className="text-gray-400 font-medium text-xs">Sin límite</span>}
                       </p>
@@ -598,8 +598,8 @@ export const ActivityDetail: React.FC = () => {
                     <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
                       <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Temp. Aceptable</p>
                       <p className="text-xs font-bold text-gray-900 mt-1">
-                        {activity.reglasClima.minTemperatura != null || (activity.reglasClima.maxTemperatura != null && activity.reglasClima.maxTemperatura !== 0)
-                          ? `${activity.reglasClima.minTemperatura != null ? `${activity.reglasClima.minTemperatura}°C` : '-∞'} a ${activity.reglasClima.maxTemperatura != null && activity.reglasClima.maxTemperatura !== 0 ? `${activity.reglasClima.maxTemperatura}°C` : '+∞'}`
+                        {activity.reglasClima.minTemperatura != null || activity.reglasClima.maxTemperatura != null
+                          ? `${activity.reglasClima.minTemperatura != null ? `${activity.reglasClima.minTemperatura}°C` : '-∞'} a ${activity.reglasClima.maxTemperatura != null ? `${activity.reglasClima.maxTemperatura}°C` : '+∞'}`
                           : <span className="text-gray-400 font-medium text-xs">Sin límite</span>}
                       </p>
                     </div>
@@ -631,7 +631,11 @@ export const ActivityDetail: React.FC = () => {
 
           {/* Sección de votaciones desactivada si la actividad está cancelada */}
           {!estaCancelada && (esParticipante || esOrganizador) && (
-            <VotingSection actividadId={activity.id} organizadorId={activity.organizador.id} />
+            <VotingSection
+              actividadId={activity.id}
+              organizadorId={activity.organizador.id}
+              onActivityChanged={cargarTodo}
+            />
           )}
         </div>
 

@@ -139,14 +139,13 @@ export const WeatherConfig: React.FC = () => {
           setMinTemperatura(
             actividad.reglasClima.minTemperatura != null ? actividad.reglasClima.minTemperatura : ''
           );
-          // Si el viento o temp maxima figuran 0 o null, tratarlos como no definidos
           setMaxTemperatura(
-            actividad.reglasClima.maxTemperatura != null && actividad.reglasClima.maxTemperatura !== 0
+            actividad.reglasClima.maxTemperatura != null
               ? actividad.reglasClima.maxTemperatura
               : ''
           );
           setMaxViento(
-            actividad.reglasClima.maxViento != null && actividad.reglasClima.maxViento !== 0
+            actividad.reglasClima.maxViento != null
               ? actividad.reglasClima.maxViento
               : ''
           );

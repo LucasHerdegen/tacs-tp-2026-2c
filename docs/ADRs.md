@@ -4,7 +4,7 @@ En este documento se registran las decisiones de arquitectura más importantes t
 
 ## ADR 1: Separación estricta entre Dominio y Persistencia (JPA)
 
-**Contexto**: En las primeras iteraciones, el modelo de dominio contenía anotaciones propias de JPA (`@Entity`, `@ManyToMany`, `@Embeddable`, etc.). Dado que el objetivo arquitectónico a futuro es poder migrar de una base relacional a una NoSQL (ej. MongoDB) de forma transparente, tener la capa de dominio acoplada a las dependencias y restricciones semánticas de JPA limitaría esa capacidad. 
+**Contexto**: En las primeras iteraciones, el modelo de dominio contenía anotaciones propias de JPA (`@Entity`, `@ManyToMany`, `@Embeddable`, etc.). Dado que el objetivo arquitectónico a futuro es poder migrar de una base relacional a una NoSQL (ej. MongoDB) de forma transparente, tener la capa de dominio acoplada a las dependencias y restricciones semánticas de JPA limitaría esa capacidad.
 
 **Decisión**: Se decidió implementar un patrón de **Repository Wrapper y Mappers**:
 1. Limpiar completamente las clases en `com.tacs.backend.domain` de cualquier referencia a `jakarta.persistence.*`.
@@ -19,14 +19,16 @@ En este documento se registran las decisiones de arquitectura más importantes t
 
 **Contexto**: Cuando el clima no es favorable o el organizador decide posponer un evento, se abre una votación. Necesitamos una regla clara para saber cuándo una reprogramación es válida, y cómo interpretar el "quórum mínimo".
 
-**Decisión**: 
+**Decisión**:
 1. El `quorumMinimo` de una votación automática es exactamente igual al `minimoParticipantes` configurado en la Actividad original.
 2. Se implementa el **Quórum por alternativa**: Los votos específicos que recibió una alternativa en particular deben ser `>= quorumMinimo` para que esa alternativa sea considerada ganadora, en vez de evaluar la participación general de la votación. Esto obedece a la consigna: *"que se cancele si ninguna alternativa alcanza el quórum mínimo"*.
 
 **Consecuencias**: Garantizamos que el evento reprogramado siga siendo viable. La implementación está estrictamente alineada a la lectura literal de la consigna.
 
 
-## ADR 3: Alcance y Uso de Telegram como Notificador
+## ADR 3: Alcance y Uso de Telegram como Notificador *(Reemplazado por ADR 7)*
+
+**Estado**: Reemplazado por [ADR 7](#adr-7-telegram-como-interfaz-completa-de-entrada-no-solo-notificador).
 
 **Contexto**: El requerimiento original mencionaba a Telegram. En las primeras entregas, la integración de Telegram fue abordada y modelada bajo el concepto de un `Notificador` (es decir, una estrategia de canal de salida para enviar avisos como alertas climáticas o recordatorios). Las devoluciones sugirieron que Telegram podría ser una interfaz navegable de entrada.
 
@@ -44,27 +46,29 @@ En este documento se registran las decisiones de arquitectura más importantes t
 **Consecuencias**: La validación queda encapsulada donde corresponde (Alta cohesión). Las capas de API quedan liberadas de conocer las reglas y solo se encargan de enrutar excepciones de dominio a errores HTTP a través del `GlobalExceptionHandler`.
 
 
-## ADR 5: Migracion de Base de Datos Relacional a MongoDB
+## ADR 5: Migración de Base de Datos Relacional a MongoDB
 
 **Contexto**: Como parte de los requisitos de la Entrega 2, el sistema debe persistir los datos utilizando una base de datos NoSQL. Originalmente se utilizaba H2 en memoria con Spring Data JPA.
 
-**Decision**: 
+**Decisión**:
 1. Migrar la capa de persistencia de Spring Data JPA a Spring Data MongoDB.
-2. Cambiar los identificadores (\id\) numericos autoincrementales (\Long\) por el estandar \ObjectId\ (\String\) de MongoDB en todo el sistema (Entidades, Dominio, DTOs).
-3. Aprovechar el mapeo orientado a documentos, embebiendo entidades dependientes (como \AlternativaEntity\ y \VotoEntity\ en \VotacionEntity\) y utilizando referencias (\@DocumentReference\) para relaciones independientes (como \UsuarioEntity\ en \ActividadEntity\).
-4. Reemplazar \JdbcTemplateLockProvider\ por \MongoLockProvider\ para que ShedLock siga funcionando sobre MongoDB.
+2. Cambiar los identificadores (`id`) numéricos autoincrementales (`Long`) por el estándar `ObjectId` (`String`) de MongoDB en todo el sistema (Entidades, Dominio, DTOs).
+3. Aprovechar el mapeo orientado a documentos, embebiendo entidades dependientes (como `AlternativaEntity` y `VotoEntity` en `VotacionEntity`) y utilizando referencias (`@DocumentReference`) para relaciones independientes (como `UsuarioEntity` en `ActividadEntity`).
+4. Reemplazar `JdbcTemplateLockProvider` por `MongoLockProvider` para que ShedLock siga funcionando sobre MongoDB.
 
-**Consecuencias**: El sistema pasa a estar puramente basado en documentos, mejorando el alineamiento con el paradigma NoSQL. Las busquedas complejas (que antes utilizaban JOINs en JPA) ahora se resuelven de forma mas nativa o a traves de filtrado en aplicacion para evitar \$lookup\ excesivos, respetando el modelo NoSQL.
+**Consecuencias**: El sistema pasa a estar puramente basado en documentos, mejorando el alineamiento con el paradigma NoSQL. Las búsquedas complejas (que antes utilizaban JOINs en JPA) ahora se resuelven de forma más nativa mediante consultas de `MongoTemplate` con paginación en base de datos, respetando el modelo NoSQL.
 
-## ADR 6: Eliminacion de transacciones en MongoDB
 
-**Contexto**: Durante el desarrollo en base de datos relacional (JPA), se utilizaban anotaciones @Transactional para garantizar la consistencia en escrituras multiples. Con la migracion a MongoDB, dado que no hay un MongoTransactionManager configurado y el cluster local provisto en el docker-compose no es un replica set (prerrequisito obligatorio de MongoDB para las transacciones multidocumento), las anotaciones perdieron efecto real.
+## ADR 6: Eliminación de transacciones en MongoDB
 
-**Decision**: 
-1. Eliminar por completo todas las anotaciones @Transactional de la capa de Servicios y los Jobs (Cron).
-2. Documentar que las escrituras multidocumento (e.g. esolverVotacion que guarda la actividad y la votacion) ahora son eventualmente consistentes y se ejecutan como escrituras independientes, en lugar de intentar forzar el motor transaccional de Spring Data MongoDB.
+**Contexto**: Durante el desarrollo en base de datos relacional (JPA), se utilizaban anotaciones `@Transactional` para garantizar la consistencia en escrituras múltiples. Con la migración a MongoDB, dado que no hay un `MongoTransactionManager` configurado y el cluster local provisto en el `compose.yaml` no es un replica set (prerrequisito obligatorio de MongoDB para las transacciones multidocumento), las anotaciones perdieron efecto real.
 
-**Consecuencias**: El codigo refleja fielmente la semantica actual de almacenamiento (que no goza de garantias ACID multidocumento). Para habilitar verdaderas transacciones a futuro, requeriria reconfigurar el compose.yaml a replica set y definir el bean del manejador transaccional.
+**Decisión**:
+1. Eliminar por completo todas las anotaciones `@Transactional` de la capa de Servicios y los Jobs (Cron).
+2. Documentar que las escrituras multidocumento (e.g. `resolverVotacion` que guarda la actividad y la votación) ahora son eventualmente consistentes y se ejecutan como escrituras independientes, en lugar de intentar forzar el motor transaccional de Spring Data MongoDB.
+
+**Consecuencias**: El código refleja fielmente la semántica actual de almacenamiento (que no goza de garantías ACID multidocumento). Para habilitar verdaderas transacciones a futuro, requeriría reconfigurar el `compose.yaml` a replica set y definir el bean del manejador transaccional.
+
 
 ## ADR 7: Telegram como interfaz completa de entrada (no solo Notificador)
 
@@ -74,6 +78,41 @@ En este documento se registran las decisiones de arquitectura más importantes t
 1. **Librería cliente: `com.github.pengrad:java-telegram-bot-api`**, en vez de `org.telegram:telegrambots` (framework más pesado, con su propio modelo de hilos y una migración de API reciente que generó fragmentación) o de armar los DTOs de la Bot API a mano con `RestClient` (válido solo para "mandar un mensaje"; con botones inline y estado conversacional es reinventar la rueda). Pengrad da tipos para `SendMessage`, `InlineKeyboardMarkup`, `CallbackQuery`, `GetUpdates`, etc., sin imponer un ciclo de vida propio — fácil de envolver en beans de Spring.
 2. **Long polling, no webhook**: el backend pregunta periódicamente por novedades (`GetUpdates` con offset persistido) en vez de que Telegram le pegue a una URL pública. No requiere HTTPS público y funciona igual en local (`docker-compose`) que en la nube.
 3. **Alta nativa sin contraseña**: si alguien le escribe al bot sin un token de vinculación y sin cuenta previa, se crea un `Usuario` nuevo ahí mismo usando el `chat_id` como identidad. Coherente con la consigna ("no es objetivo del TP trabajar sobre autenticación") y hace que Telegram sea una interfaz autónoma, no dependiente del frontend.
-4. **Identidad por `chat_id`, no por JWT**: los handlers resuelven `chat_id → Usuario` contra `MedioContacto` y llaman a los mismos `Service` que ya usan los controllers REST, pasando el `usuarioId` explícito — cero lógica de negocio duplicada.
+4. **Identidad por `from().id()`, no por JWT**: los handlers resuelven el identificador del usuario de Telegram contra `MedioContacto` (con índice único sobre `medioContacto.valor`) y llaman a los mismos `Service` que ya usan los controllers REST, pasando el `usuarioId` explícito — cero lógica de negocio duplicada.
 
-**Consecuencias**: La interfaz de Telegram reutiliza el mismo dominio y los mismos `Service` que el REST, sin duplicar reglas. El principal trade-off conocido es que `GetUpdates` solo admite **un consumidor concurrente por token**: si se escalara horizontalmente el backend, una segunda instancia haciendo polling recibiría `409 Conflict` y desplazaría a la anterior. Para este TP se documenta como aceptado (single-instance); si se necesitara escalar, la solución sería usar ShedLock (ya presente en el proyecto) para elegir una única instancia "dueña" del poller, o migrar a webhook.
+**Consecuencias**: La interfaz de Telegram reutiliza el mismo dominio y los mismos `Service` que el REST, sin duplicar reglas. El principal trade-off conocido es que `GetUpdates` solo admite **un consumidor concurrente por token**: se coordina con `@SchedulerLock` (ShedLock) sobre el poller para evitar ejecuciones simultáneas.
+
+
+## ADR 8: Control de Concurrencia mediante Bloqueo Optimista y Reintento Acotado
+
+**Contexto**: Ante múltiples solicitudes simultáneas para sumarse/bajarse de una actividad o emitir votos en una votación (tanto desde la web como desde botones inline de Telegram), una lectura-modificación-escritura sin control de concurrencia provocaba pérdida de actualizaciones (votos pisados) o sobrecupo, mientras que agregar únicamente `@Version` sin reintento devolvía errores `500` o `409` espurios cuando todavía quedaba cupo o la votación seguía abierta.
+
+**Decisión**:
+1. Incorporar el campo `@Version Long version` tanto en `ActividadEntity` como en `VotacionEntity` y propagarlo en los mappers (`ActividadMapper`, `VotacionMapper`) hacia el modelo de dominio (`Actividad`, `Votacion`).
+2. Centralizar un componente `OptimisticLockingRetry` que reintenta de forma acotada (hasta 15 intentos con backoff corto) cualquier operación que lance `OptimisticLockingFailureException`, recargando el documento actualizado desde MongoDB y reevaluando las invariantes de dominio (`agregarParticipante`, `removerParticipante`, `registrarVoto`).
+3. Si durante un reintento se agota el cupo real de la actividad, el dominio lanza `CapacidadMaximaException` (que no es atrapada por el reintento y se traduce a `409 Conflict` claro para el cliente); si se agotaran los reintentos por contención extrema, `GlobalExceptionHandler` mapea `OptimisticLockingFailureException` a `409 Conflict`.
+
+**Consecuencias**: Se preserva el encapsulamiento de las reglas de negocio e invariantes de estado dentro del dominio sin dispersar lógica en queries nativas de actualización parcial, garantizando a la vez que ráfagas concurrentes de votos o inscripciones se registren íntegramente sin pérdida de datos ni sobrecupo.
+
+
+## ADR 9: Manejo de Zona Horaria del Servidor
+
+**Contexto**: En entornos containerizados o de nube (Docker, Render, GitHub Actions), la JVM arranca por defecto en `UTC`, mientras que los usuarios interactúan asumiendo la hora local de Argentina (`America/Argentina/Buenos_Aires`, `UTC-3`). Como las fechas de actividades y votaciones se modelan con `LocalDateTime`, esa diferencia de 3 horas hacía que crear una actividad para dentro de 1 hora fallara en la validación `@Future` o en los jobs programados al desplegar en producción.
+
+**Decisión**:
+1. Configurar la zona horaria por defecto de la JVM al inicio de la aplicación mediante `TimeZone.setDefault(TimeZone.getTimeZone(timezoneId))` en `TimeConfig` (`@PostConstruct`), parametrizado por la propiedad `app.timezone` (con valor por defecto `America/Argentina/Buenos_Aires`), además de definir `TZ=America/Argentina/Buenos_Aires` en el `Dockerfile`.
+2. Evitar beans `Clock` que no sean inyectados transversalmente en todas las clases del sistema, manteniendo un único mecanismo consistente (`TimeZone.setDefault`) que gobierna tanto `LocalDateTime.now()` en servicios, dominio y jobs como las validaciones declarativas (`@Future`) de Jakarta Bean Validation.
+
+**Consecuencias**: El comportamiento temporal de la aplicación es idéntico en desarrollo local, CI y producción sin acoplar constructores de entidades de dominio a objetos de infraestructura.
+
+
+## ADR 10: Ciclo de Vida de Actividades y Finalización Automática al Llegar la Fecha
+
+**Contexto**: La máquina de estados de una actividad contempla `PROPUESTA`, `CONFIRMADA`, `REPROGRAMADA`, `CANCELADA` y `FINALIZADA`. Era necesario definir qué ocurre cuando una actividad alcanza su horario de finalización (`fechaRealizacion + duracionEstimada`) estando en `PROPUESTA`, `CONFIRMADA` o `REPROGRAMADA`, y cómo interactúan los estados terminales (`CANCELADA` y `FINALIZADA`) con las inscripciones y votaciones.
+
+**Decisión**:
+1. **Finalización al terminar la actividad (`fechaRealizacion + duracionEstimada`)**: `FinalizacionActividadJob` consulta las actividades en estado `PROPUESTA`, `CONFIRMADA` o `REPROGRAMADA` cuya fecha de fin (`fechaRealizacion.plusHours(duracionEstimada)`) ya transcurrió, y ejecuta `actividad.cambiarEstado(TipoEstadoActividad.FINALIZADA)` pasando por la máquina de estados del dominio.
+2. **Transición válida desde `PROPUESTA`, `CONFIRMADA` y `REPROGRAMADA` hacia `FINALIZADA`**: una actividad `PROPUESTA` que llega a su fecha de término sin haber sido cancelada ni reprogramada también pasa a `FINALIZADA` (dejando de ser reprocesada indefinidamente por el job cada 5 minutos), al igual que las actividades `CONFIRMADA` y `REPROGRAMADA`.
+3. **Invariantes sobre estados terminales en el dominio**: `Actividad` rechaza nuevas inscripciones, bajas y apertura de votaciones cuando su estado es `CANCELADA` o `FINALIZADA` (aplicando la regla tanto a la API REST como al bot de Telegram), y al cancelarse una actividad se cierra automáticamente cualquier votación abierta asociada.
+
+**Consecuencias**: La máquina de estados queda cerrada de punta a punta sin estados huérfanos ni errores recurrentes en los jobs periódicos, y las estadísticas reflejan fielmente las actividades finalizadas.

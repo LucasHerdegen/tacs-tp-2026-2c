@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/authContext';
+import { ApiError } from '../../../lib/api';
 import { formatFechaHora } from '../../../utils/dateTime';
 import { notificationsApi } from '../notificationsApi';
 import { TIPO_NOTIFICACION_ICON } from '../notificationLabels';
 import type { NotificacionDto } from '../types';
 
 const INTERVALO_POLLING_MS = 30_000;
+const TAMANIO_PAGINA_DEFAULT = 20;
 
 export const NotificationBell: React.FC = () => {
   const { token } = useAuth();
@@ -16,25 +18,32 @@ export const NotificationBell: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [notificaciones, setNotificaciones] = useState<NotificacionDto[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [errorList, setErrorList] = useState<string | null>(null);
   const contenedorRef = useRef<HTMLDivElement>(null);
-
-  const actualizarContador = useCallback(async () => {
-    if (!token) return;
-    try {
-      const { cantidad } = await notificationsApi.contarNoLeidas(token);
-      setCount(cantidad);
-    } catch {
-      // Silencioso: un fallo puntual del polling no debe romper la UI.
-    }
-  }, [token]);
 
   // Polling del contador de no leídas
   useEffect(() => {
     if (!token) return;
-    actualizarContador();
-    const intervalo = setInterval(actualizarContador, INTERVALO_POLLING_MS);
-    return () => clearInterval(intervalo);
-  }, [token, actualizarContador]);
+    let active = true;
+
+    const consultarNoLeidas = () => {
+      notificationsApi
+        .contarNoLeidas(token)
+        .then(({ cantidad }) => {
+          if (active) setCount(cantidad);
+        })
+        .catch(() => {
+          // Silencioso: un fallo puntual del polling no debe romper la UI.
+        });
+    };
+
+    consultarNoLeidas();
+    const intervalo = setInterval(consultarNoLeidas, INTERVALO_POLLING_MS);
+    return () => {
+      active = false;
+      clearInterval(intervalo);
+    };
+  }, [token]);
 
   // Cerrar al clickear afuera
   useEffect(() => {
@@ -54,19 +63,22 @@ export const NotificationBell: React.FC = () => {
     if (!abriendo || !token) return;
 
     setLoadingList(true);
+    setErrorList(null);
     try {
-      const pagina = await notificationsApi.misNotificaciones(token, { size: 10 });
+      const size = Math.max(TAMANIO_PAGINA_DEFAULT, count);
+      const pagina = await notificationsApi.misNotificaciones(token, { size });
       setNotificaciones(pagina.content);
 
-      // Al abrir, se marcan automáticamente como leídas.
       const habiaNoLeidas = pagina.content.some((n) => !n.leida) || count > 0;
       if (habiaNoLeidas) {
         await notificationsApi.marcarTodasComoLeidas(token);
         setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
         setCount(0);
       }
-    } catch {
-      // Silencioso: dejamos el dropdown abierto igual, sin datos.
+    } catch (err) {
+      setErrorList(
+        err instanceof ApiError ? err.message : 'No pudimos cargar tus notificaciones.',
+      );
     } finally {
       setLoadingList(false);
     }
@@ -103,6 +115,10 @@ export const NotificationBell: React.FC = () => {
 
           {loadingList ? (
             <p className="text-sm text-gray-500 text-center py-6">Cargando…</p>
+          ) : errorList ? (
+            <p className="text-sm text-red-600 text-center py-6 px-4" role="alert">
+              {errorList}
+            </p>
           ) : notificaciones.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-6">No tenés notificaciones.</p>
           ) : (
@@ -128,4 +144,4 @@ export const NotificationBell: React.FC = () => {
       )}
     </div>
   );
-};
+};

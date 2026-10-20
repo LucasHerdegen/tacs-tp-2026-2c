@@ -65,6 +65,11 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
       - name: Check types and build
         working-directory: frontend
         run: npm run build
+

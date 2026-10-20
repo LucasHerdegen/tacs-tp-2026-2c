@@ -65,7 +65,7 @@ public class ActividadMapper
     {
       domain.setCambiosFecha(entity.getCambiosFecha().stream().map(
               c -> new CambioFecha(c.getFecha(), c.getFechaAntigua(), c.getFechaNueva()))
-          .collect(java.util.stream.Collectors.toList()));
+          .collect(Collectors.toList()));
     } else
     {
       domain.setCambiosFecha(new ArrayList<>());
@@ -73,21 +73,12 @@ public class ActividadMapper
     domain.setEstado(entity.getEstado());
     if (entity.getReglasClima() != null)
     {
-      Double minTemp = entity.getReglasClima().getMinTemperatura();
-      Double maxTemp = entity.getReglasClima().getMaxTemperatura();
-      if (maxTemp != null && maxTemp == 0.0)
-      {
-        maxTemp = null;
-      }
-      Double maxViento = entity.getReglasClima().getMaxViento();
-      if (maxViento != null && maxViento == 0.0)
-      {
-        maxViento = null;
-      }
-
       domain.setReglasClima(
-          new ReglasClima(entity.getReglasClima().getMaxProbabilidadLluvia(),
-              minTemp, maxTemp, maxViento));
+          new ReglasClima(
+              entity.getReglasClima().getMaxProbabilidadLluvia(),
+              entity.getReglasClima().getMinTemperatura(),
+              entity.getReglasClima().getMaxTemperatura(),
+              entity.getReglasClima().getMaxViento()));
     }
     return domain;
   }

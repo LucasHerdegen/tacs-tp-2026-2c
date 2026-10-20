@@ -8,13 +8,16 @@ import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.persistence.entities.ActividadEntity;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.bson.Document;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,10 +50,10 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
 
     if (busqueda != null && !busqueda.isBlank())
     {
-      String busquedaEscapada = Pattern.quote(busqueda.trim());
+      String patronSinTildes = armarPatronInsensibleATildes(busqueda.trim());
       Criteria orCriteria = new Criteria().orOperator(
-          Criteria.where("titulo").regex(busquedaEscapada, "i"),
-          Criteria.where("ubicacion.ciudad").regex(busquedaEscapada, "i")
+          Criteria.where("titulo").regex(patronSinTildes, "i"),
+          Criteria.where("ubicacion.ciudad").regex(patronSinTildes, "i")
       );
       query.addCriteria(orCriteria);
     }
@@ -74,6 +77,8 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
 
     if (estado != null)
       query.addCriteria(Criteria.where("estado").is(estado));
+    else
+      query.addCriteria(Criteria.where("estado").ne(TipoEstadoActividad.CANCELADA));
 
     if (Boolean.TRUE.equals(cupoDisponible))
     {
@@ -89,11 +94,44 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
     }
 
     long total = mongoTemplate.count(query, ActividadEntity.class);
-    query.with(pageable);
+    Pageable pageableNormalizado = normalizarPageable(pageable);
+    query.with(pageableNormalizado);
     List<ActividadEntity> entities = mongoTemplate.find(query, ActividadEntity.class);
     List<Actividad> domainList = entities.stream().map(mapper::toDomain).toList();
 
     return PageableExecutionUtils.getPage(domainList, pageable, () -> total);
+  }
+
+  private String armarPatronInsensibleATildes(String texto)
+  {
+    String sinMarcas = Normalizer.normalize(texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < sinMarcas.length(); i++)
+    {
+      char c = sinMarcas.charAt(i);
+      switch (Character.toLowerCase(c))
+      {
+        case 'a' -> sb.append("[aáàäâ]");
+        case 'e' -> sb.append("[eéèëê]");
+        case 'i' -> sb.append("[iíìïî]");
+        case 'o' -> sb.append("[oóòöô]");
+        case 'u' -> sb.append("[uúùüû]");
+        default -> sb.append(Pattern.quote(String.valueOf(c)));
+      }
+    }
+    return sb.toString();
+  }
+
+  private Pageable normalizarPageable(Pageable pageable)
+  {
+    if (pageable == null || pageable.isUnpaged() || pageable.getSort().isUnsorted())
+      return pageable;
+
+    List<Sort.Order> ordenes = pageable.getSort().stream()
+        .map(order -> "fecha".equals(order.getProperty()) ? order.withProperty("fechaRealizacion") : order)
+        .toList();
+
+    return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(ordenes));
   }
 
   @Override

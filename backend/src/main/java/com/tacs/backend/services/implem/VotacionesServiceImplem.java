@@ -12,6 +12,7 @@ import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
@@ -298,7 +299,7 @@ class VotacionesServiceImplem implements VotacionesService
   private Actividad buscarActividad(String actividadId)
   {
     return actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
   }
 
   private void validarSinVotacionAbierta(String actividadId)

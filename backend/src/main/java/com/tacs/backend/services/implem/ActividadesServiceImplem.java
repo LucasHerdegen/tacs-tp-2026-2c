@@ -281,22 +281,11 @@ public class ActividadesServiceImplem implements ActividadesService
 
     if (dto.reglasClima() != null)
     {
-      Double maxTemp = dto.reglasClima().maxTemperatura();
-      if (maxTemp != null && maxTemp == 0.0)
-      {
-        maxTemp = null;
-      }
-      Double maxViento = dto.reglasClima().maxViento();
-      if (maxViento != null && maxViento == 0.0)
-      {
-        maxViento = null;
-      }
-
       actividad.reemplazarReglasClima(
           dto.reglasClima().maxProbabilidadLluvia(),
           dto.reglasClima().minTemperatura(),
-          maxTemp,
-          maxViento
+          dto.reglasClima().maxTemperatura(),
+          dto.reglasClima().maxViento()
       );
     }
 
@@ -316,7 +305,8 @@ public class ActividadesServiceImplem implements ActividadesService
       if (dto.rangoReprogramacion().dias() != null && dto.rangoReprogramacion().dias() > maxDiasForecast)
         throw new RangoReprogramacionInvalidoException(
             "El rango de reprogramacion no puede superar %d dias: limitacion del plan de WeatherAPI contratado"
-                .formatted(maxDiasForecast));
+                .formatted(maxDiasForecast),
+            "diasReprogramacion");
 
       if (dto.rangoReprogramacion().horaInicio() != null && dto.rangoReprogramacion().horaFinal() != null)
       {
@@ -325,7 +315,8 @@ public class ActividadesServiceImplem implements ActividadesService
         {
           throw new RangoReprogramacionInvalidoException(
               "La franja horaria permitida (%d hs) no puede ser menor a la duracion estimada de la actividad (%d hs)"
-                  .formatted(ventanaHoras, actividad.getDuracionEstimada()));
+                  .formatted(ventanaHoras, actividad.getDuracionEstimada()),
+              "horaFinal");
         }
       }
 

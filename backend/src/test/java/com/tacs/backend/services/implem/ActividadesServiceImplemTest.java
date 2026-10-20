@@ -326,6 +326,33 @@ class ActividadesServiceImplemTest
   }
 
   @Test
+  @DisplayName("Actualizar reglas de clima con maxTemperatura = 0 y maxViento = 0 preserva el cero sin convertirlo en null")
+  void actualizarConfiguracionClima_MaxTempYMaxVientoEnCero_PreservaValoresCero()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setOrganizador(usuarioMock);
+
+    var reglasDto = new ReglasClimaDto(10.0, -10.0, 0.0, 0.0);
+    var configDto = new ConfigurarCondicionesDto(reglasDto, null, null);
+    ActividadDto expectedDto = mock(ActividadDto.class);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(actividadesRepository.save(actividadMock)).thenReturn(actividadMock);
+    when(actividadesMapper.actividadToActividadDto(actividadMock)).thenReturn(expectedDto);
+
+    // Act
+    actividadesService.actualizarConfiguracionClima(actividadId, organizadorId, configDto);
+
+    // Assert
+    assertThat(actividadMock.getReglasClima()).satisfies(reglas -> {
+      assertThat(reglas.getMaxTemperatura()).isEqualTo(0.0);
+      assertThat(reglas.getMaxViento()).isEqualTo(0.0);
+    });
+  }
+
+  @Test
   @DisplayName("Actualizar rango de reprogramación exitosamente")
   void actualizarConfiguracionClima_RangoReprogramacion_Success()
   {

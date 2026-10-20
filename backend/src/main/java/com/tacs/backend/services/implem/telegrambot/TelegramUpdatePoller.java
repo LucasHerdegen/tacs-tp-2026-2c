@@ -30,6 +30,7 @@ public class TelegramUpdatePoller
   private final TextoLibreRouter textoLibreRouter;
   private final CallbackRouter callbackRouter;
   private final int timeoutSeconds;
+  private boolean falloEnCorridaAnterior;
 
   public TelegramUpdatePoller(
       TelegramBot telegramBot,
@@ -57,8 +58,29 @@ public class TelegramUpdatePoller
   {
     int offset = obtenerOffset();
 
-    GetUpdatesResponse response = telegramResilience.ejecutar(() ->
-        telegramBot.execute(new GetUpdates().offset(offset).timeout(timeoutSeconds)));
+    GetUpdatesResponse response;
+    try
+    {
+      response = telegramResilience.ejecutar(() ->
+          telegramBot.execute(new GetUpdates().offset(offset).timeout(timeoutSeconds)));
+      if (falloEnCorridaAnterior)
+      {
+        falloEnCorridaAnterior = false;
+        log.info("[Telegram] Conexion de polling recuperada.");
+      }
+    } catch (Exception e)
+    {
+      if (!falloEnCorridaAnterior)
+      {
+        falloEnCorridaAnterior = true;
+        log.warn("[Telegram] Fallo consultando updates (se silenciaran fallas consecutivas hasta recuperar conexion): {}",
+            e.getMessage());
+      } else
+      {
+        log.debug("[Telegram] Polling sigue sin poder consultar updates: {}", e.getMessage());
+      }
+      return;
+    }
 
     int nuevoOffset = offset;
     for (Update update : response.updates())

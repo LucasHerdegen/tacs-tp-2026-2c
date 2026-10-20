@@ -57,25 +57,9 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
   public ProblemDetail handleRangoReprogramacionInvalidoException(
       RangoReprogramacionInvalidoException ex)
   {
-    String cleanMessage = ex.getMessage();
-    if (cleanMessage != null)
-    {
-      cleanMessage = cleanMessage.replaceAll(":\\s*limitacion del plan de WeatherAPI contratado.*", "")
-          .replaceAll(":\\s*limitación del plan de WeatherAPI contratado.*", "");
-    }
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, cleanMessage);
-    Map<String, String> errores = new HashMap<>();
-    if (cleanMessage != null && (cleanMessage.contains("hora") || cleanMessage.contains("franja horaria")))
-    {
-      errores.put("horaFinal", cleanMessage);
-      errores.put("rangoReprogramacion.horaFinal", cleanMessage);
-    }
-    else
-    {
-      errores.put("diasReprogramacion", cleanMessage);
-      errores.put("rangoReprogramacion.dias", cleanMessage);
-    }
-    problemDetail.setProperty("errores", errores);
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    if (ex.getCampo() != null && ex.getMessage() != null)
+      problemDetail.setProperty("errores", Map.of(ex.getCampo(), ex.getMessage()));
     return problemDetail;
   }
 
@@ -160,34 +144,12 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
   @ExceptionHandler(IllegalArgumentException.class)
   public ProblemDetail handleIllegalArgumentException(IllegalArgumentException ex)
   {
-    if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("no encontrad"))
-    {
-      return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-    String msg = ex.getMessage();
-    String detail = msg;
-    Map<String, String> errores = new HashMap<>();
-    if (msg != null && msg.contains("horasAnticipacion"))
-    {
-      detail = msg.replaceAll(":\\s*limitacion del plan de WeatherAPI contratado.*", "")
-          .replaceAll(":\\s*limitación del plan de WeatherAPI contratado.*", "");
-      errores.put("horasAnticipacion", detail);
-    }
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
-    if (!errores.isEmpty())
-    {
-      problemDetail.setProperty("errores", errores);
-    }
-    return problemDetail;
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
   @ExceptionHandler(IllegalStateException.class)
   public ProblemDetail handleIllegalStateException(IllegalStateException ex)
   {
-    if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("no particip"))
-    {
-      return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
-    }
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
   }
 
@@ -219,7 +181,7 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
 
   @Override
   protected ResponseEntity<Object> handleHttpMessageNotReadable(
-      HttpMessageNotReadableException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
+      @NonNull HttpMessageNotReadableException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request)
   {
     ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
         "El formato de la solicitud no es válido o los datos enviados no son correctos");
