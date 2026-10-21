@@ -13,6 +13,7 @@ import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -30,7 +31,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -49,8 +49,6 @@ public class ActividadesServiceImplem implements ActividadesService
 
   @Value("${weatherapi.forecast.max-days:3}")
   private int maxDiasForecast;
-
-  private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
   /**
    * Crea una nueva actividad propuesta por el usuario especificado.
@@ -226,10 +224,14 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   /**
-   * Cancela una actividad existente y notifica a los participantes.
+   * Cambia el estado de una actividad existente. Si el nuevo estado es CANCELADA,
+   * delega en {@link #cancelarActividad(Actividad, String, String)} para garantizar
+   * el orden de escrituras (cerrar votacion abierta primero, guardar actividad segundo
+   * y notificar al final).
    *
-   * @param actividadId Identificador de la actividad a cancelar.
-   * @param usuarioId   Identificador del usuario que solicita la cancelacion (debe ser el organizador).
+   * @param actividadId Identificador de la actividad.
+   * @param usuarioId   Identificador del usuario que solicita el cambio (debe ser el organizador).
+   * @param nuevoEstado Nuevo estado de la actividad.
    */
   @Override
   public void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado)
@@ -241,25 +243,53 @@ public class ActividadesServiceImplem implements ActividadesService
       throw new AccesoDenegadoException(
           "Solo el organizador puede cambiar el estado de la actividad");
 
-    actividad.cambiarEstado(nuevoEstado);
-
-    actividadesRepository.save(actividad);
-
     if (nuevoEstado == TipoEstadoActividad.CANCELADA)
+    {
+      cancelarActividad(actividad, "cancelada por el organizador", null);
+      return;
+    }
+
+    actividad.cambiarEstado(nuevoEstado);
+    actividadesRepository.save(actividad);
+  }
+
+  /**
+   * Cancela una actividad respetando el orden de escrituras:
+   * 1. Cierra condicionalmente la votacion abierta (si aun no fue cerrada).
+   * 2. Cambia el estado de la actividad a CANCELADA y la persiste.
+   * 3. Notifica a los participantes.
+   *
+   * @param actividad  Actividad a cancelar.
+   * @param motivo     Motivo de la cancelacion para incluir en la notificacion.
+   * @param votacionId Identificador de la votacion ya cerrada que origino la cancelacion, o null si aplica buscar/cerrar una abierta.
+   */
+  @Override
+  public void cancelarActividad(Actividad actividad, String motivo, String votacionId)
+  {
+    if (actividad.getEstado() == null)
+      throw new IllegalStateException(
+          "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
+
+    actividad.validarPermiteAbrirVotacion();
+
+    if (votacionId == null)
     {
       votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
           .ifPresent(votacion -> {
             votacion.cerrar(null);
-            votacionesRepository.save(votacion);
+            votacionesRepository.cerrarSiAbierta(votacion)
+                .orElseThrow(() -> new VotacionCerradaException("La votacion ya esta cerrada"));
           });
-
-      String contenido = "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
-          actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
-
-      servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
-      notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-          actividad.getId(), null, actividad.getParticipantes());
     }
+
+    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
+    actividadesRepository.save(actividad);
+
+    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
+
+    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
   /**

@@ -100,7 +100,7 @@ public class ChequeoClimaJob
 
     notificarOrganizador(actividad);
 
-    for (Usuario participante : new java.util.ArrayList<>(actividad.getParticipantes()))
+    for (Usuario participante : new ArrayList<>(actividad.getParticipantes()))
       if (!participante.equals(actividad.getOrganizador()))
         notificarParticipante(actividad, participante);
 

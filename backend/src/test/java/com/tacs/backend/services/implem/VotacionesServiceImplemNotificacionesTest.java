@@ -10,19 +10,21 @@ import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
+import com.tacs.backend.mappers.ActividadesMapper;
+import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -39,20 +41,13 @@ import static org.mockito.Mockito.when;
 
 /**
  * Cubre las notificaciones de reprogramacion y cancelacion disparadas por la
- * resolucion de una votacion (el TODO "Notificar cuando se cancela" en
- * VotacionesServiceImplem.cancelarActividad).
- * <p>
- * Va en una clase aparte de VotacionesServiceImplemTest para no chocar con
- * ediciones en paralelo sobre ese archivo; se puede fusionar despues.
+ * resolucion de una votacion.
  */
 @ExtendWith(MockitoExtension.class)
 class VotacionesServiceImplemNotificacionesTest
 {
   private static final Ubicacion UBICACION = new Ubicacion("Palermo", -34.58, -58.43);
 
-  // Debe coincidir con la constante FORMATO de VotacionesServiceImplem. Si alla se
-  // cambia el formato, este test hay que ajustarlo: es el precio de assertear el
-  // contenido del mensaje en vez de solo verificar que se notifico.
   private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
   @Mock
@@ -76,11 +71,20 @@ class VotacionesServiceImplemNotificacionesTest
   @Mock
   private NotificacionInboxService notificacionInboxService;
 
-  @Spy
-  private OptimisticLockingRetry optimisticLockingRetry = new OptimisticLockingRetry();
-
-  @InjectMocks
   private VotacionesServiceImplem service;
+
+  @BeforeEach
+  void setUp()
+  {
+    OptimisticLockingRetry retry = new OptimisticLockingRetry();
+    ActividadesService actividadesService = new ActividadesServiceImplem(
+        actividadesRepository, usuarioRepository, mock(ActividadesMapper.class),
+        proveedorClima, mock(ClimaMapper.class), servicioNotificaciones,
+        notificacionInboxService, votacionesRepository, retry);
+    service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository,
+        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService,
+        retry, actividadesService);
+  }
 
   /* ==================== Reprogramacion por quorum ==================== */
 
@@ -97,7 +101,7 @@ class VotacionesServiceImplemNotificacionesTest
     votarDosVeces(votacion, ganadora);
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     service.resolverVotacion("10", "1");
@@ -124,7 +128,7 @@ class VotacionesServiceImplemNotificacionesTest
     votarDosVeces(votacion, ganadora);
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     service.resolverVotacion("10", "1");
@@ -148,7 +152,7 @@ class VotacionesServiceImplemNotificacionesTest
     votarDosVeces(votacion, ganadora);
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CONFIRMADA);
@@ -173,7 +177,7 @@ class VotacionesServiceImplemNotificacionesTest
     votarDosVeces(votacion, alternativa);
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     service.resolverVotacion("10", "1");
@@ -186,9 +190,6 @@ class VotacionesServiceImplemNotificacionesTest
 
   /* ==================== Cancelacion sin alternativas favorables ==================== */
 
-  // abrirVotacionAutomatica cancela la actividad cuando no encuentra ninguna
-  // fecha con buen pronostico. Sin rangoReprogramacion configurado no hay donde
-  // buscar, asi que buscarAlternativasFavorables devuelve vacio.
   @Test
   void sinAlternativasFavorablesNotificaLaCancelacion()
   {
@@ -209,12 +210,6 @@ class VotacionesServiceImplemNotificacionesTest
 
   /* ==================== Auxiliares ==================== */
 
-  // PROPUESTA porque, segun Estados, es el unico estado desde el que se puede
-  // llegar tanto a REPROGRAMADA como a CANCELADA.
-  //
-  // Organizador real (no null): el constructor de Actividad ya lo agrega como
-  // participante, y un null ahi se cuela en getParticipantes() y rompe
-  // cualquier iteracion sobre esa lista.
   private Actividad crearActividad(LocalDateTime fechaRealizacion)
   {
     Actividad actividad = new Actividad(
@@ -229,6 +224,7 @@ class VotacionesServiceImplemNotificacionesTest
         10,
         crearUsuarioConId("1"));
 
+    actividad.setId("1");
     actividad.setEstado(TipoEstadoActividad.PROPUESTA);
 
     return actividad;
@@ -248,6 +244,7 @@ class VotacionesServiceImplemNotificacionesTest
         10,
         crearUsuarioConId("1"));
 
+    actividad.setId("1");
     actividad.setEstado(TipoEstadoActividad.CONFIRMADA);
 
     return actividad;
@@ -265,6 +262,7 @@ class VotacionesServiceImplemNotificacionesTest
   private Votacion crearVotacion(Actividad actividad, int quorumMinimo, List<Alternativa> alternativas)
   {
     Votacion votacion = new Votacion();
+    votacion.setId("10");
     votacion.setActividad(actividad);
     votacion.setQuorumMinimo(quorumMinimo);
     votacion.setAbierta(true);

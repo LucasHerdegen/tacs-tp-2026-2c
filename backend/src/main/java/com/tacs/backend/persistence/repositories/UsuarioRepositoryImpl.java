@@ -8,6 +8,7 @@ import com.tacs.backend.repositories.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -56,7 +57,7 @@ public class UsuarioRepositoryImpl implements UsuarioRepository
   }
 
   @Override
-  public java.util.List<Usuario> findAll()
+  public List<Usuario> findAll()
   {
     return mongoRepository.findAll().stream().map(mapper::toDomain).toList();
   }
@@ -68,7 +69,8 @@ public class UsuarioRepositoryImpl implements UsuarioRepository
   }
 
   @Override
-  public long countByRol(TipoRol rol) {
+  public long countByRol(TipoRol rol)
+  {
     return mongoRepository.countByRol(rol);
   }
 }

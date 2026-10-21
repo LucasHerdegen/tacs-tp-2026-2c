@@ -15,24 +15,28 @@ import com.tacs.backend.domain.votacion.Voto;
 import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
+import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
+import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
+import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
+import com.tacs.backend.exceptions.VotacionNotFoundException;
+import com.tacs.backend.mappers.ActividadesMapper;
+import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
-import com.tacs.backend.exceptions.AlternativaNotFoundException;
-import com.tacs.backend.exceptions.NoParticipanteException;
-import com.tacs.backend.exceptions.UsuarioNotFoundException;
-import com.tacs.backend.exceptions.VotacionNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -45,9 +49,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,13 +86,18 @@ class VotacionesServiceImplemTest
 
   private void inicializarService()
   {
+    OptimisticLockingRetry retry = new OptimisticLockingRetry();
+    ActividadesService actividadesService = new ActividadesServiceImplem(
+        actividadesRepository, usuarioRepository, mock(ActividadesMapper.class),
+        proveedorClima, mock(ClimaMapper.class), servicioNotificaciones,
+        notificacionInboxService, votacionesRepository, retry);
     service = new VotacionesServiceImplem(votacionesRepository, actividadesRepository, usuarioRepository,
         votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService,
-        new OptimisticLockingRetry());
+        retry, actividadesService);
   }
 
   @Test
-  void resolverConQuorumAlcanzadoReprogramaLaActividadALaFechaGanadora()
+  void resolverConQuorumAlcanzadoReprogramaLaActividadALaFechaGanadoraEnElOrdenCorrecto()
   {
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     LocalDateTime fechaGanadora = LocalDateTime.now().plusDays(3);
@@ -96,7 +107,7 @@ class VotacionesServiceImplemTest
     votarDosVeces(votacion, ganadora);
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
@@ -106,11 +117,16 @@ class VotacionesServiceImplemTest
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
     assertThat(votacion.isAbierta()).isFalse();
     assertThat(votacion.getAlternativaGanadora()).isEqualTo(ganadora);
-    verify(actividadesRepository).save(actividad);
+
+    InOrder orden = inOrder(votacionesRepository, actividadesRepository, servicioNotificaciones, notificacionInboxService);
+    orden.verify(votacionesRepository).cerrarSiAbierta(votacion);
+    orden.verify(actividadesRepository).save(actividad);
+    orden.verify(servicioNotificaciones).notificarATodos(any(), any());
+    orden.verify(notificacionInboxService).crearParaTodos(any(), any(), any(), any(), any());
   }
 
   @Test
-  void resolverSinQuorumCancelaLaActividadYNoDejaGanadora()
+  void resolverSinQuorumCancelaLaActividadYNoDejaGanadoraEnElOrdenCorrecto()
   {
     Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA);
     Alternativa alternativa = crearAlternativa("1", 1, LocalDateTime.now().plusDays(3));
@@ -119,7 +135,7 @@ class VotacionesServiceImplemTest
     votarDosVeces(votacion, alternativa); // 2 votos < 5 requeridos
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
@@ -128,7 +144,36 @@ class VotacionesServiceImplemTest
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     assertThat(votacion.isAbierta()).isFalse();
     assertThat(votacion.getAlternativaGanadora()).isNull();
-    verify(actividadesRepository).save(actividad);
+
+    InOrder orden = inOrder(votacionesRepository, actividadesRepository, servicioNotificaciones, notificacionInboxService);
+    orden.verify(votacionesRepository).cerrarSiAbierta(votacion);
+    orden.verify(actividadesRepository).save(actividad);
+    orden.verify(servicioNotificaciones).notificarATodos(any(), any());
+    orden.verify(notificacionInboxService).crearParaTodos(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void resolverCuandoElCierreCondicionalFallaPorConcurrenciaNoReprogramaNiNotifica()
+  {
+    LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
+    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
+    Alternativa ganadora = crearAlternativa("1", 1, LocalDateTime.now().plusDays(3));
+
+    Votacion votacion = crearVotacion(actividad, 2, List.of(ganadora));
+    votarDosVeces(votacion, ganadora);
+
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.empty());
+
+    inicializarService();
+
+    assertThatThrownBy(() -> service.resolverVotacion("10", "1"))
+        .isInstanceOf(VotacionCerradaException.class);
+
+    assertThat(actividad.getFechaRealizacion()).isEqualTo(fechaOriginal);
+    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
+    verify(actividadesRepository, never()).save(any());
+    verifyNoInteractions(servicioNotificaciones, notificacionInboxService);
   }
 
   @Test
@@ -138,7 +183,7 @@ class VotacionesServiceImplemTest
     Votacion votacion = crearVotacion(actividad, 1, List.of());
 
     when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
-    when(votacionesRepository.save(votacion)).thenReturn(votacion);
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
     when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
 
     inicializarService();
@@ -165,7 +210,7 @@ class VotacionesServiceImplemTest
         .isInstanceOf(IllegalStateException.class);
 
     verify(actividadesRepository, never()).save(any());
-    verify(votacionesRepository, never()).save(any());
+    verify(votacionesRepository, never()).cerrarSiAbierta(any());
   }
 
   @Test
@@ -183,7 +228,7 @@ class VotacionesServiceImplemTest
         .isInstanceOf(VotacionCerradaException.class);
 
     verify(actividadesRepository, never()).save(any());
-    verify(votacionesRepository, never()).save(any());
+    verify(votacionesRepository, never()).cerrarSiAbierta(any());
   }
 
   @Test
@@ -305,65 +350,6 @@ class VotacionesServiceImplemTest
     verify(votacionesRepository, never()).save(any());
   }
 
-  /*
-  @Test
-  void ofreceAlternativasDeLosDiasConDatoAunqueOtroDiaQuedeFueraDeCoberturaDelProveedor()
-  {
-    // Reproduce lo observado en vivo con el proveedor real: cuando
-    // horasAnticipacion + rangoReprogramacion.dias encadenados superan el
-    // tope de dias que el plan de WeatherAPI puede cubrir (ver
-    // decisiones-tecnicas-validadas.md, seccion 2), el dia mas lejano del
-    // rango queda fuera de la cobertura real y climaEnHora tira
-    // ProveedorClimaIndisponibleException para TODAS sus horas — pero eso es
-    // indisponibilidad de UN dia puntual, no de la busqueda entera: los dias
-    // que si tienen dato (exitosos o no) se siguen evaluando normalmente, sin
-    // que el dia sin cobertura cancele la actividad ni tire abajo el resto.
-
-    LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
-    Actividad actividad = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
-    actividad.setId(55L);
-    actividad.setReglasClima(new ReglasClima(30.0, 10.0, 30.0, 20.0));
-    actividad.setRangoReprogramacion(new RangoReprogramacion(3, 10, 14)); // 3 dias, grilla: 10,12,14
-
-    LocalDateTime diaSinCobertura = fechaOriginal.plusDays(1); // todas sus horas: indisponible
-    LocalDateTime diaConDatoSinFavorable = fechaOriginal.plusDays(2); // con dato, ninguna hora cumple
-    LocalDateTime diaConFavorable = fechaOriginal.plusDays(3); // con dato, una hora cumple
-    LocalDateTime horaFavorable = diaConFavorable.withHour(12).withMinute(0).withSecond(0).withNano(0);
-
-    when(actividadesRepository.findById(55L)).thenReturn(Optional.of(actividad));
-    when(votacionesRepository.findByAbiertaTrueAndActividadId(55L)).thenReturn(Optional.empty());
-
-    // Default: dato disponible pero desfavorable (cubre diaConDatoSinFavorable
-    // y diaConFavorable, salvo la hora que se pisa despues).
-    when(proveedorClima.obtenerPronostico(eq(UBICACION), any())).thenReturn(new Clima(80, 20, 10));
-
-    for (int hora = 10; hora <= 14; hora += 2)
-      when(proveedorClima.obtenerPronostico(eq(UBICACION),
-          eq(diaSinCobertura.withHour(hora).withMinute(0).withSecond(0).withNano(0))))
-          .thenThrow(new ProveedorClimaIndisponibleException("Fuera de la cobertura traida"));
-
-    when(proveedorClima.obtenerPronostico(eq(UBICACION), eq(horaFavorable))).thenReturn(new Clima(5, 22, 10));
-
-    when(votacionesRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-    when(votacionMapper.votacionToVotacionDto(any())).thenReturn(mock(VotacionDto.class));
-
-    inicializarService();
-    Optional<VotacionDto> resultado = service.abrirVotacionAutomatica(55L);
-
-    assertThat(resultado).isPresent();
-    assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA); // no cancelada
-
-    ArgumentCaptor<Votacion> captor = ArgumentCaptor.forClass(Votacion.class);
-    verify(votacionesRepository).save(captor.capture());
-    Votacion votacionCreada = captor.getValue();
-
-    // Solo la alternativa de diaConFavorable se ofrece; diaSinCobertura no
-    // aporta nada (ni error, ni cancelacion) y diaConDatoSinFavorable tampoco
-    // aporta nada por no tener ninguna hora que cumpla las reglas.
-    assertThat(votacionCreada.getAlternativas()).hasSize(1);
-    assertThat(votacionCreada.getAlternativas().get(0).getFecha()).isEqualTo(horaFavorable);
-  } */
-
   @Test
   void cancelaLaActividadSiNoTieneRangoReprogramacionConfiguradoSinConsultarElClima()
   {
@@ -474,10 +460,6 @@ class VotacionesServiceImplemTest
   @Test
   void crearVotacionAsignaUnIdACadaAlternativaCreada()
   {
-    // Alternativa es un objeto embebido dentro de VotacionEntity, no un @Document propio:
-    // Mongo nunca le auto-genera un _id como hace con el documento de nivel superior.
-    // Si construirAlternativa no le asigna uno a mano, la alternativa persiste sin id y
-    // Votacion.cantidadVotos/eliminarVoto revientan con NullPointerException apenas hay un voto.
     Actividad actividad = crearActividad(null);
     actividad.setId("61");
 
@@ -502,12 +484,6 @@ class VotacionesServiceImplemTest
   @Test
   void crearVotacionConFechaFueraDeLaCoberturaDelProveedorCreaLaAlternativaConClimaNull()
   {
-    // La fecha elegida por el usuario ya fue validada contra el rango de
-    // reprogramacion de la actividad (regla de dominio, independiente del
-    // clima): que el proveedor no pueda informar el pronostico para esa
-    // fecha -ya sea por falta de cobertura o por una falla real del
-    // proveedor, ambos casos comparten ProveedorClimaIndisponibleException-
-    // no debe bloquear la creacion de la alternativa con un 503.
     Actividad actividad = crearActividad(null);
     actividad.setId("61");
 
@@ -864,13 +840,6 @@ class VotacionesServiceImplemTest
     return crearActividad(estado, LocalDateTime.now().plusDays(1));
   }
 
-  // PROPUESTA como origen porque, segun Estados, es el unico estado desde el
-  // que se puede llegar tanto a REPROGRAMADA como a CANCELADA (los dos
-  // destinos que usan los tests de resolverVotacion/abrirVotacionAutomatica).
-  //
-  // Organizador real (no null): el constructor de Actividad ya lo agrega
-  // como participante automaticamente, y un null ahi se cuela en
-  // getParticipantes() y rompe cualquier iteracion/stream sobre esa lista.
   private Actividad crearActividad(TipoEstadoActividad estado, LocalDateTime fecha)
   {
     Actividad actividad = new Actividad(
@@ -884,6 +853,7 @@ class VotacionesServiceImplemTest
         2,
         10,
         crearUsuarioConId("1"));
+    actividad.setId("act-1");
     actividad.setEstado(estado);
     actividad.setRangoReprogramacion(new RangoReprogramacion(5, 0, 23));
     return actividad;
@@ -901,6 +871,7 @@ class VotacionesServiceImplemTest
   private Votacion crearVotacion(Actividad actividad, int quorumMinimo, List<Alternativa> alternativas)
   {
     Votacion votacion = new Votacion();
+    votacion.setId("10");
     votacion.setActividad(actividad);
     votacion.setQuorumMinimo(quorumMinimo);
     votacion.setAbierta(true);

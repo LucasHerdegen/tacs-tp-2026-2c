@@ -3,17 +3,24 @@ package com.tacs.backend.services.implem;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
+import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
-import com.tacs.backend.domain.usuario.TipoRol;
-import com.tacs.backend.domain.clima.Clima;
-import com.tacs.backend.domain.votacion.Votacion;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
+import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
+import com.tacs.backend.dtos.actividades.UbicacionDto;
+import com.tacs.backend.dtos.clima.ReglasClimaDto;
+import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
+import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -26,15 +33,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,18 +52,12 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import com.tacs.backend.dtos.clima.ReglasClimaDto;
-import com.tacs.backend.dtos.actividades.UbicacionDto;
-import com.tacs.backend.exceptions.ActividadNotFoundException;
-import com.tacs.backend.exceptions.AccesoDenegadoException;
-import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
-import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
-
 
 @ExtendWith(MockitoExtension.class)
 class ActividadesServiceImplemTest
@@ -246,22 +248,25 @@ class ActividadesServiceImplemTest
   }
 
   @Test
-  @DisplayName("Cancelar actividad con votacion abierta - Cierra la votacion exitosamente")
-  void cancelarActividad_ConVotacionAbierta_CierraVotacion()
+  @DisplayName("Cancelar actividad con votacion abierta - Cierra primero la votacion condicionalmente, luego guarda actividad y por ultimo notifica")
+  void cancelarActividad_ConVotacionAbierta_CierraVotacionPrimeroLuegoGuardaYNotifica()
   {
     // Arrange
     String actividadId = "100";
     String organizadorId = "1";
     actividadMock.setId(actividadId);
+    actividadMock.setTitulo("Partido 5v5");
     actividadMock.setOrganizador(usuarioMock);
     actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
     actividadMock.setFechaRealizacion(LocalDateTime.now().plusDays(1));
 
     Votacion votacionMock = new Votacion();
+    votacionMock.setId("vot-1");
     votacionMock.setAbierta(true);
 
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
     when(votacionesRepository.findByAbiertaTrueAndActividadId(actividadId)).thenReturn(Optional.of(votacionMock));
+    when(votacionesRepository.cerrarSiAbierta(votacionMock)).thenReturn(Optional.of(votacionMock));
 
     // Act
     actividadesService.cambiarEstado(actividadId, organizadorId, TipoEstadoActividad.CANCELADA);
@@ -269,8 +274,41 @@ class ActividadesServiceImplemTest
     // Assert
     assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     assertThat(votacionMock.isAbierta()).isFalse();
-    verify(votacionesRepository).save(votacionMock);
-    verify(actividadesRepository).save(actividadMock);
+
+    InOrder orden = inOrder(votacionesRepository, actividadesRepository, servicioNotificaciones, notificacionInboxService);
+    orden.verify(votacionesRepository).cerrarSiAbierta(votacionMock);
+    orden.verify(actividadesRepository).save(actividadMock);
+    orden.verify(servicioNotificaciones).notificarATodos(any(), any());
+    orden.verify(notificacionInboxService).crearParaTodos(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("Cancelar actividad falla al cerrar votacion ya cerrada - No guarda actividad ni notifica")
+  void cancelarActividad_CierreCondicionalFalla_NoGuardaActividadNiNotifica()
+  {
+    // Arrange
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setId(actividadId);
+    actividadMock.setTitulo("Partido 5v5");
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
+
+    Votacion votacionMock = new Votacion();
+    votacionMock.setId("vot-1");
+    votacionMock.setAbierta(true);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId(actividadId)).thenReturn(Optional.of(votacionMock));
+    when(votacionesRepository.cerrarSiAbierta(votacionMock)).thenReturn(Optional.empty());
+
+    // Act & Assert
+    assertThatThrownBy(() -> actividadesService.cambiarEstado(actividadId, organizadorId, TipoEstadoActividad.CANCELADA))
+        .isInstanceOf(VotacionCerradaException.class);
+
+    assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
+    verify(actividadesRepository, never()).save(any());
+    verifyNoInteractions(servicioNotificaciones, notificacionInboxService);
   }
 
   @Test

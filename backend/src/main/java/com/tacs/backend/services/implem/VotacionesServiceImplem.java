@@ -2,7 +2,6 @@ package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
-import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.domain.votacion.Alternativa;
@@ -25,6 +24,7 @@ import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
@@ -55,6 +55,7 @@ class VotacionesServiceImplem implements VotacionesService
   private final ServicioNotificaciones servicioNotificaciones;
   private final NotificacionInboxService notificacionInboxService;
   private final OptimisticLockingRetry optimisticLockingRetry;
+  private final ActividadesService actividadesService;
 
   // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
 
@@ -123,8 +124,7 @@ class VotacionesServiceImplem implements VotacionesService
         // No se cancela actividad si el fallo es debido a un error en la conexion con el proveedor
         return Optional.empty();
 
-      cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico", null);
-      actividadesRepository.save(actividad);
+      actividadesService.cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico", null);
       return Optional.empty();
     }
 
@@ -251,25 +251,29 @@ class VotacionesServiceImplem implements VotacionesService
   {
     validarVotacionAbierta(votacion);
 
+    Actividad actividad = votacion.getActividad();
+    if (actividad.getEstado() == null)
+      throw new IllegalStateException(
+          "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
+    actividad.validarPermiteAbrirVotacion();
+
     Optional<Alternativa> ganadora = votacion.alternativaMasVotada()
         .filter(alternativa -> votacion.cantidadVotos(alternativa) >= votacion.getQuorumMinimo());
 
-    Actividad actividad = votacion.getActividad();
+    votacion.cerrar(ganadora.orElse(null));
+    Votacion votacionCerrada = votacionesRepository.cerrarSiAbierta(votacion)
+        .orElseThrow(() -> new VotacionCerradaException("La votacion ya esta cerrada"));
 
     if (ganadora.isPresent())
     {
       LocalDateTime fechaAnterior = actividad.getFechaRealizacion();
       actividad.reprogramar(ganadora.get().getFecha());
+      actividadesRepository.save(actividad);
       notificarReprogramacion(actividad, fechaAnterior, votacion.getId());
     } else
     {
-      cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
+      actividadesService.cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
     }
-
-    actividadesRepository.save(actividad);
-
-    votacion.cerrar(ganadora.orElse(null));
-    Votacion votacionCerrada = votacionesRepository.save(votacion);
 
     return votacionMapper.votacionToVotacionDto(votacionCerrada);
   }
@@ -447,21 +451,6 @@ class VotacionesServiceImplem implements VotacionesService
     }
 
     return new ResultadoBusquedaDia(favorablesDelDia, huboConsultaExitosa);
-  }
-
-  private void cancelarActividad(Actividad actividad, String motivo, String votacionId)
-  {
-    if (actividad.getEstado() == null)
-      throw new IllegalStateException(
-          "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
-
-    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
-
-    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
-
-    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
-    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
   private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior, String votacionId)

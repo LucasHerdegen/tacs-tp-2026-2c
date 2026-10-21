@@ -2,10 +2,8 @@ package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
-import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.repositories.ActividadesRepository;
-import com.tacs.backend.services.NotificacionInboxService;
-import com.tacs.backend.services.ServicioNotificaciones;
+import com.tacs.backend.services.ActividadesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -21,8 +19,7 @@ import java.util.List;
 public class FinalizacionActividadJob
 {
   private final ActividadesRepository actividadesRepository;
-  private final ServicioNotificaciones servicioNotificaciones;
-  private final NotificacionInboxService notificacionInboxService;
+  private final ActividadesService actividadesService;
 
   @Scheduled(fixedRate = 300000) // cada 5 min
   @SchedulerLock(name = "finalizacionActividadJob", lockAtMostFor = "4m", lockAtLeastFor = "1m")
@@ -57,16 +54,9 @@ public class FinalizacionActividadJob
     {
       if (entidad.getEstado() == TipoEstadoActividad.PROPUESTA)
       {
-        entidad.cambiarEstado(TipoEstadoActividad.CANCELADA);
-        actividadesRepository.save(entidad);
+        actividadesService.cancelarActividad(entidad,
+            "no alcanzó la cantidad mínima de participantes requerida", null);
         log.info("Actividad ID={} en estado PROPUESTA marcada como CANCELADA por falta de quórum", entidad.getId());
-
-        String contenido = "La actividad '%s' fue cancelada: no alcanzó la cantidad mínima de participantes requerida."
-            .formatted(entidad.getTitulo());
-
-        servicioNotificaciones.notificarATodos(contenido, entidad.getParticipantes());
-        notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-            entidad.getId(), null, entidad.getParticipantes());
       }
       else
       {
