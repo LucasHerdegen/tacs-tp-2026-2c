@@ -1,5 +1,6 @@
 package com.tacs.backend.services.implem;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.auth.LoginRequest;
@@ -29,7 +30,7 @@ class AuthServiceImplem implements AuthService
   private final JwtService jwtService;
 
   @Override
-    public UsuarioDto registrar(RegistroRequest request)
+  public UsuarioDto registrar(RegistroRequest request)
   {
     if (usuarioRepository.existsByUsername(request.username()))
       throw new UsernameAlreadyExistsException("El username ya esta registrado");
@@ -42,7 +43,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-    public LoginResponse login(LoginRequest request)
+  public LoginResponse login(LoginRequest request)
   {
     Usuario usuario = usuarioRepository.findByUsername(request.username())
         .orElseThrow(() -> new InvalidCredentialsException("Credenciales invalidas"));
@@ -55,7 +56,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-    public UsuarioDto buscarPorUsername(String username)
+  public UsuarioDto buscarPorUsername(String username)
   {
     Usuario usuario = usuarioRepository.findByUsername(username)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -64,7 +65,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-    public List<UsuarioDto> listarUsuarios()
+  public List<UsuarioDto> listarUsuarios()
   {
     return usuarioRepository.findAll().stream()
         .map(this::toDto)
@@ -72,19 +73,19 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-    public UsuarioDto actualizarRol(String usuarioId, TipoRol rol, String adminId)
+  public UsuarioDto actualizarRol(String usuarioId, TipoRol rol, String adminId)
   {
     if (usuarioId.equals(adminId))
-        throw new AccesoDenegadoException("No podes cambiarte el rol a vos mismo");
+      throw new AccesoDenegadoException("No podes cambiarte el rol a vos mismo");
 
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
-    if (usuario.getRol() == TipoRol.ADMIN && rol != TipoRol.ADMIN) {
-        long adminsCount = usuarioRepository.countByRol(TipoRol.ADMIN);
-        if (adminsCount <= 1) {
-            throw new AccesoDenegadoException("No podes quitarle el rol al unico admin del sistema");
-        }
+    if (usuario.getRol() == TipoRol.ADMIN && rol != TipoRol.ADMIN)
+    {
+      long adminsCount = usuarioRepository.countByRol(TipoRol.ADMIN);
+      if (adminsCount <= 1)
+        throw new AccesoDenegadoException("No podes quitarle el rol al unico admin del sistema");
     }
 
     usuario.setRol(rol);
@@ -101,7 +102,7 @@ class AuthServiceImplem implements AuthService
   }
 
   @Override
-    public UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto)
+  public UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto)
   {
     Usuario usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
@@ -110,8 +111,23 @@ class AuthServiceImplem implements AuthService
     return toDto(usuarioGuardado);
   }
 
+  @Override
+  public UsuarioDto actualizarProveedorClima(String usuarioId, TipoProveedorClima proveedorClima)
+  {
+    Usuario usuario = usuarioRepository.findById(usuarioId)
+        .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
+    usuario.cambiarProveedorClima(proveedorClima);
+    Usuario usuarioGuardado = usuarioRepository.save(usuario);
+    return toDto(usuarioGuardado);
+  }
+
   private UsuarioDto toDto(Usuario usuario)
   {
-    return new UsuarioDto(usuario.getId(), usuario.getUsername(), usuario.getRol(), usuario.getMedioContacto());
+    return new UsuarioDto(
+        usuario.getId(),
+        usuario.getUsername(),
+        usuario.getRol(),
+        usuario.getMedioContacto(),
+        usuario.getProveedorClimaEfectivo());
   }
 }

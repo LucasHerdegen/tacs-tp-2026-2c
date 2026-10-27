@@ -3,6 +3,7 @@ import type {
   LoginCredentials,
   LoginResponse,
   RegisterData,
+  TipoProveedorClima,
   User,
 } from './types';
 
@@ -23,5 +24,13 @@ export const authApi = {
 
   me(token: string) {
     return apiRequest<User>('/api/usuarios/me', { token });
+  },
+
+  actualizarProveedorClima(proveedorClima: TipoProveedorClima, token: string) {
+    return apiRequest<User>('/api/usuarios/me/proveedor-clima', {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify({ proveedorClima }),
+    });
   },
 };

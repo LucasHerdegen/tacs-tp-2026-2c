@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { authApi } from './authApi';
 import { AuthContext, type AuthStatus } from './authContext';
-import type { LoginCredentials, StoredSession, User } from './types';
+import type { LoginCredentials, StoredSession, TipoProveedorClima, User } from './types';
 
 const STORAGE_KEY = 'tacs.auth';
 
@@ -59,6 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated');
   }, []);
 
+  const cambiarProveedorClima = useCallback(
+    async (proveedor: TipoProveedorClima) => {
+      if (!session?.token) return;
+      const actualizado = await authApi.actualizarProveedorClima(proveedor, session.token);
+      setUser(actualizado);
+    },
+    [session],
+  );
+
   useEffect(() => {
     if (!session || user) return;
 
@@ -93,8 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [logout, session]);
 
   const value = useMemo(
-    () => ({ status, user, token: session?.token ?? null, login, logout }),
-    [login, logout, session?.token, status, user],
+    () => ({
+      status,
+      user,
+      token: session?.token ?? null,
+      login,
+      logout,
+      cambiarProveedorClima,
+    }),
+    [cambiarProveedorClima, login, logout, session?.token, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

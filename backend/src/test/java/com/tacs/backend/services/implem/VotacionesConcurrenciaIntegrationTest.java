@@ -1,5 +1,6 @@
 package com.tacs.backend.services.implem;
 
+import com.tacs.backend.config.TestMongoFallbackConfig;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
@@ -64,6 +65,7 @@ import static org.mockito.Mockito.verify;
     "spring.data.mongodb.auto-index-creation=true"
 })
 @Import({
+    TestMongoFallbackConfig.class,
     VotacionesServiceImplem.class,
     ActividadesServiceImplem.class,
     VotacionesRepositoryImpl.class,

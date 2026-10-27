@@ -2,6 +2,7 @@ package com.tacs.backend.scheduling;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.repositories.ActividadesRepository;
@@ -9,6 +10,7 @@ import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
+import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -34,7 +36,6 @@ public class ChequeoClimaJob
    * Tarea programada que verifica periodicamente el pronostico del clima
    * para las actividades proximas y abre votaciones si es desfavorable.
    */
-
   @Scheduled(fixedRateString = "${clima.chequeo.intervalo-ms}")
   @SchedulerLock(name = "ChequeoClimaJob_chequearClima", lockAtLeastFor = "1m", lockAtMostFor = "10m")
   public void chequearClima()
@@ -49,7 +50,6 @@ public class ChequeoClimaJob
    * configuradas. Separado de {@link #chequearClima()} para poder testear la
    * deteccion sin depender del scheduler ni de la notificacion.
    */
-
   List<Actividad> detectarClimaDesfavorable()
   {
     List<Actividad> desfavorables = new ArrayList<>();
@@ -67,14 +67,19 @@ public class ChequeoClimaJob
   }
 
   /**
-   * Consulta el pronostico y evalua si es desfavorable. Si el proveedor de
-   * clima falla, se aisla el error: esta actividad se saltea en este tick (se
-   * reevalua en la proxima corrida del cron, sigue siendo candidata) en vez de
-   * tirar abajo la deteccion completa para el resto de las actividades.
+   * Consulta el pronostico usando el proveedor preferido del organizador y
+   * evalua si es desfavorable. Si el proveedor de clima falla, se aisla el
+   * error: esta actividad se saltea en este tick.
    */
-
   private boolean tieneClimaDesfavorable(Actividad actividad)
   {
+    Usuario organizador = actividad.getOrganizador();
+    String organizadorId = organizador != null ? organizador.getId() : null;
+    TipoProveedorClima proveedorOrganizador = organizador != null
+        ? organizador.getProveedorClimaEfectivo()
+        : TipoProveedorClima.WEATHER_API;
+
+    ContextoProveedorClima.iniciar(organizadorId, proveedorOrganizador);
     try
     {
       Clima pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion());
@@ -84,6 +89,9 @@ public class ChequeoClimaJob
       log.error("Fallo consultando el pronostico para actividad id={}, se reintenta en la proxima corrida del cron",
           actividad.getId(), e);
       return false;
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
     }
   }
 
