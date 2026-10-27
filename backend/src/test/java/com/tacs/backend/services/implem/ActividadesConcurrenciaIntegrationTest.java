@@ -1,5 +1,6 @@
 package com.tacs.backend.services.implem;
 
+import com.tacs.backend.config.TestMongoFallbackConfig;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
@@ -53,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.data.mongodb.auto-index-creation=true"
 })
 @Import({
+    TestMongoFallbackConfig.class,
     ActividadesServiceImplem.class,
     ActividadesRepositoryImpl.class,
     UsuarioRepositoryImpl.class,

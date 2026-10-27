@@ -1,5 +1,6 @@
 package com.tacs.backend.domain.usuario;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,6 +15,7 @@ public class Usuario
   private String password;
   private TipoRol rol;
   private MedioContacto medioContacto;
+  private TipoProveedorClima proveedorClima = TipoProveedorClima.WEATHER_API;
 
   @Override
   public boolean equals(Object o)
@@ -35,5 +37,16 @@ public class Usuario
     this.username = username;
     this.password = password;
     this.rol = rol;
+    this.proveedorClima = TipoProveedorClima.WEATHER_API;
+  }
+
+  public TipoProveedorClima getProveedorClimaEfectivo()
+  {
+    return proveedorClima != null ? proveedorClima : TipoProveedorClima.WEATHER_API;
+  }
+
+  public void cambiarProveedorClima(TipoProveedorClima nuevoProveedor)
+  {
+    this.proveedorClima = nuevoProveedor != null ? nuevoProveedor : TipoProveedorClima.WEATHER_API;
   }
 }

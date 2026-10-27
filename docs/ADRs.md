@@ -116,3 +116,34 @@ En este documento se registran las decisiones de arquitectura más importantes t
 3. **Invariantes sobre estados terminales en el dominio**: `Actividad` rechaza nuevas inscripciones, bajas y apertura de votaciones cuando su estado es `CANCELADA` o `FINALIZADA` (aplicando la regla tanto a la API REST como al bot de Telegram), y al cancelarse una actividad se cierra automáticamente cualquier votación abierta asociada.
 
 **Consecuencias**: La máquina de estados queda cerrada de punta a punta sin estados huérfanos ni errores recurrentes en los jobs periódicos, y las estadísticas reflejan fielmente las actividades finalizadas.
+
+
+## ADR 11: Selección Dinámica de Proveedor de Clima, Resiliencia Multicapa y Fallback Automático
+
+**Contexto**: En la Entrega 4 se incorpora el servicio provisto por *Humedad, Datos y Pronósticos S.A.* (binario legacy cerrado e inestable) como segundo proveedor de pronósticos climáticos. Cada usuario puede elegir qué proveedor utilizar (`WEATHER_API` o `LEGACY`), pero el binario legacy inyecta fallas severas por diseño: 20% de respuestas malformadas con código HTTP `200 OK` (JSON truncado, comas inválidas, HTML `502 Bad Gateway`), 20% de colgados indefinidos de conexión, caídas periódicas con código `503` (13.5%) y terminación abrupta del proceso con `exit(1)` (10% cada 60 segundos).
+
+**Decisión**:
+1. **Patrón Strategy + Proxy Enrutador (`SelectorProveedorClima`)**: Mantener la interfaz `ProveedorClima` intacta e introducir `SelectorProveedorClima` (`@Primary`) que enruta dinámicamente hacia `LegacyProveedorClima` o `WeatherApiProveedorClima` según la preferencia del usuario almacenada en `ContextoProveedorClima` (el usuario autenticado en consultas interactivas y el organizador de la actividad en jobs programados).
+2. **Validación Estricta (`LegacyClimaValidador`) antes del Circuit Breaker**: Deserializar el cuerpo crudo y verificar formato JSON, ausencia de HTML, coincidencia de `id` RPC, `status == "OK"`, presencia de campos y rangos físicos razonables (`temperatura` en `[-90, 65] °C`, `probabilidadLluvia` en `[0, 100]%`, `viento` en `[0, 400] km/h`), lanzando `RespuestaClimaInvalidaException` para que tanto Retry como Circuit Breaker contabilicen un HTTP 200 corrupto como falla real.
+3. **Pila de Resiliencia (`LegacyClimaResilience` + `LegacyForecastClient`)**:
+   - **Caché Caffeine normalizada (`sync = true`, TTL 1800s)**: Normaliza coordenadas a 2 decimales (`%.2f`) y trunca la fecha/hora a la hora exacta, coincidiendo con la semilla FNV-1a interna del binario.
+   - **Timeouts agresivos**: `connectTimeout = 1000ms` y `readTimeout = 1500ms` para abortar rápidamente el 20% de requests colgados.
+   - **Rate Limiting doble**: Por usuario (`15 req/s`) y global hacia el proveedor (`10 req/s`).
+   - **Retry con Backoff Exponencial y Jitter**: `maxAttempts = 3`, `waitDuration = 200ms`, multiplicador `2.0` y `randomizedWaitFactor = 0.5`, reduciendo la probabilidad de falla por request del 40% al `6.4%` (`0.4^3`) cuando el servicio está activo.
+   - **Circuit Breaker**: `slidingWindowSize = 10`, `minimumNumberOfCalls = 5`, `failureRateThreshold = 50%`, `waitDurationInOpenState = 20s`.
+4. **Fallback Automático a `WeatherAPI`**: Si tras agotar los reintentos (o con el circuito abierto) `LegacyProveedorClima` lanza `ProveedorClimaIndisponibleException`, `SelectorProveedorClima` conmuta automáticamente a `WeatherApiProveedorClima` e informa en `PronosticoRespuestaDto` (`fallbackActivo = true`, `mensajeEstado`) para que el frontend exhiba un aviso transparente sin degradar la experiencia del usuario.
+
+**Consecuencias**: La aplicación tolera todos los modos de falla del binario sin propagar errores 500/503 al usuario final, acotando la latencia máxima y registrando métricas detalladas para el panel de administración (`MonitorProveedoresClima`).
+
+
+## ADR 12: Topología de Despliegue y Supervisión del Servicio Legacy (`clima-legacy`)
+
+**Contexto**: El binario `tacs-linux-amd64` presenta tres restricciones operativas críticas descubiertas durante el análisis: (1) escucha exclusivamente en `127.0.0.1:9977` (loopback local), lo que impide que otros contenedores en una red Docker se conecten directamente; (2) requiere restaurar una sesión OAuth2 (`token.json`) al iniciar; y (3) ejecuta un loop cada 60 segundos (`main.rollDice`) con 10% de probabilidad de invocar `os.Exit(1)`. Además, el enunciado prohíbe exponer el servicio públicamente o versionar credenciales en git.
+
+**Decisión**:
+1. **Contenedor interno dedicado (`clima-legacy`) sin puertos publicados al host**: En `docker-compose.yaml` se define `expose: ["9978"]` sin sección `ports:`, de modo que únicamente el contenedor `backend` puede alcanzarlo a través de la red puente interna de Docker (`http://clima-legacy:9978`).
+2. **Forwarder interno `socat`**: El `entrypoint.sh` del contenedor levanta `socat TCP-LISTEN:9978,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9977`, exponiendo en la interfaz interna del contenedor el puerto `9978` y redirigiéndolo al loopback `127.0.0.1:9977` del binario.
+3. **Doble capa de auto-recuperación ante crashes (`exit(1)`)**: Un bucle supervisor en `entrypoint.sh` (`while true; do /app/tacs-linux-amd64; sleep 1; done`) reinicia el proceso en `~1 segundo` sin siquiera recrear el contenedor ni perder el proceso `socat`, complementado con `restart: unless-stopped` y `healthcheck` de Docker contra `/healthz`.
+4. **Gestión de sesión y secretos fuera de Git**: El token de API (`LEGACY_CLIMA_API_TOKEN`) y la cuenta institucional (`LEGACY_CLIMA_ACCOUNT_EMAIL`) se inyectan exclusivamente por variables de entorno desde `.env` (ignorado en `.gitignore` junto con `**/token.json`).
+
+**Consecuencias**: El entorno completo se levanta con un único comando (`docker compose up -d --build`) sin intervención manual, sobreviviendo automáticamente a los crashes periódicos del binario y manteniendo el servicio aislado de internet.

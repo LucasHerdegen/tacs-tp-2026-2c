@@ -1,5 +1,6 @@
 export type UserRole = 'USER' | 'ADMIN';
 export type UserId = string;
+export type TipoProveedorClima = 'WEATHER_API' | 'LEGACY';
 
 export interface ContactMethod {
   valor: string;
@@ -11,6 +12,7 @@ export interface User {
   username: string;
   rol: UserRole;
   medioContacto: ContactMethod | null;
+  proveedorClima?: TipoProveedorClima;
 }
 
 export interface LoginCredentials {

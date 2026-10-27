@@ -1,5 +1,6 @@
 package com.tacs.backend.persistence.repositories;
 
+import com.tacs.backend.config.TestMongoFallbackConfig;
 import com.tacs.backend.domain.usuario.TipoMedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.persistence.entities.MedioContactoEntity;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.Optional;
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.mongodb.uri=${MONGODB_URI:mongodb://localhost:27017/tacs_test}",
     "spring.data.mongodb.auto-index-creation=true"
 })
+@Import(TestMongoFallbackConfig.class)
 class UsuarioMongoRepositoryTest
 {
   @Autowired

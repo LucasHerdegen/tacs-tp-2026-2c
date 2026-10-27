@@ -1,5 +1,6 @@
 package com.tacs.backend.persistence.entities;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.usuario.TipoRol;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -23,4 +24,6 @@ public class UsuarioEntity
   private TipoRol rol;
 
   private MedioContactoEntity medioContacto;
+
+  private TipoProveedorClima proveedorClima;
 }
