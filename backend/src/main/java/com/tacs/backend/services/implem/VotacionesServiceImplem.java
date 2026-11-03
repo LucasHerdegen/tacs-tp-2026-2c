@@ -2,9 +2,10 @@ package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
-import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.clima.Clima;
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.notificacion.TipoNotificacion;
+import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
 import com.tacs.backend.domain.votacion.Voto;
@@ -12,6 +13,7 @@ import com.tacs.backend.dtos.votacion.AlternativaPostDto;
 import com.tacs.backend.dtos.votacion.VotacionDto;
 import com.tacs.backend.dtos.votacion.VotacionPostDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
+import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.AlternativaNotFoundException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
@@ -24,11 +26,14 @@ import com.tacs.backend.mappers.VotacionMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.VotacionesService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
+import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -39,6 +44,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 class VotacionesServiceImplem implements VotacionesService
 {
   private static final int GRANULARIDAD_BUSQUEDA_HORAS = 2;
@@ -52,43 +58,7 @@ class VotacionesServiceImplem implements VotacionesService
   private final ServicioNotificaciones servicioNotificaciones;
   private final NotificacionInboxService notificacionInboxService;
   private final OptimisticLockingRetry optimisticLockingRetry;
-
-  public VotacionesServiceImplem(
-      VotacionesRepository votacionesRepository,
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      VotacionMapper votacionMapper,
-      ProveedorClima proveedorClima,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService)
-  {
-    this(votacionesRepository, actividadesRepository, usuarioRepository,
-        votacionMapper, proveedorClima, servicioNotificaciones, notificacionInboxService,
-        new OptimisticLockingRetry());
-  }
-
-  @Autowired
-  public VotacionesServiceImplem(
-      VotacionesRepository votacionesRepository,
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      VotacionMapper votacionMapper,
-      ProveedorClima proveedorClima,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService,
-      OptimisticLockingRetry optimisticLockingRetry)
-  {
-    this.votacionesRepository = votacionesRepository;
-    this.actividadesRepository = actividadesRepository;
-    this.usuarioRepository = usuarioRepository;
-    this.votacionMapper = votacionMapper;
-    this.proveedorClima = proveedorClima;
-    this.servicioNotificaciones = servicioNotificaciones;
-    this.notificacionInboxService = notificacionInboxService;
-    this.optimisticLockingRetry = optimisticLockingRetry;
-  }
-
-  // ==================== CRUD / metodos publicos (ver Javadoc en VotacionesService) ====================
+  private final ActividadesService actividadesService;
 
   @Override
   public List<VotacionDto> votaciones(String usuarioId, boolean abierta)
@@ -100,13 +70,6 @@ class VotacionesServiceImplem implements VotacionesService
         .toList();
   }
 
-  /**
-   * Crea una nueva votacion para una actividad, validando el quorum y abriendo opciones.
-   *
-   * @param actividadId     Identificador de la actividad.
-   * @param votacionPostDto DTO que contiene informacion de la votacion.
-   * @return DTO con la votacion creada.
-   */
   @Override
   public VotacionDto crearVotacion(String actividadId, VotacionPostDto votacionPostDto, String usuarioId)
   {
@@ -132,13 +95,6 @@ class VotacionesServiceImplem implements VotacionesService
     return votacionMapper.votacionToVotacionDto(votacion);
   }
 
-  /**
-   * Abre de manera automatica una votacion buscando alternativas climaticamente favorables.
-   * En caso de no encontrar alternativas, cancela la actividad.
-   *
-   * @param actividadId Identificador de la actividad a reprogramar.
-   * @return Optional con el DTO de la votacion si fue abierta exitosamente.
-   */
   @Override
   public Optional<VotacionDto> abrirVotacionAutomatica(String actividadId)
   {
@@ -152,11 +108,9 @@ class VotacionesServiceImplem implements VotacionesService
     if (resultado.favorables().isEmpty())
     {
       if (resultado.climaIndisponible())
-        // No se cancela actividad si el fallo es debido a un error en la conexion con el proveedor
         return Optional.empty();
 
-      cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico", null);
-      actividadesRepository.save(actividad);
+      actividadesService.cancelarActividad(actividad, "no se encuentran fechas alternaticas con buen pronostico", null);
       return Optional.empty();
     }
 
@@ -207,18 +161,11 @@ class VotacionesServiceImplem implements VotacionesService
     votacionesRepository.save(votacion);
   }
 
-  /**
-   * Registra el voto de un participante por una alternativa de la votacion.
-   *
-   * @param votacionId        Identificador de la votacion.
-   * @param usuarioId         Identificador del participante que vota.
-   * @param numeroAlternativa Numero de la alternativa elegida.
-   * @return DTO de la votacion actualizada.
-   */
   @Override
   public VotacionDto votar(String votacionId, String usuarioId, int numeroAlternativa)
   {
-    return optimisticLockingRetry.ejecutarConReintento(() -> {
+    return optimisticLockingRetry.ejecutarConReintento(() ->
+    {
       Votacion votacion = buscarVotacion(votacionId);
       validarVotacionAbierta(votacion);
 
@@ -258,13 +205,6 @@ class VotacionesServiceImplem implements VotacionesService
         .findFirst();
   }
 
-  /**
-   * Cierra la votacion y determina la alternativa ganadora segun los votos y el quorum minimo.
-   * Reprograma la actividad o la cancela si no hay alternativa ganadora.
-   *
-   * @param votacionId Identificador de la votacion a resolver.
-   * @return DTO de la votacion resuelta.
-   */
   @Override
   public VotacionDto resolverVotacion(String votacionId, String usuarioId)
   {
@@ -283,25 +223,27 @@ class VotacionesServiceImplem implements VotacionesService
   {
     validarVotacionAbierta(votacion);
 
+    Actividad actividad = votacion.getActividad();
+    if (actividad.getEstado() == null)
+      throw new IllegalStateException(
+          "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
+    actividad.validarPermiteAbrirVotacion();
+
     Optional<Alternativa> ganadora = votacion.alternativaMasVotada()
         .filter(alternativa -> votacion.cantidadVotos(alternativa) >= votacion.getQuorumMinimo());
 
-    Actividad actividad = votacion.getActividad();
+    votacion.cerrar(ganadora.orElse(null));
+    Votacion votacionCerrada = votacionesRepository.cerrarSiAbierta(votacion)
+        .orElseThrow(() -> new VotacionCerradaException("La votacion ya esta cerrada"));
 
     if (ganadora.isPresent())
     {
       LocalDateTime fechaAnterior = actividad.getFechaRealizacion();
       actividad.reprogramar(ganadora.get().getFecha());
+      actividadesRepository.save(actividad);
       notificarReprogramacion(actividad, fechaAnterior, votacion.getId());
     } else
-    {
-      cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
-    }
-
-    actividadesRepository.save(actividad);
-
-    votacion.cerrar(ganadora.orElse(null));
-    Votacion votacionCerrada = votacionesRepository.save(votacion);
+      actividadesService.cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
 
     return votacionMapper.votacionToVotacionDto(votacionCerrada);
   }
@@ -313,8 +255,6 @@ class VotacionesServiceImplem implements VotacionesService
     validarOrganizador(votacion.getActividad(), usuarioId);
     votacionesRepository.delete(votacion);
   }
-
-  // ==================== Metodos auxiliares ====================
 
   private void validarOrganizador(Actividad actividad, String usuarioId)
   {
@@ -331,7 +271,7 @@ class VotacionesServiceImplem implements VotacionesService
   private Actividad buscarActividad(String actividadId)
   {
     return actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new IllegalArgumentException("Actividad no encontrada"));
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
   }
 
   private void validarSinVotacionAbierta(String actividadId)
@@ -348,16 +288,6 @@ class VotacionesServiceImplem implements VotacionesService
               .formatted(quorumMinimo, actividad.getMinimoParticipantes()));
   }
 
-  /**
-   * La fecha ya fue validada contra el rango de reprogramacion de la
-   * actividad (regla de dominio, independiente del proveedor de clima). Si
-   * el proveedor no puede informar el clima para esa fecha — ya sea porque
-   * esta fuera de la cobertura que el plan contratado permite traer, o
-   * porque el proveedor fallo — la alternativa se crea igual, con clima en null, en vez de
-   * rechazar al usuario con un 503: ya elegimos una fecha valida, la falta
-   * de pronostico es informativa, no bloqueante. Mismo criterio que ya usa
-   * la busqueda automatica (ver alternativasFavorablesDelDia).
-   */
   private Alternativa crearAlternativa(AlternativaPostDto dto, int numero, Actividad actividad)
   {
     if (actividad.getRangoReprogramacion() == null || !actividad.getRangoReprogramacion()
@@ -366,19 +296,26 @@ class VotacionesServiceImplem implements VotacionesService
           "La fecha de la alternativa debe estar dentro del rango de reprogramacion permitido por la actividad");
 
     Clima pronostico;
+    iniciarContextoOrganizador(actividad);
     try
     {
       pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), dto.fecha());
     } catch (ProveedorClimaIndisponibleException e)
     {
       pronostico = null;
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
     }
 
     return construirAlternativa(dto.fecha(), numero, pronostico);
   }
 
-  private Votacion abrirVotacion(Actividad actividad, int quorumMinimo, LocalDateTime fechaLimite,
-                                 List<Alternativa> alternativas)
+  private Votacion abrirVotacion(
+      Actividad actividad,
+      int quorumMinimo,
+      LocalDateTime fechaLimite,
+      List<Alternativa> alternativas)
   {
     actividad.validarPermiteAbrirVotacion();
     Votacion votacion = new Votacion();
@@ -392,28 +329,10 @@ class VotacionesServiceImplem implements VotacionesService
     return votacionesRepository.save(votacion);
   }
 
-  /**
-   * Resultado de recorrer el rango de reprogramacion buscando alternativas.
-   * {@code climaIndisponible} distingue "no evaluamos ningun candidato porque
-   * el proveedor de clima fallo en todos" (no se debe cancelar la actividad,
-   * se reintenta en la proxima corrida del cron) de "evaluamos todo y
-   * ninguno cumple las reglas" o "no hay rango configurado" (ambos casos SI
-   * ameritan cancelar, ver abrirVotacionAutomatica).
-   */
   private record ResultadoBusquedaAlternativas(List<Alternativa> favorables, boolean climaIndisponible)
   {
   }
 
-  /**
-   * Busca, dentro de rangoReprogramacion (dias permitidos y franja horaria
-   * horaInicio-horaFinal definidos por el organizador), todas las horas de
-   * cada dia que cumplan las ReglasClima de la actividad: cada una se ofrece
-   * como alternativa propia, no solo la de mejor pronostico del dia (elegir
-   * entre varias opciones viables es trabajo de la votacion, no del sistema).
-   * Sin rangoReprogramacion configurado no hay donde buscar, y se devuelve
-   * vacio (la actividad termina cancelandose, ver abrirVotacionAutomatica) —
-   * esto no es indisponibilidad del proveedor, es falta de configuracion.
-   */
   private ResultadoBusquedaAlternativas buscarAlternativasFavorables(Actividad actividad)
   {
     RangoReprogramacion rango = actividad.getRangoReprogramacion();
@@ -444,56 +363,48 @@ class VotacionesServiceImplem implements VotacionesService
   {
   }
 
-  /**
-   * Recorre la franja horaInicio-horaFinal de ese dia cada
-   * GRANULARIDAD_BUSQUEDA_HORAS horas y devuelve todas las alternativas que cumplen las
-   * ReglasClima (numero sin asignar todavia, se numera al aplanar en
-   * buscarAlternativasFavorables). Vacia si ninguna cumple. Si el proveedor de
-   * clima esta indisponible para una hora puntual, esa hora se saltea (no
-   * cuenta como desfavorable, simplemente no hay dato) — pero se registra si
-   * hubo al menos una consulta exitosa en el dia.
-   */
   private ResultadoBusquedaDia alternativasFavorablesDelDia(Actividad actividad, RangoReprogramacion rango, int dia)
   {
     LocalDateTime diaCandidato = actividad.getFechaRealizacion().plusDays(dia);
     List<Alternativa> favorablesDelDia = new ArrayList<>();
     boolean huboConsultaExitosa = false;
 
-    for (int hora = rango.getHoraInicio(); hora <= rango.getHoraFinal(); hora += GRANULARIDAD_BUSQUEDA_HORAS)
+    iniciarContextoOrganizador(actividad);
+    try
     {
-      LocalDateTime fechaCandidata = diaCandidato.withHour(hora).withMinute(0).withSecond(0).withNano(0);
-
-      Clima pronostico;
-
-      try
+      for (int hora = rango.getHoraInicio(); hora <= rango.getHoraFinal(); hora += GRANULARIDAD_BUSQUEDA_HORAS)
       {
-        pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), fechaCandidata);
-      } catch (ProveedorClimaIndisponibleException e)
-      {
-        continue; // Evalua proxima hora directo
+        LocalDateTime fechaCandidata = diaCandidato.withHour(hora).withMinute(0).withSecond(0).withNano(0);
+
+        Clima pronostico;
+        try
+        {
+          pronostico = proveedorClima.obtenerPronostico(actividad.getUbicacion(), fechaCandidata);
+        } catch (ProveedorClimaIndisponibleException e)
+        {
+          continue;
+        }
+
+        huboConsultaExitosa = true;
+        if (actividad.cumpleCondiciones(pronostico))
+          favorablesDelDia.add(construirAlternativa(fechaCandidata, 0, pronostico));
       }
-
-      huboConsultaExitosa = true;
-      if (actividad.cumpleCondiciones(pronostico))
-        favorablesDelDia.add(construirAlternativa(fechaCandidata, 0, pronostico));
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
     }
 
     return new ResultadoBusquedaDia(favorablesDelDia, huboConsultaExitosa);
   }
 
-  private void cancelarActividad(Actividad actividad, String motivo, String votacionId)
+  private void iniciarContextoOrganizador(Actividad actividad)
   {
-    if (actividad.getEstado() == null)
-      throw new IllegalStateException(
-          "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
-
-    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
-
-    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
-
-    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
-    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-        actividad.getId(), votacionId, actividad.getParticipantes());
+    Usuario organizador = actividad != null ? actividad.getOrganizador() : null;
+    String organizadorId = organizador != null ? organizador.getId() : null;
+    TipoProveedorClima proveedorOrganizador = organizador != null
+        ? organizador.getProveedorClimaEfectivo()
+        : TipoProveedorClima.WEATHER_API;
+    ContextoProveedorClima.iniciar(organizadorId, proveedorOrganizador);
   }
 
   private void notificarReprogramacion(Actividad actividad, LocalDateTime fechaAnterior, String votacionId)
@@ -508,15 +419,6 @@ class VotacionesServiceImplem implements VotacionesService
         actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
-  /**
-   * 1/2 del tiempo (configurable) restante hasta la fecha original de la actividad,
-   * dejando margen para votar y para que el resultado se conozca antes de
-   * esa fecha. Si la fecha original ya esta encima (o paso), usa un margen
-   * minimo fijo en vez de una fechaLimite invalida (pasada o inmediata)
-   * NOTA - Esto es cuestionable si por ej. el CRON ejecutase a las 23hs de un
-   * viernes por una actividad del sabado a las 23hs, practicamente no
-   * habria tiempo para votar.
-   */
   private LocalDateTime calcularFechaLimite(Actividad actividad)
   {
     LocalDateTime ahora = LocalDateTime.now();
@@ -540,12 +442,10 @@ class VotacionesServiceImplem implements VotacionesService
       throw new VotacionCerradaException("La votacion ya esta cerrada");
   }
 
-  // Helper utilizado por crearAlternativa (fecha manual, via DTO)
-  // y mejorHorarioDelDia (fecha calculada por la busqueda automatica).
   private Alternativa construirAlternativa(LocalDateTime fecha, int numero, Clima clima)
   {
     Alternativa alternativa = new Alternativa();
-    alternativa.setId(new org.bson.types.ObjectId().toHexString());
+    alternativa.setId(new ObjectId().toHexString());
     alternativa.setFecha(fecha);
     alternativa.setNumeroAlternativa(numero);
     alternativa.setClima(clima);

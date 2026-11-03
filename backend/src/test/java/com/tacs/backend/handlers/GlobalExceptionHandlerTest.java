@@ -70,9 +70,11 @@ class GlobalExceptionHandlerTest
 
     ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
 
+    assert response != null;
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
     ProblemDetail problemDetail = (ProblemDetail) response.getBody();
+    assert problemDetail != null;
     assertThat(problemDetail.getDetail()).isEqualTo("El formato de la solicitud no es válido o los datos enviados no son correctos");
   }
 
@@ -114,48 +116,51 @@ class GlobalExceptionHandlerTest
   }
 
   @Test
-  void rangoReprogramacionInvalidoExceptionDevuelveProblemDetailConErroresYMensajeLimpio()
+  void rangoReprogramacionInvalidoExceptionDevuelveProblemDetailConCampoExplicito()
   {
     GlobalExceptionHandler handler = new GlobalExceptionHandler();
     RangoReprogramacionInvalidoException ex =
-        new RangoReprogramacionInvalidoException("El rango de reprogramacion no puede superar 3 dias: limitacion del plan de WeatherAPI contratado");
+        new RangoReprogramacionInvalidoException("El rango de reprogramacion no puede superar 3 dias", "diasReprogramacion");
 
     ProblemDetail problemDetail = handler.handleRangoReprogramacionInvalidoException(ex);
 
     assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(problemDetail.getDetail()).isEqualTo("El rango de reprogramacion no puede superar 3 dias");
-    assertThat(problemDetail.getProperties()).containsKey("errores");
+    @SuppressWarnings("unchecked")
+    Map<String, String> errores = (Map<String, String>) problemDetail.getProperties().get("errores");
+    assertThat(errores).containsEntry("diasReprogramacion", "El rango de reprogramacion no puede superar 3 dias");
   }
 
   @Test
-  void illegalArgumentExceptionHorasAnticipacionDevuelveProblemDetailConErroresYMensajeLimpio()
+  void illegalArgumentExceptionDevuelve400SinRecortarMensaje()
   {
     GlobalExceptionHandler handler = new GlobalExceptionHandler();
     IllegalArgumentException ex =
-        new IllegalArgumentException("horasAnticipacion no puede superar 72 horas (3 dias): limitacion del plan de WeatherAPI contratado");
+        new IllegalArgumentException("horasAnticipacion no puede superar 72 horas (3 dias)");
 
     ProblemDetail problemDetail = handler.handleIllegalArgumentException(ex);
 
     assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(problemDetail.getDetail()).isEqualTo("horasAnticipacion no puede superar 72 horas (3 dias)");
-    assertThat(problemDetail.getProperties()).containsKey("errores");
   }
 
   @Test
-  void rangoReprogramacionInvalidoExceptionHorariaMapeaAHoraFinalEnErrores()
+  void rangoReprogramacionInvalidoExceptionConCampoHoraFinalIncluyeCampoEnErrores()
   {
     GlobalExceptionHandler handler = new GlobalExceptionHandler();
     RangoReprogramacionInvalidoException ex =
-        new RangoReprogramacionInvalidoException("La franja horaria permitida (2 hs) no puede ser menor a la duracion estimada de la actividad (4 hs)");
+        new RangoReprogramacionInvalidoException(
+            "La franja horaria permitida (2 hs) no puede ser menor a la duracion estimada de la actividad (4 hs)",
+            "horaFinal");
 
     ProblemDetail problemDetail = handler.handleRangoReprogramacionInvalidoException(ex);
 
     assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(problemDetail.getDetail()).contains("franja horaria permitida");
-    assertThat(problemDetail.getProperties()).containsKey("errores");
+    assert problemDetail.getProperties() != null;
     @SuppressWarnings("unchecked")
     Map<String, String> errores = (Map<String, String>) problemDetail.getProperties().get("errores");
     assertThat(errores).containsKey("horaFinal");
-    assertThat(errores.get("horaFinal")).contains("franja horaria permitida");
   }
 }
+

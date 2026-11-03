@@ -1,4 +1,4 @@
-import type { User } from '../auth/types';
+import type { TipoProveedorClima, User } from '../auth/types';
 
 export type TipoActividad = 'AIRE_LIBRE' | 'TECHADA' | 'MIXTA';
 
@@ -43,6 +43,11 @@ export interface Clima {
 export interface PronosticoRespuesta {
   climaActual: Clima;
   pronosticoFuturo: Clima;
+  proveedorSeleccionado?: TipoProveedorClima;
+  proveedorUtilizado?: TipoProveedorClima;
+  fallbackActivo?: boolean;
+  degradado?: boolean;
+  mensajeEstado?: string | null;
 }
 
 export interface Actividad {

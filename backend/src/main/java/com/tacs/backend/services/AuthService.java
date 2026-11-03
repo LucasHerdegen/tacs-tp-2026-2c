@@ -1,5 +1,6 @@
 package com.tacs.backend.services;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.dtos.auth.LoginRequest;
 import com.tacs.backend.dtos.auth.LoginResponse;
 import com.tacs.backend.dtos.auth.RegistroRequest;
@@ -24,4 +25,6 @@ public interface AuthService
   UsuarioDto obtenerUsuario(String usuarioId);
 
   UsuarioDto actualizarContacto(String usuarioId, MedioContacto medioContacto);
+
+  UsuarioDto actualizarProveedorClima(String usuarioId, TipoProveedorClima proveedorClima);
 }

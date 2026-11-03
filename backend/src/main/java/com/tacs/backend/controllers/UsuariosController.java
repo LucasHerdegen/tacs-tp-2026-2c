@@ -1,5 +1,6 @@
 package com.tacs.backend.controllers;
 
+import com.tacs.backend.dtos.usuario.ActualizarProveedorClimaRequest;
 import com.tacs.backend.dtos.usuario.ActualizarRolRequest;
 import com.tacs.backend.dtos.usuario.TelegramVinculacionDto;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
@@ -21,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-
 
 import java.util.List;
 
@@ -64,6 +64,19 @@ class UsuariosController
   {
     String usuarioId = jwt.getClaim("id");
     return ResponseEntity.ok(authService.obtenerUsuario(usuarioId));
+  }
+
+  @Operation(summary = "Actualizar proveedor de clima preferido", description = "Configura el proveedor de clima (WEATHER_API o LEGACY) para el usuario autenticado")
+  @ApiResponse(responseCode = "200", description = "Proveedor actualizado exitosamente", content = @Content(schema = @Schema(implementation = UsuarioDto.class)))
+  @ApiResponse(responseCode = "400", description = "Datos inválidos", content = @Content)
+  @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content)
+  @PatchMapping("/me/proveedor-clima")
+  public ResponseEntity<UsuarioDto> actualizarMiProveedorClima(
+      @RequestBody @Valid ActualizarProveedorClimaRequest request,
+      @AuthenticationPrincipal Jwt jwt)
+  {
+    String usuarioId = jwt.getClaim("id");
+    return ResponseEntity.ok(authService.actualizarProveedorClima(usuarioId, request.proveedorClima()));
   }
 
   @Operation(summary = "Generar link de vinculacion con Telegram", description = "Genera un token de un solo uso y el deep-link para vincular la cuenta autenticada con un chat de Telegram (Requiere rol USER)")

@@ -20,6 +20,8 @@ public interface VotacionesRepository
 
   Votacion save(Votacion votacion);
 
+  Optional<Votacion> cerrarSiAbierta(Votacion votacion);
+
   Optional<Votacion> findById(String id);
 
   void delete(Votacion votacion);

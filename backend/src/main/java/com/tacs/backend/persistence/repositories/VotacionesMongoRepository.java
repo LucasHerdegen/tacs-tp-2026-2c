@@ -1,6 +1,7 @@
 package com.tacs.backend.persistence.repositories;
 
 import com.tacs.backend.persistence.entities.VotacionEntity;
+import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -13,10 +14,10 @@ import java.util.Optional;
 public interface VotacionesMongoRepository extends MongoRepository<VotacionEntity, String>
 {
   @Query("{ 'abierta': ?0, 'actividad': { $in: ?1 } }")
-  List<VotacionEntity> findByAbiertaAndActividadIdIn(boolean abierta, List<org.bson.types.ObjectId> actividadIds);
+  List<VotacionEntity> findByAbiertaAndActividadIdIn(boolean abierta, List<ObjectId> actividadIds);
 
   @Query("{ 'abierta': true, 'actividad': ?0 }")
-  Optional<VotacionEntity> findByAbiertaTrueAndActividadId(org.bson.types.ObjectId actividadId);
+  Optional<VotacionEntity> findByAbiertaTrueAndActividadId(ObjectId actividadId);
 
   List<VotacionEntity> findByAbiertaTrueAndFechaLimiteBefore(LocalDateTime ahora);
 

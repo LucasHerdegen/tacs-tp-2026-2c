@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { LoginCredentials, User } from './types';
+import type { LoginCredentials, TipoProveedorClima, User } from './types';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
@@ -9,6 +9,7 @@ export interface AuthContextValue {
   token: string | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
+  cambiarProveedorClima: (proveedor: TipoProveedorClima) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

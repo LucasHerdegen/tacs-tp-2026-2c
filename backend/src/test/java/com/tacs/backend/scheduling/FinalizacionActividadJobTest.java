@@ -7,22 +7,35 @@ import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.notificacion.TipoNotificacion;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
+import com.tacs.backend.domain.votacion.Votacion;
+import com.tacs.backend.mappers.ActividadesMapper;
+import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.repositories.VotacionesRepository;
+import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
+import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
+import com.tacs.backend.services.implem.ActividadesServiceImplem;
+import com.tacs.backend.services.implem.OptimisticLockingRetry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +49,9 @@ class FinalizacionActividadJobTest
   private ActividadesRepository actividadesRepository;
 
   @Mock
+  private VotacionesRepository votacionesRepository;
+
+  @Mock
   private ServicioNotificaciones servicioNotificaciones;
 
   @Mock
@@ -46,7 +62,11 @@ class FinalizacionActividadJobTest
   @BeforeEach
   void setUp()
   {
-    job = new FinalizacionActividadJob(actividadesRepository, servicioNotificaciones, notificacionInboxService);
+    ActividadesService actividadesService = new ActividadesServiceImplem(
+        actividadesRepository, mock(UsuarioRepository.class), mock(ActividadesMapper.class),
+        mock(ProveedorClima.class), mock(ClimaMapper.class), servicioNotificaciones,
+        notificacionInboxService, votacionesRepository, new OptimisticLockingRetry());
+    job = new FinalizacionActividadJob(actividadesRepository, actividadesService);
   }
 
   @Test
@@ -110,6 +130,37 @@ class FinalizacionActividadJobTest
     verify(actividadesRepository).save(propuesta);
     verify(servicioNotificaciones).notificarATodos(any(), eq(propuesta.getParticipantes()));
     verify(notificacionInboxService).crearParaTodos(any(), eq(TipoNotificacion.ACTIVIDAD_CANCELADA),
+        eq("3"), eq(null), eq(propuesta.getParticipantes()));
+  }
+
+  @Test
+  void cancelaActividadPropuestaConVotacionAbiertaCierraPrimeroLaVotacionLuegoGuardaYNotifica()
+  {
+    LocalDateTime ahora = LocalDateTime.now();
+    Actividad propuesta = crearActividad("3", ahora.minusHours(5), 2, TipoEstadoActividad.PROPUESTA);
+
+    Votacion votacionAbierta = new Votacion();
+    votacionAbierta.setId("vot-3");
+    votacionAbierta.setActividad(propuesta);
+    votacionAbierta.setAbierta(true);
+
+    when(actividadesRepository.findCandidatasParaFinalizacion(any()))
+        .thenReturn(List.of(propuesta));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId("3"))
+        .thenReturn(Optional.of(votacionAbierta));
+    when(votacionesRepository.cerrarSiAbierta(votacionAbierta))
+        .thenReturn(Optional.of(votacionAbierta));
+
+    job.finalizarActividadesPasadas();
+
+    assertThat(votacionAbierta.isAbierta()).isFalse();
+    assertThat(propuesta.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+
+    InOrder orden = inOrder(votacionesRepository, actividadesRepository, servicioNotificaciones, notificacionInboxService);
+    orden.verify(votacionesRepository).cerrarSiAbierta(votacionAbierta);
+    orden.verify(actividadesRepository).save(propuesta);
+    orden.verify(servicioNotificaciones).notificarATodos(any(), eq(propuesta.getParticipantes()));
+    orden.verify(notificacionInboxService).crearParaTodos(any(), eq(TipoNotificacion.ACTIVIDAD_CANCELADA),
         eq("3"), eq(null), eq(propuesta.getParticipantes()));
   }
 

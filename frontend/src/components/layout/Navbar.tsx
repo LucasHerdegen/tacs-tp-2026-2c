@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../features/auth/authContext';
+import type { TipoProveedorClima } from '../../features/auth/types';
 import { NotificationBell } from '../../features/notifications/components/NotificationBell';
 
 export const Navbar: React.FC = () => {
-  const { status, user, logout } = useAuth();
+  const { status, user, logout, cambiarProveedorClima } = useAuth();
+  const [cambiandoProveedor, setCambiandoProveedor] = useState(false);
+
+  const proveedorActual: TipoProveedorClima = user?.proveedorClima ?? 'WEATHER_API';
+
+  async function alternarProveedor() {
+    if (cambiandoProveedor) return;
+    const siguiente: TipoProveedorClima =
+      proveedorActual === 'LEGACY' ? 'WEATHER_API' : 'LEGACY';
+    setCambiandoProveedor(true);
+    try {
+      await cambiarProveedorClima(siguiente);
+    } finally {
+      setCambiandoProveedor(false);
+    }
+  }
 
   return (
     <header className="bg-indigo-600 text-white shadow-md">
@@ -32,6 +48,23 @@ export const Navbar: React.FC = () => {
                     </Link>
                   </>
                 )}
+                <button
+                  type="button"
+                  onClick={alternarProveedor}
+                  disabled={cambiandoProveedor}
+                  title="Cambiar proveedor de clima preferido (WeatherAPI vs Legacy)"
+                  className={`rounded-full px-3 py-1 text-xs font-semibold border transition-colors cursor-pointer ${
+                    proveedorActual === 'LEGACY'
+                      ? 'bg-amber-400 text-amber-950 border-amber-300 hover:bg-amber-300'
+                      : 'bg-indigo-700 text-indigo-100 border-indigo-400 hover:bg-indigo-500'
+                  }`}
+                >
+                  {cambiandoProveedor
+                    ? 'Cambiando…'
+                    : proveedorActual === 'LEGACY'
+                      ? '🌩️ Clima: Legacy'
+                      : '☀️ Clima: WeatherAPI'}
+                </button>
                 <NotificationBell />
                 <span className="hidden border-l border-indigo-400 pl-4 text-sm sm:inline">
                   {user?.username}

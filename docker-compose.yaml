@@ -1,17 +1,45 @@
 services:
   mongodb:
     image: mongo:6
+    restart: unless-stopped
     ports:
       - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  clima-legacy:
+    build:
+      context: ./legacy-clima
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "9978"
+    environment:
+      LEGACY_CLIMA_ACCOUNT_EMAIL: "${LEGACY_CLIMA_ACCOUNT_EMAIL:-tintili@frba.utn.edu.ar}"
+      LEGACY_CLIMA_TOKEN_JSON: "${LEGACY_CLIMA_TOKEN_JSON:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9978/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   backend:
     build:
       dockerfile: Dockerfile
       context: ./backend
+    restart: unless-stopped
     ports:
       - "8080:8080"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+      clima-legacy:
+        condition: service_started
     environment:
       MONGODB_URI: "mongodb://mongodb:27017/tacs"
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET debe estar definida}"
@@ -20,6 +48,8 @@ services:
       WEATHERAPI_API_KEY: "${WEATHERAPI_API_KEY:?WEATHERAPI_API_KEY debe estar definida}"
       TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN debe estar definida}"
       TELEGRAM_BOT_USERNAME: "${TELEGRAM_BOT_USERNAME:?TELEGRAM_BOT_USERNAME debe estar definida}"
+      LEGACY_CLIMA_BASE_URL: "${LEGACY_CLIMA_BASE_URL:-http://clima-legacy:9978}"
+      LEGACY_CLIMA_API_TOKEN: "${LEGACY_CLIMA_API_TOKEN:-}"
       TZ: "America/Argentina/Buenos_Aires"
       APP_TIMEZONE: "America/Argentina/Buenos_Aires"
 
@@ -27,6 +57,7 @@ services:
     build:
       dockerfile: Dockerfile
       context: ./frontend
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:

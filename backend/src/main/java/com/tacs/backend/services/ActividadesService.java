@@ -1,5 +1,6 @@
 package com.tacs.backend.services;
 
+import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.dtos.actividades.ActividadDto;
@@ -22,11 +23,11 @@ public interface ActividadesService
                                        TipoEstadoActividad estado,
                                        Boolean cupoDisponible, Pageable pageable);
 
-  public void unirseActividad(String actividadId, String usuarioId);
+  void unirseActividad(String actividadId, String usuarioId);
 
-  public void bajarseActividad(String actividadId, String usuarioId);
+  void bajarseActividad(String actividadId, String usuarioId);
 
-  public PronosticoRespuestaDto obtenerClimaActividad(String actividadId, String usuarioId);
+  PronosticoRespuestaDto obtenerClimaActividad(String actividadId, String usuarioId);
 
   //metodo para ver organizadas + participadas, separadas en 3 metodos por performance
   List<ActividadDto> actividadesOrganizadas(String usuarioId, TipoEstadoActividad estado);
@@ -36,6 +37,8 @@ public interface ActividadesService
   List<ActividadDto> actividadesDelUsuario(String usuarioId, TipoEstadoActividad estado);
 
   void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado);
+
+  void cancelarActividad(Actividad actividad, String motivo, String votacionId);
 
   ActividadDto actualizarConfiguracionClima(String actividadId, String usuarioId, ConfigurarCondicionesDto dto);
 }

@@ -30,11 +30,6 @@ export const ActivitySearch: React.FC = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setPage(0);
-  }, [filterType, appliedSearchTerm, filterFechaInicio, filterFechaFin, filterEstado, pageSize]);
-
   useEffect(() => {
     const buscarActividades = async () => {
       if (!token) {
@@ -114,10 +109,12 @@ export const ActivitySearch: React.FC = () => {
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 setAppliedSearchTerm(searchTerm);
+                setPage(0);
               }
             }}
             onBlur={() => {
               setAppliedSearchTerm(searchTerm);
+              setPage(0);
             }}
           />
         </div>
@@ -130,7 +127,10 @@ export const ActivitySearch: React.FC = () => {
           <select
             className="input-field"
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setPage(0);
+            }}
           >
             <option value="">Todos</option>
             <option value="AIRE_LIBRE">Aire libre</option>
@@ -147,9 +147,12 @@ export const ActivitySearch: React.FC = () => {
           <select
             className="input-field"
             value={filterEstado}
-            onChange={(e) => setFilterEstado(e.target.value)}
+            onChange={(e) => {
+              setFilterEstado(e.target.value);
+              setPage(0);
+            }}
           >
-            <option value="">Todos</option>
+            <option value="">Activas (sin canceladas)</option>
             <option value="PROPUESTA">Propuesta</option>
             <option value="CONFIRMADA">Confirmada</option>
             <option value="REPROGRAMADA">Reprogramada</option>
@@ -167,7 +170,10 @@ export const ActivitySearch: React.FC = () => {
               type="date"
               className="input-field"
               value={filterFechaInicio}
-              onChange={(e) => setFilterFechaInicio(e.target.value)}
+              onChange={(e) => {
+                setFilterFechaInicio(e.target.value);
+                setPage(0);
+              }}
             />
           </div>
           <div>
@@ -178,7 +184,10 @@ export const ActivitySearch: React.FC = () => {
               type="date"
               className="input-field"
               value={filterFechaFin}
-              onChange={(e) => setFilterFechaFin(e.target.value)}
+              onChange={(e) => {
+                setFilterFechaFin(e.target.value);
+                setPage(0);
+              }}
             />
           </div>
         </div>
@@ -190,7 +199,10 @@ export const ActivitySearch: React.FC = () => {
           <select 
             className="border-gray-300 rounded-md text-sm py-1 px-2 focus:ring-indigo-500 focus:border-indigo-500"
             value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(0);
+            }}
           >
             <option value={10}>10</option>
             <option value={20}>20</option>

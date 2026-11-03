@@ -22,16 +22,13 @@ export const Home: React.FC = () => {
   const { user, token } = useAuth();
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadedToken, setLoadedToken] = useState<string | null>(null);
+  const loading = Boolean(token) && loadedToken !== token;
 
   useEffect(() => {
-    if (!token) {
-      setActividades([]);
-      return;
-    }
+    if (!token) return;
 
     let ignore = false;
-    setLoading(true);
 
     activitiesApi
       .buscar(null, null, null, null, null, 0, 5, token)
@@ -47,7 +44,7 @@ export const Home: React.FC = () => {
       })
       .finally(() => {
         if (!ignore) {
-          setLoading(false);
+          setLoadedToken(token);
         }
       });
 
