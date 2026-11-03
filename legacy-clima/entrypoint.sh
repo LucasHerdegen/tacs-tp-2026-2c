@@ -33,8 +33,9 @@ else
   write_bootstrap_token
 fi
 
-echo "[clima-legacy] Iniciando forwarder socat 0.0.0.0:9978 -> 127.0.0.1:9977..."
-socat TCP-LISTEN:9978,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9977 &
+LISTEN_PORT="${PORT:-9978}"
+echo "[clima-legacy] Iniciando forwarder socat 0.0.0.0:${LISTEN_PORT} -> 127.0.0.1:9977..."
+socat TCP-LISTEN:${LISTEN_PORT},fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9977 &
 
 echo "[clima-legacy] Iniciando supervisor de proceso /app/tacs-linux-amd64..."
 while true; do

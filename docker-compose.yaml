@@ -13,8 +13,8 @@ services:
 
   clima-legacy:
     build:
-      context: .
-      dockerfile: legacy-clima/Dockerfile
+      context: ./legacy-clima
+      dockerfile: Dockerfile
     restart: unless-stopped
     expose:
       - "9978"
