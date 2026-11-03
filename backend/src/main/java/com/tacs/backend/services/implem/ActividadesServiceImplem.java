@@ -3,18 +3,22 @@ package com.tacs.backend.services.implem;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
+import com.tacs.backend.domain.clima.TipoProveedorClima;
+import com.tacs.backend.domain.notificacion.TipoNotificacion;
+import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
 import com.tacs.backend.dtos.actividades.ActividadPostDto;
+import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.dtos.clima.ClimaDto;
 import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
-import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
-import com.tacs.backend.domain.notificacion.TipoNotificacion;
+import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
+import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
@@ -22,19 +26,19 @@ import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
+import com.tacs.backend.services.implem.clima.ContextoProveedorClima.DatosContexto;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import com.tacs.backend.mappers.ClimaMapper;
-
 @Service
+@RequiredArgsConstructor
 public class ActividadesServiceImplem implements ActividadesService
 {
   private final ActividadesRepository actividadesRepository;
@@ -47,62 +51,8 @@ public class ActividadesServiceImplem implements ActividadesService
   private final VotacionesRepository votacionesRepository;
   private final OptimisticLockingRetry optimisticLockingRetry;
 
-  public ActividadesServiceImplem(
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      ActividadesMapper actividadesMapper,
-      ProveedorClima proveedorClima,
-      ClimaMapper climaMapper,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService)
-  {
-    this(actividadesRepository, usuarioRepository, actividadesMapper,
-        proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
-        null, new OptimisticLockingRetry());
-  }
-
-  public ActividadesServiceImplem(
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      ActividadesMapper actividadesMapper,
-      ProveedorClima proveedorClima,
-      ClimaMapper climaMapper,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService,
-      OptimisticLockingRetry optimisticLockingRetry)
-  {
-    this(actividadesRepository, usuarioRepository, actividadesMapper,
-        proveedorClima, climaMapper, servicioNotificaciones, notificacionInboxService,
-        null, optimisticLockingRetry);
-  }
-
-  @Autowired
-  public ActividadesServiceImplem(
-      ActividadesRepository actividadesRepository,
-      UsuarioRepository usuarioRepository,
-      ActividadesMapper actividadesMapper,
-      ProveedorClima proveedorClima,
-      ClimaMapper climaMapper,
-      ServicioNotificaciones servicioNotificaciones,
-      NotificacionInboxService notificacionInboxService,
-      VotacionesRepository votacionesRepository,
-      OptimisticLockingRetry optimisticLockingRetry)
-  {
-    this.actividadesRepository = actividadesRepository;
-    this.usuarioRepository = usuarioRepository;
-    this.actividadesMapper = actividadesMapper;
-    this.proveedorClima = proveedorClima;
-    this.climaMapper = climaMapper;
-    this.servicioNotificaciones = servicioNotificaciones;
-    this.notificacionInboxService = notificacionInboxService;
-    this.votacionesRepository = votacionesRepository;
-    this.optimisticLockingRetry = optimisticLockingRetry;
-  }
-
   @Value("${weatherapi.forecast.max-days:3}")
   private int maxDiasForecast;
-
-  private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd:MM:yyyy HH:mm");
 
   /**
    * Crea una nueva actividad propuesta por el usuario especificado.
@@ -187,16 +137,17 @@ public class ActividadesServiceImplem implements ActividadesService
   }
 
   @Override
-  public Page<ActividadDto> buscarActividades(TipoActividad tipo, String busqueda,
-                                              LocalDate fechaInicio, LocalDate fechaFin,
-                                              TipoEstadoActividad estado,
-                                              Boolean cupoDisponible,
-                                              Pageable pageable)
+  public Page<ActividadDto> buscarActividades(
+      TipoActividad tipo,
+      String busqueda,
+      LocalDate fechaInicio,
+      LocalDate fechaFin,
+      TipoEstadoActividad estado,
+      Boolean cupoDisponible,
+      Pageable pageable)
   {
     if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin))
-    {
       throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
-    }
 
     Page<Actividad> actividades = actividadesRepository.buscarActividades(
         tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
@@ -219,7 +170,8 @@ public class ActividadesServiceImplem implements ActividadesService
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
-    optimisticLockingRetry.ejecutarConReintento(() -> {
+    optimisticLockingRetry.ejecutarConReintento(() ->
+    {
       var actividad = actividadesRepository.findById(actividadId)
           .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
@@ -227,7 +179,6 @@ public class ActividadesServiceImplem implements ActividadesService
       actividadesRepository.save(actividad);
     });
   }
-
 
   /**
    * Remueve a un usuario de la lista de participantes de una actividad.
@@ -243,7 +194,8 @@ public class ActividadesServiceImplem implements ActividadesService
     var usuario = usuarioRepository.findById(usuarioId)
         .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado"));
 
-    optimisticLockingRetry.ejecutarConReintento(() -> {
+    optimisticLockingRetry.ejecutarConReintento(() ->
+    {
       var actividad = actividadesRepository.findById(actividadId)
           .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
@@ -260,7 +212,6 @@ public class ActividadesServiceImplem implements ActividadesService
     var actividad = actividadesRepository.findById(actividadId)
         .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
 
-
     boolean esParticipante = actividad.getParticipantes().stream()
         .anyMatch(u -> u.getId().equals(usuarioId));
     boolean esOrganizador = actividad.getOrganizador() != null
@@ -269,19 +220,54 @@ public class ActividadesServiceImplem implements ActividadesService
     if (!esParticipante && !esOrganizador)
       throw new NoParticipanteException("Debes ser participante u organizador de la actividad para ver su clima");
 
+    TipoProveedorClima proveedorPreferido = resolverProveedorPreferido(usuarioId, actividad);
+    ContextoProveedorClima.iniciar(usuarioId, proveedorPreferido);
+    try
+    {
+      ClimaDto climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
+      ClimaDto pronostico = climaMapper.climaToClimaDto(
+          proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion()));
 
-    ClimaDto climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
-    ClimaDto pronostico = climaMapper.climaToClimaDto(
-        proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion()));
+      DatosContexto snapshot = ContextoProveedorClima.obtenerSnapshot();
+      return new PronosticoRespuestaDto(
+          climaActual,
+          pronostico,
+          snapshot.proveedorSeleccionado(),
+          snapshot.proveedorUtilizado(),
+          snapshot.fallbackActivo(),
+          snapshot.degradado(),
+          snapshot.mensajeEstado());
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
+    }
+  }
 
-    return new PronosticoRespuestaDto(climaActual, pronostico);
+  private TipoProveedorClima resolverProveedorPreferido(String usuarioId, Actividad actividad)
+  {
+    var usuarioEnBase = usuarioRepository.findById(usuarioId);
+    if (usuarioEnBase.isPresent())
+      return usuarioEnBase.get().getProveedorClimaEfectivo();
+
+    if (actividad.getOrganizador() != null && usuarioId.equals(actividad.getOrganizador().getId()))
+      return actividad.getOrganizador().getProveedorClimaEfectivo();
+
+    return actividad.getParticipantes().stream()
+        .filter(u -> usuarioId.equals(u.getId()))
+        .findFirst()
+        .map(Usuario::getProveedorClimaEfectivo)
+        .orElse(TipoProveedorClima.WEATHER_API);
   }
 
   /**
-   * Cancela una actividad existente y notifica a los participantes.
+   * Cambia el estado de una actividad existente. Si el nuevo estado es CANCELADA,
+   * delega en {@link #cancelarActividad(Actividad, String, String)} para garantizar
+   * el orden de escrituras (cerrar votacion abierta primero, guardar actividad segundo
+   * y notificar al final).
    *
-   * @param actividadId Identificador de la actividad a cancelar.
-   * @param usuarioId   Identificador del usuario que solicita la cancelacion (debe ser el organizador).
+   * @param actividadId Identificador de la actividad.
+   * @param usuarioId   Identificador del usuario que solicita el cambio (debe ser el organizador).
+   * @param nuevoEstado Nuevo estado de la actividad.
    */
   @Override
   public void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado)
@@ -293,28 +279,52 @@ public class ActividadesServiceImplem implements ActividadesService
       throw new AccesoDenegadoException(
           "Solo el organizador puede cambiar el estado de la actividad");
 
-    actividad.cambiarEstado(nuevoEstado);
-
-    actividadesRepository.save(actividad);
-
     if (nuevoEstado == TipoEstadoActividad.CANCELADA)
     {
-      if (votacionesRepository != null)
-      {
-        votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
-            .ifPresent(votacion -> {
-              votacion.cerrar(null);
-              votacionesRepository.save(votacion);
-            });
-      }
-
-      String contenido = "La actividad '%s' del '%s' fue cancelada por el organizador".formatted(
-          actividad.getTitulo(), actividad.getFechaRealizacion().format(FORMATO));
-
-      servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
-      notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-          actividad.getId(), null, actividad.getParticipantes());
+      cancelarActividad(actividad, "cancelada por el organizador", null);
+      return;
     }
+
+    actividad.cambiarEstado(nuevoEstado);
+    actividadesRepository.save(actividad);
+  }
+
+  /**
+   * Cancela una actividad respetando el orden de escrituras:
+   * 1. Cierra condicionalmente la votacion abierta (si aun no fue cerrada).
+   * 2. Cambia el estado de la actividad a CANCELADA y la persiste.
+   * 3. Notifica a los participantes.
+   *
+   * @param actividad  Actividad a cancelar.
+   * @param motivo     Motivo de la cancelacion para incluir en la notificacion.
+   * @param votacionId Identificador de la votacion ya cerrada que origino la cancelacion, o null si aplica buscar/cerrar una abierta.
+   */
+  @Override
+  public void cancelarActividad(Actividad actividad, String motivo, String votacionId)
+  {
+    if (actividad.getEstado() == null)
+      throw new IllegalStateException(
+          "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
+
+    actividad.validarPermiteAbrirVotacion();
+
+    if (votacionId == null)
+      votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
+          .ifPresent(votacion ->
+          {
+            votacion.cerrar(null);
+            votacionesRepository.cerrarSiAbierta(votacion)
+                .orElseThrow(() -> new VotacionCerradaException("La votacion ya esta cerrada"));
+          });
+
+    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
+    actividadesRepository.save(actividad);
+
+    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
+
+    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
+        actividad.getId(), votacionId, actividad.getParticipantes());
   }
 
   /**
@@ -335,25 +345,12 @@ public class ActividadesServiceImplem implements ActividadesService
       throw new AccesoDenegadoException("Solo el organizador puede configurar el clima");
 
     if (dto.reglasClima() != null)
-    {
-      Double maxTemp = dto.reglasClima().maxTemperatura();
-      if (maxTemp != null && maxTemp == 0.0)
-      {
-        maxTemp = null;
-      }
-      Double maxViento = dto.reglasClima().maxViento();
-      if (maxViento != null && maxViento == 0.0)
-      {
-        maxViento = null;
-      }
-
       actividad.reemplazarReglasClima(
           dto.reglasClima().maxProbabilidadLluvia(),
           dto.reglasClima().minTemperatura(),
-          maxTemp,
-          maxViento
+          dto.reglasClima().maxTemperatura(),
+          dto.reglasClima().maxViento()
       );
-    }
 
     if (dto.horasAnticipacion() != null)
     {
@@ -371,17 +368,17 @@ public class ActividadesServiceImplem implements ActividadesService
       if (dto.rangoReprogramacion().dias() != null && dto.rangoReprogramacion().dias() > maxDiasForecast)
         throw new RangoReprogramacionInvalidoException(
             "El rango de reprogramacion no puede superar %d dias: limitacion del plan de WeatherAPI contratado"
-                .formatted(maxDiasForecast));
+                .formatted(maxDiasForecast),
+            "diasReprogramacion");
 
       if (dto.rangoReprogramacion().horaInicio() != null && dto.rangoReprogramacion().horaFinal() != null)
       {
         int ventanaHoras = dto.rangoReprogramacion().horaFinal() - dto.rangoReprogramacion().horaInicio();
         if (actividad.getDuracionEstimada() > 0 && ventanaHoras < actividad.getDuracionEstimada())
-        {
           throw new RangoReprogramacionInvalidoException(
               "La franja horaria permitida (%d hs) no puede ser menor a la duracion estimada de la actividad (%d hs)"
-                  .formatted(ventanaHoras, actividad.getDuracionEstimada()));
-        }
+                  .formatted(ventanaHoras, actividad.getDuracionEstimada()),
+              "horaFinal");
       }
 
       actividad.actualizarRangoReprogramacion(

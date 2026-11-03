@@ -1,21 +1,20 @@
 package com.tacs.backend.persistence.mappers;
 
 import com.tacs.backend.domain.actividad.Actividad;
-import com.tacs.backend.persistence.entities.ActividadEntity;
-import com.tacs.backend.persistence.entities.ReglasClimaEntity;
-import com.tacs.backend.persistence.entities.CambioFechaEntity;
-import com.tacs.backend.persistence.entities.RangoReprogramacionEntity;
-import com.tacs.backend.domain.clima.ReglasClima;
 import com.tacs.backend.domain.actividad.CambioFecha;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
+import com.tacs.backend.domain.actividad.Ubicacion;
+import com.tacs.backend.domain.clima.ReglasClima;
+import com.tacs.backend.persistence.entities.ActividadEntity;
+import com.tacs.backend.persistence.entities.CambioFechaEntity;
+import com.tacs.backend.persistence.entities.RangoReprogramacionEntity;
+import com.tacs.backend.persistence.entities.ReglasClimaEntity;
+import com.tacs.backend.persistence.entities.UbicacionEntity;
+import com.tacs.backend.persistence.repositories.UsuarioMongoRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.stream.Collectors;
-
-import com.tacs.backend.persistence.repositories.UsuarioMongoRepository;
-import com.tacs.backend.domain.actividad.Ubicacion;
-import com.tacs.backend.persistence.entities.UbicacionEntity;
 
 @Component
 public class ActividadMapper
@@ -47,10 +46,12 @@ public class ActividadMapper
     domain.setMaximoParticipantes(entity.getMaximoParticipantes());
     domain.setRecordatorioEnviado(entity.isRecordatorioEnviado());
     domain.setOrganizador(usuarioMapper.toDomain(entity.getOrganizador()));
-    if (entity.getParticipantes() != null) {
+    if (entity.getParticipantes() != null)
+    {
       domain.setParticipantes(
           entity.getParticipantes().stream().map(usuarioMapper::toDomain).collect(Collectors.toList()));
-    } else {
+    } else
+    {
       domain.setParticipantes(new ArrayList<>());
     }
     domain.setHorasAnticipacion(entity.getHorasAnticipacion());
@@ -65,7 +66,7 @@ public class ActividadMapper
     {
       domain.setCambiosFecha(entity.getCambiosFecha().stream().map(
               c -> new CambioFecha(c.getFecha(), c.getFechaAntigua(), c.getFechaNueva()))
-          .collect(java.util.stream.Collectors.toList()));
+          .collect(Collectors.toList()));
     } else
     {
       domain.setCambiosFecha(new ArrayList<>());
@@ -73,21 +74,12 @@ public class ActividadMapper
     domain.setEstado(entity.getEstado());
     if (entity.getReglasClima() != null)
     {
-      Double minTemp = entity.getReglasClima().getMinTemperatura();
-      Double maxTemp = entity.getReglasClima().getMaxTemperatura();
-      if (maxTemp != null && maxTemp == 0.0)
-      {
-        maxTemp = null;
-      }
-      Double maxViento = entity.getReglasClima().getMaxViento();
-      if (maxViento != null && maxViento == 0.0)
-      {
-        maxViento = null;
-      }
-
       domain.setReglasClima(
-          new ReglasClima(entity.getReglasClima().getMaxProbabilidadLluvia(),
-              minTemp, maxTemp, maxViento));
+          new ReglasClima(
+              entity.getReglasClima().getMaxProbabilidadLluvia(),
+              entity.getReglasClima().getMinTemperatura(),
+              entity.getReglasClima().getMaxTemperatura(),
+              entity.getReglasClima().getMaxViento()));
     }
     return domain;
   }
@@ -142,7 +134,7 @@ public class ActividadMapper
     {
       entity.setCambiosFecha(domain.getCambiosFecha().stream().map(
           c -> new CambioFechaEntity(c.getFecha(), c.getFechaAntigua(),
-              c.getFechaNueva())).collect(java.util.stream.Collectors.toList()));
+              c.getFechaNueva())).collect(Collectors.toList()));
     } else
     {
       entity.setCambiosFecha(new ArrayList<>());

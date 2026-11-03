@@ -20,7 +20,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -88,13 +91,13 @@ class TelegramUpdatePollerTest
 
     ArgumentCaptor<GetUpdates> captor = ArgumentCaptor.forClass(GetUpdates.class);
     verify(telegramBot).execute(captor.capture());
-    org.assertj.core.api.Assertions.assertThat(captor.getValue().getParameters().get("offset")).isEqualTo(0);
+    assertThat(captor.getValue().getParameters().get("offset")).isEqualTo(0);
 
     verify(comandoRouter).despachar(any(Message.class));
 
     ArgumentCaptor<TelegramUpdateOffsetEntity> offsetCaptor = ArgumentCaptor.forClass(TelegramUpdateOffsetEntity.class);
     verify(offsetRepository).save(offsetCaptor.capture());
-    org.assertj.core.api.Assertions.assertThat(offsetCaptor.getValue().getUltimoUpdateId()).isEqualTo(101);
+    assertThat(offsetCaptor.getValue().getUltimoUpdateId()).isEqualTo(101);
   }
 
   @Test
@@ -109,7 +112,7 @@ class TelegramUpdatePollerTest
 
     ArgumentCaptor<GetUpdates> captor = ArgumentCaptor.forClass(GetUpdates.class);
     verify(telegramBot).execute(captor.capture());
-    org.assertj.core.api.Assertions.assertThat(captor.getValue().getParameters().get("offset")).isEqualTo(101);
+    assertThat(captor.getValue().getParameters().get("offset")).isEqualTo(101);
 
     verify(comandoRouter, never()).despachar(any());
     verify(offsetRepository, never()).save(any());
@@ -124,7 +127,7 @@ class TelegramUpdatePollerTest
     Update updateOk = comandoUpdate(2, "/ayuda");
     GetUpdatesResponse response = respuestaOkCon(List.of(updateRoto, updateOk));
     when(telegramBot.execute(any(GetUpdates.class))).thenReturn(response);
-    org.mockito.Mockito.doThrow(new RuntimeException("boom"))
+    doThrow(new RuntimeException("boom"))
         .doNothing()
         .when(comandoRouter).despachar(any(Message.class));
 
@@ -133,7 +136,7 @@ class TelegramUpdatePollerTest
     verify(comandoRouter, times(2)).despachar(any(Message.class));
     ArgumentCaptor<TelegramUpdateOffsetEntity> offsetCaptor = ArgumentCaptor.forClass(TelegramUpdateOffsetEntity.class);
     verify(offsetRepository).save(offsetCaptor.capture());
-    org.assertj.core.api.Assertions.assertThat(offsetCaptor.getValue().getUltimoUpdateId()).isEqualTo(3);
+    assertThat(offsetCaptor.getValue().getUltimoUpdateId()).isEqualTo(3);
   }
 
   @Test
@@ -154,4 +157,23 @@ class TelegramUpdatePollerTest
     verify(comandoRouter, never()).despachar(any());
     verify(textoLibreRouter, never()).despachar(any());
   }
+
+  @Test
+  void falloAlConsultarUpdatesConTokenInvalidoOCircuitoAbiertoNoPropagaExcepcion()
+  {
+    when(offsetRepository.findById(TelegramUpdateOffsetEntity.ID_UNICO)).thenReturn(Optional.empty());
+    GetUpdatesResponse respuestaError401 = mock(GetUpdatesResponse.class);
+    when(respuestaError401.isOk()).thenReturn(false);
+    when(respuestaError401.errorCode()).thenReturn(401);
+    when(respuestaError401.description()).thenReturn("Unauthorized");
+    when(telegramBot.execute(any(GetUpdates.class))).thenReturn(respuestaError401);
+
+    assertThatCode(() -> {
+      poller.procesarUpdates();
+      poller.procesarUpdates();
+    }).doesNotThrowAnyException();
+
+    verify(offsetRepository, never()).save(any());
+  }
 }
+

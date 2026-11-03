@@ -12,6 +12,7 @@ import { VotingCreateForm } from './VotingCreateForm';
 interface VotingSectionProps {
   actividadId: string;
   organizadorId: UserId;
+  onActivityChanged?: () => void;
 }
 
 function badgeParaClima(cumple: boolean | null) {
@@ -21,7 +22,7 @@ function badgeParaClima(cumple: boolean | null) {
     : <Badge variant="error">Clima desfavorable</Badge>;
 }
 
-export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organizadorId }) => {
+export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organizadorId, onActivityChanged }) => {
   const { user, token } = useAuth();
   const [votacion, setVotacion] = useState<VotacionDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,6 +129,7 @@ export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organ
     try {
       const cerrada = await votingApi.cerrar(votacion.id, token);
       setVotacion(cerrada);
+      onActivityChanged?.();
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cerrar la votación.');
     } finally {

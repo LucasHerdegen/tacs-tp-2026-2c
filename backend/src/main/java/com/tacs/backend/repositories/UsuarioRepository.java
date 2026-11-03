@@ -4,6 +4,7 @@ import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UsuarioRepository
@@ -20,7 +21,7 @@ public interface UsuarioRepository
 
   Optional<Usuario> findByMedioContacto(MedioContacto medioContacto);
 
-  java.util.List<Usuario> findAll();
+  List<Usuario> findAll();
 
   void deleteAll();
 

@@ -16,11 +16,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -108,8 +110,8 @@ class ActividadesRepositoryImplTest
   }
 
   @Test
-  @DisplayName("buscarActividades sin filtros genera query vacía sin criterios innecesarios (Failing / Edge Path)")
-  void buscarActividades_SinFiltros_ArmaQueryVacia()
+  @DisplayName("buscarActividades sin filtro de estado excluye las CANCELADAS por defecto")
+  void buscarActividades_SinFiltros_ExcluyeCanceladasPorDefecto()
   {
     // Arrange
     Pageable pageable = PageRequest.of(0, 5);
@@ -129,6 +131,56 @@ class ActividadesRepositoryImplTest
     verify(mongoTemplate).count(queryCaptor.capture(), eq(ActividadEntity.class));
 
     Query queryEnviada = queryCaptor.getValue();
-    assertThat(queryEnviada.getQueryObject().isEmpty()).isTrue();
+    Document estadoDoc = (Document) queryEnviada.getQueryObject().get("estado");
+    assertThat(estadoDoc).isNotNull();
+    assertThat(estadoDoc.get("$ne")).isEqualTo(TipoEstadoActividad.CANCELADA);
+  }
+
+  @Test
+  @DisplayName("buscarActividades ignora tildes en el texto de búsqueda ('Cordoba' matchea 'Córdoba')")
+  void buscarActividades_BusquedaIgnoraTildes_GeneraRegexConClasesDeVocales()
+  {
+    // Arrange
+    Pageable pageable = PageRequest.of(0, 5);
+    when(mongoTemplate.count(any(Query.class), eq(ActividadEntity.class))).thenReturn(0L);
+    when(mongoTemplate.find(any(Query.class), eq(ActividadEntity.class))).thenReturn(List.of());
+
+    // Act
+    repository.buscarActividades(null, "Cordoba", null, null, null, false, pageable);
+
+    // Assert
+    ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+    verify(mongoTemplate).find(queryCaptor.capture(), eq(ActividadEntity.class));
+
+    Document queryDoc = queryCaptor.getValue().getQueryObject();
+    @SuppressWarnings("unchecked")
+    List<Document> orClauses = (List<Document>) queryDoc.get("$or");
+    String regexGenerada = orClauses.getFirst().get("titulo").toString();
+
+    assertThat("Córdoba".matches("(?i).*" + orClauses.getFirst().get("titulo", Pattern.class).pattern() + ".*")).isTrue();
+    assertThat("Cordoba".matches("(?i).*" + orClauses.getFirst().get("titulo", Pattern.class).pattern() + ".*")).isTrue();
+    assertThat(regexGenerada).contains("[oóòöô]");
+  }
+
+  @Test
+  @DisplayName("buscarActividades traduce sort=fecha al campo persistido fechaRealizacion")
+  void buscarActividades_SortPorFecha_TraduceAFechaRealizacion()
+  {
+    // Arrange
+    Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "fecha"));
+    when(mongoTemplate.count(any(Query.class), eq(ActividadEntity.class))).thenReturn(0L);
+    when(mongoTemplate.find(any(Query.class), eq(ActividadEntity.class))).thenReturn(List.of());
+
+    // Act
+    repository.buscarActividades(null, null, null, null, null, false, pageable);
+
+    // Assert
+    ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+    verify(mongoTemplate).find(queryCaptor.capture(), eq(ActividadEntity.class));
+
+    Document sortDoc = queryCaptor.getValue().getSortObject();
+    assertThat(sortDoc.getInteger("fechaRealizacion")).isEqualTo(1);
+    assertThat(sortDoc.containsKey("fecha")).isFalse();
   }
 }
+

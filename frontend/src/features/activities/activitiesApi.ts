@@ -1,4 +1,4 @@
-import { apiRequest } from '../../lib/api';
+import { ApiError, apiRequest } from '../../lib/api';
 
 import type { Actividad, ActividadPost, PronosticoRespuesta, ConfigurarCondiciones } from './types';
 
@@ -6,8 +6,11 @@ export const activitiesApi = {
   async obtener(id: string, token: string): Promise<Actividad | null> {
     try {
       return await apiRequest<Actividad>(`/api/actividades/${id}`, { token });
-    } catch {
-      return null;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        return null;
+      }
+      throw err;
     }
   },
 

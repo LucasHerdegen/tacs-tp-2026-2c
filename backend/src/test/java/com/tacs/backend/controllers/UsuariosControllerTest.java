@@ -1,6 +1,7 @@
 package com.tacs.backend.controllers;
 
 import com.tacs.backend.config.SecurityConfig;
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
@@ -181,6 +182,34 @@ class UsuariosControllerTest
             .header("Authorization", "Bearer " + tokenUser))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value("user-id"))
-        .andExpect(jsonPath("$.username").value("usuario"));
+        .andExpect(jsonPath("$.username").value("usuario"))
+        .andExpect(jsonPath("$.proveedorClima").value("WEATHER_API"));
+  }
+
+  @Test
+  void actualizarMiProveedorClimaConTokenActualizaExitosamente() throws Exception
+  {
+    String body = "{\"proveedorClima\":\"LEGACY\"}";
+    UsuarioDto actualizado = new UsuarioDto("user-id", "usuario", TipoRol.USER, null, TipoProveedorClima.LEGACY);
+    when(authService.actualizarProveedorClima("user-id", TipoProveedorClima.LEGACY)).thenReturn(actualizado);
+
+    mockMvc.perform(patch("/api/usuarios/me/proveedor-clima")
+            .header("Authorization", "Bearer " + tokenUser)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value("user-id"))
+        .andExpect(jsonPath("$.proveedorClima").value("LEGACY"));
+  }
+
+  @Test
+  void actualizarMiProveedorClimaSinTokenDevuelveUnauthorized() throws Exception
+  {
+    String body = "{\"proveedorClima\":\"LEGACY\"}";
+
+    mockMvc.perform(patch("/api/usuarios/me/proveedor-clima")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isUnauthorized());
   }
 }

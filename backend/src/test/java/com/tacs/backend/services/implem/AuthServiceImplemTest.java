@@ -1,5 +1,6 @@
 package com.tacs.backend.services.implem;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.usuario.MedioContacto;
 import com.tacs.backend.domain.usuario.TipoMedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
@@ -117,6 +118,30 @@ class AuthServiceImplemTest
     assertThat(dto.rol()).isEqualTo(TipoRol.ADMIN);
     assertThat(usuario.getRol()).isEqualTo(TipoRol.ADMIN);
     verify(usuarioRepository).save(usuario);
+  }
+
+  @Test
+  void actualizarProveedorClimaModificaElProveedorYPersiste()
+  {
+    Usuario usuario = crearUsuario();
+    when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+    when(usuarioRepository.save(usuario)).thenReturn(usuario);
+
+    var dto = service.actualizarProveedorClima(USUARIO_ID, TipoProveedorClima.LEGACY);
+
+    assertThat(dto.proveedorClima()).isEqualTo(TipoProveedorClima.LEGACY);
+    assertThat(usuario.getProveedorClimaEfectivo()).isEqualTo(TipoProveedorClima.LEGACY);
+    verify(usuarioRepository).save(usuario);
+  }
+
+  @Test
+  void actualizarProveedorClimaDeUsuarioInexistenteLanzaExcepcion()
+  {
+    when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() ->
+        service.actualizarProveedorClima(USUARIO_ID, TipoProveedorClima.LEGACY))
+        .isInstanceOf(UsuarioNotFoundException.class);
   }
 
   private Usuario crearUsuario()

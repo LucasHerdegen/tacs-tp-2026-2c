@@ -1,5 +1,6 @@
 package com.tacs.backend.persistence.mappers;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.persistence.entities.UsuarioEntity;
 import com.tacs.backend.persistence.entities.MedioContactoEntity;
@@ -19,10 +20,10 @@ public class UsuarioMapper
     domain.setPassword(entity.getPassword());
     domain.setRol(entity.getRol());
     if (entity.getMedioContacto() != null)
-    {
       domain.setMedioContacto(new MedioContacto(entity.getMedioContacto().getValor(),
           entity.getMedioContacto().getTipo()));
-    }
+    domain.setProveedorClima(
+        entity.getProveedorClima() != null ? entity.getProveedorClima() : TipoProveedorClima.WEATHER_API);
     return domain;
   }
 
@@ -35,11 +36,10 @@ public class UsuarioMapper
     entity.setPassword(domain.getPassword());
     entity.setRol(domain.getRol());
     if (domain.getMedioContacto() != null)
-    {
       entity.setMedioContacto(
           new MedioContactoEntity(domain.getMedioContacto().getTipo(),
               domain.getMedioContacto().getValor()));
-    }
+    entity.setProveedorClima(domain.getProveedorClimaEfectivo());
     return entity;
   }
 }

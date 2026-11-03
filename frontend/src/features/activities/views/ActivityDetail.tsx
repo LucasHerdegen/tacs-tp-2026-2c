@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-// import { useNavigate } from 'react-router-dom'; // Hace que falle build mientras no se use.
 import { Card, CardBody } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -16,7 +15,6 @@ export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const actividadId = id ?? '';
   const { user, token } = useAuth();
-  // const navigate = useNavigate(); // Hace que falle build mientras no se use.
 
   const [activity, setActivity] = useState<Actividad | null>(null);
   const [pronostico, setPronostico] = useState<PronosticoRespuesta | null>(null);
@@ -138,7 +136,7 @@ export const ActivityDetail: React.FC = () => {
     try {
       await activitiesApi.cancelar(activity.id, token);
       setShowCancelModal(false);
-      await cargarTodo(); // Recargamos para actualizar el estado a CANCELADA
+      await cargarTodo();
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cancelar la actividad.');
       setShowCancelModal(false);
@@ -147,7 +145,6 @@ export const ActivityDetail: React.FC = () => {
     }
   }
 
-  // 🔹 Formateador de Horarios y Duración
   const getFormattedSchedule = () => {
     if (!activity) return { fechaTexto: '', horarioTexto: '', duracionTexto: '' };
     try {
@@ -180,7 +177,6 @@ export const ActivityDetail: React.FC = () => {
     }
   };
 
-  // 🔹 Semáforo Climático Inteligente
   const checkWeatherStatus = () => {
     if (!pronostico || !activity?.reglasClima) return null;
     const { probabilidadLluvia, viento, temperatura } = pronostico.pronosticoFuturo;
@@ -193,7 +189,7 @@ export const ActivityDetail: React.FC = () => {
       alertas.push(`Lluvia (${probabilidadLluvia}%) supera el máx. pactado de ${maxProbabilidadLluvia}%`);
     }
 
-    const vientoOk = maxViento == null || maxViento === 0 || viento <= maxViento;
+    const vientoOk = maxViento == null || viento <= maxViento;
     if (!vientoOk) {
       alertas.push(`Viento (${viento} km/h) supera el límite de ${maxViento} km/h`);
     }
@@ -203,7 +199,7 @@ export const ActivityDetail: React.FC = () => {
       alertas.push(`Temperatura (${temperatura}°C) es menor a la mínima de ${minTemperatura}°C`);
     }
 
-    const tempMaxOk = maxTemperatura == null || maxTemperatura === 0 || temperatura <= maxTemperatura;
+    const tempMaxOk = maxTemperatura == null || temperatura <= maxTemperatura;
     if (!tempMaxOk) {
       alertas.push(`Temperatura (${temperatura}°C) supera la máxima de ${maxTemperatura}°C`);
     }
@@ -219,7 +215,6 @@ export const ActivityDetail: React.FC = () => {
     };
   };
 
-  // 🔹 Badge de estado de ciclo de vida
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
       case 'CANCELADA':
@@ -236,7 +231,6 @@ export const ActivityDetail: React.FC = () => {
     }
   };
 
-  // 🔹 Estado declarativo para el botón de Acción de Participación
   const getParticipationButtonConfig = () => {
     if (estaCancelada) {
       return { text: 'Actividad Cancelada', disabled: true, variant: 'secondary' as const };
@@ -270,7 +264,9 @@ export const ActivityDetail: React.FC = () => {
   if (!activity) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-gray-900">Actividad no encontrada</h2>
+        <h2 className="text-2xl font-bold text-gray-900">
+          {error || 'Actividad no encontrada'}
+        </h2>
         <Link to="/activities" className="text-indigo-600 hover:underline mt-4 inline-block">Volver al buscador</Link>
       </div>
     );
@@ -442,10 +438,20 @@ export const ActivityDetail: React.FC = () => {
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardBody>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  ⛅ Estado del Clima
-                </h2>
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    ⛅ Estado del Clima
+                  </h2>
+                  {pronostico && (
+                    <Badge
+                      variant={pronostico.proveedorUtilizado === 'LEGACY' ? 'warning' : 'info'}
+                      className="text-[11px]"
+                    >
+                      Fuente: {pronostico.proveedorUtilizado === 'LEGACY' ? 'Legacy (Humedad S.A.)' : 'WeatherAPI'}
+                    </Badge>
+                  )}
+                </div>
                 {esOrganizador && !estaCancelada && (
                   <Link to={`/activities/${activity.id}/weather-config`} className="text-xs text-indigo-600 hover:underline font-medium">
                     Ajustar parámetros
@@ -461,6 +467,18 @@ export const ActivityDetail: React.FC = () => {
                 </div>
               ) : pronostico ? (
                 <div className="space-y-4">
+                  {/* Banner de Fallback si el proveedor Legacy falló */}
+                  {pronostico.fallbackActivo && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                      <span className="text-base">🛡️</span>
+                      <div>
+                        <span className="font-bold">Respaldo automático activado:</span>{' '}
+                        {pronostico.mensajeEstado ??
+                          'El proveedor Legacy no respondió correctamente; se muestran datos de WeatherAPI.'}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Semáforo Inteligente General */}
                   {weatherStatus && (
                     weatherStatus.apto ? (
@@ -558,7 +576,13 @@ export const ActivityDetail: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">No pudimos obtener el pronóstico.</p>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                  <span className="text-base">⚠️</span>
+                  <div>
+                    <span className="font-bold">Servicio climático temporalmente degradado:</span>{' '}
+                    No fue posible obtener el pronóstico en este momento. Podés seguir gestionando la actividad y sus votaciones con normalidad.
+                  </div>
+                </div>
               )}
 
               {/* Parámetros climáticos y reprogramación configurados */}
@@ -589,7 +613,7 @@ export const ActivityDetail: React.FC = () => {
                     <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
                       <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Viento Máx.</p>
                       <p className="text-base font-bold text-gray-900 mt-0.5">
-                        {activity.reglasClima.maxViento != null && activity.reglasClima.maxViento !== 0
+                        {activity.reglasClima.maxViento != null
                           ? `${activity.reglasClima.maxViento} km/h`
                           : <span className="text-gray-400 font-medium text-xs">Sin límite</span>}
                       </p>
@@ -598,8 +622,8 @@ export const ActivityDetail: React.FC = () => {
                     <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3">
                       <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Temp. Aceptable</p>
                       <p className="text-xs font-bold text-gray-900 mt-1">
-                        {activity.reglasClima.minTemperatura != null || (activity.reglasClima.maxTemperatura != null && activity.reglasClima.maxTemperatura !== 0)
-                          ? `${activity.reglasClima.minTemperatura != null ? `${activity.reglasClima.minTemperatura}°C` : '-∞'} a ${activity.reglasClima.maxTemperatura != null && activity.reglasClima.maxTemperatura !== 0 ? `${activity.reglasClima.maxTemperatura}°C` : '+∞'}`
+                        {activity.reglasClima.minTemperatura != null || activity.reglasClima.maxTemperatura != null
+                          ? `${activity.reglasClima.minTemperatura != null ? `${activity.reglasClima.minTemperatura}°C` : '-∞'} a ${activity.reglasClima.maxTemperatura != null ? `${activity.reglasClima.maxTemperatura}°C` : '+∞'}`
                           : <span className="text-gray-400 font-medium text-xs">Sin límite</span>}
                       </p>
                     </div>
@@ -631,7 +655,11 @@ export const ActivityDetail: React.FC = () => {
 
           {/* Sección de votaciones desactivada si la actividad está cancelada */}
           {!estaCancelada && (esParticipante || esOrganizador) && (
-            <VotingSection actividadId={activity.id} organizadorId={activity.organizador.id} />
+            <VotingSection
+              actividadId={activity.id}
+              organizadorId={activity.organizador.id}
+              onActivityChanged={cargarTodo}
+            />
           )}
         </div>
 
@@ -639,7 +667,6 @@ export const ActivityDetail: React.FC = () => {
         <div className="space-y-6">
           <Card className="sticky top-6">
             <CardBody>
-              {/* Tarjeta distintiva para el Organizador */}
               {esOrganizador && (
                 <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5 font-medium mb-4">
                   <span className="text-lg shrink-0">👑</span>
@@ -693,7 +720,6 @@ export const ActivityDetail: React.FC = () => {
                 </div>
               )}
 
-              {/* Botón principal accionado dinámicamente según el estado */}
               {!esOrganizador && (
                 <Button
                   variant={participationBtn.variant}
@@ -767,7 +793,6 @@ export const ActivityDetail: React.FC = () => {
                 )}
               </div>
 
-              {/* Botón de Cancelar Actividad (solo visible si es organizador y NO está cancelada aún) */}
               {esOrganizador && !estaCancelada && (
                 <div className="mt-6 pt-4 border-t border-gray-100">
                   <Button

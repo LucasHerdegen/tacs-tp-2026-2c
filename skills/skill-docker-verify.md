@@ -13,7 +13,7 @@ Garantizar que todos los servicios, bases de datos y herramientas de mensajería
 2. **Construcción y despliegue:** Ejecutar `docker compose up -d --build`. Esto forzará la recompilación de las imágenes (clave por si hubo cambios en el código) y levantará los servicios en segundo plano.
 3. **Tiempo de gracia:** Esperar entre 15 y 20 segundos. Los motores de bases de datos y las aplicaciones de Spring Boot tardan un momento en inicializar.
 4. **Verificación de estado:** Ejecutar `docker compose ps`. Validar que todos los contenedores estén en estado "Up". Si alguno está en "Restarting" o "Exited", hay un fallo crítico.
-5. **Análisis de logs en caso de fallo:** Si algún contenedor falló, ejecutar `docker compose logs <nombre_del_servicio>` (ej. `docker compose logs servicio-donaciones`). Analizar el error, corregir el código/configuración y volver al paso 2.
+5. **Análisis de logs en caso de fallo:** Si algún contenedor falló, ejecutar `docker compose logs <nombre_del_servicio>`. Analizar el error, corregir el código/configuración y volver al paso 2.
 6. **Limpieza del entorno:** Una vez validado el funcionamiento integral, ejecutar `docker compose down -v` para detener los contenedores y eliminar los volúmenes efímeros, garantizando que la próxima prueba arranque limpia.
 
 ## Formato de Reporte
