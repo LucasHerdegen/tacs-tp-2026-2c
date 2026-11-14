@@ -14,6 +14,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/otel': {
+        target: 'http://localhost:4318',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/otel/, ''),
+      },
     },
   },
 })

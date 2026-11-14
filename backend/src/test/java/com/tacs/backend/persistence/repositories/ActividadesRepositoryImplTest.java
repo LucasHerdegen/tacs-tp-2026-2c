@@ -3,8 +3,10 @@ package com.tacs.backend.persistence.repositories;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
+import com.tacs.backend.observabilidad.ObservabilidadBusquedas;
 import com.tacs.backend.persistence.entities.ActividadEntity;
 import com.tacs.backend.persistence.mappers.ActividadMapper;
+import io.opentelemetry.api.OpenTelemetry;
 import org.bson.Document;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +28,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -45,6 +49,9 @@ class ActividadesRepositoryImplTest
 
   @Mock
   private MongoTemplate mongoTemplate;
+
+  @Spy
+  private ObservabilidadBusquedas observabilidadBusquedas = new ObservabilidadBusquedas(OpenTelemetry.noop());
 
   @InjectMocks
   private ActividadesRepositoryImpl repository;
@@ -181,6 +188,24 @@ class ActividadesRepositoryImplTest
     Document sortDoc = queryCaptor.getValue().getSortObject();
     assertThat(sortDoc.getInteger("fechaRealizacion")).isEqualTo(1);
     assertThat(sortDoc.containsKey("fecha")).isFalse();
+  }
+
+  @Test
+  @DisplayName("buscarActividades delega medición en ObservabilidadBusquedas y propaga error si MongoTemplate falla (Failing Path)")
+  void buscarActividades_MongoTemplateFalla_RegistraYPropagaError()
+  {
+    // Arrange
+    Pageable pageable = PageRequest.of(0, 10);
+    when(mongoTemplate.count(any(Query.class), eq(ActividadEntity.class)))
+        .thenThrow(new IllegalStateException("Fallo simulado de MongoDB"));
+
+    // Act & Assert
+    assertThatThrownBy(() ->
+        repository.buscarActividades(null, null, null, null, null, false, pageable))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Fallo simulado de MongoDB");
+
+    verify(observabilidadBusquedas).medirConsultaDb(any());
   }
 }
 

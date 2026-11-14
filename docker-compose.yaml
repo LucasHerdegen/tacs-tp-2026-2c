@@ -2,6 +2,8 @@ services:
   mongodb:
     image: mongo:6
     restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 512m
     ports:
       - "27017:27017"
     healthcheck:
@@ -16,6 +18,8 @@ services:
       context: ./legacy-clima
       dockerfile: Dockerfile
     restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
     expose:
       - "9978"
     environment:
@@ -28,17 +32,77 @@ services:
       retries: 3
       start_period: 5s
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 1024m
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      MEMORY_MAX_TRACES: "1500"
+    ports:
+      - "16686:16686"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observability/otel-collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    depends_on:
+      - jaeger
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GF_SECURITY_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-admin}"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+    volumes:
+      - ./observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
   backend:
     build:
       dockerfile: Dockerfile
       context: ./backend
     restart: unless-stopped
+    cpus: 1.5
+    mem_limit: 1024m
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     depends_on:
       mongodb:
         condition: service_healthy
       clima-legacy:
+        condition: service_started
+      otel-collector:
         condition: service_started
     environment:
       MONGODB_URI: "mongodb://mongodb:27017/tacs"
@@ -52,13 +116,25 @@ services:
       LEGACY_CLIMA_API_TOKEN: "${LEGACY_CLIMA_API_TOKEN:-}"
       TZ: "America/Argentina/Buenos_Aires"
       APP_TIMEZONE: "America/Argentina/Buenos_Aires"
+      OTEL_SERVICE_NAME: "tacs-backend"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_METRICS_EXPORTER: "otlp"
+      OTEL_LOGS_EXPORTER: "none"
+      OTEL_METRIC_EXPORT_INTERVAL: "5000"
+      OTEL_SEMCONV_STABILITY_OPT_IN: "database"
+      OBSERVABILIDAD_BUSQUEDA_DEMORA_MS: "${OBSERVABILIDAD_BUSQUEDA_DEMORA_MS:-0}"
 
   frontend:
     build:
       dockerfile: Dockerfile
       context: ./frontend
     restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
     ports:
       - "80:80"
     depends_on:
       - backend
+      - otel-collector
