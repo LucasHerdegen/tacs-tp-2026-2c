@@ -23,12 +23,14 @@ import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
+import com.tacs.backend.observabilidad.ObservabilidadBusquedas;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.NotificacionInboxService;
 import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,6 +91,9 @@ class ActividadesServiceImplemTest
 
   @Spy
   private OptimisticLockingRetry optimisticLockingRetry = new OptimisticLockingRetry();
+
+  @Spy
+  private ObservabilidadBusquedas observabilidadBusquedas = new ObservabilidadBusquedas(OpenTelemetry.noop());
 
   @InjectMocks
   private ActividadesServiceImplem actividadesService;

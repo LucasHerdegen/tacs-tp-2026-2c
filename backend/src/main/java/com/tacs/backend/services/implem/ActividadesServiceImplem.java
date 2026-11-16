@@ -19,6 +19,7 @@ import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
 import com.tacs.backend.mappers.ClimaMapper;
+import com.tacs.backend.observabilidad.ObservabilidadBusquedas;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.repositories.VotacionesRepository;
@@ -28,7 +29,8 @@ import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
 import com.tacs.backend.services.implem.clima.ContextoProveedorClima.DatosContexto;
-import lombok.RequiredArgsConstructor;
+import io.opentelemetry.api.OpenTelemetry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +40,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class ActividadesServiceImplem implements ActividadesService
 {
   private final ActividadesRepository actividadesRepository;
@@ -50,9 +51,63 @@ public class ActividadesServiceImplem implements ActividadesService
   private final NotificacionInboxService notificacionInboxService;
   private final VotacionesRepository votacionesRepository;
   private final OptimisticLockingRetry optimisticLockingRetry;
+  private final ObservabilidadBusquedas observabilidadBusquedas;
 
   @Value("${weatherapi.forecast.max-days:3}")
   private int maxDiasForecast;
+
+  @Autowired(required = false)
+  public ActividadesServiceImplem(
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      ActividadesMapper actividadesMapper,
+      ProveedorClima proveedorClima,
+      ClimaMapper climaMapper,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService,
+      VotacionesRepository votacionesRepository,
+      OptimisticLockingRetry optimisticLockingRetry,
+      ObservabilidadBusquedas observabilidadBusquedas)
+  {
+    this.actividadesRepository = actividadesRepository;
+    this.usuarioRepository = usuarioRepository;
+    this.actividadesMapper = actividadesMapper;
+    this.proveedorClima = proveedorClima;
+    this.climaMapper = climaMapper;
+    this.servicioNotificaciones = servicioNotificaciones;
+    this.notificacionInboxService = notificacionInboxService;
+    this.votacionesRepository = votacionesRepository;
+    this.optimisticLockingRetry = optimisticLockingRetry;
+    this.observabilidadBusquedas = observabilidadBusquedas != null
+        ? observabilidadBusquedas
+        : new ObservabilidadBusquedas(OpenTelemetry.noop());
+  }
+
+  @Autowired(required = false)
+  public ActividadesServiceImplem(
+      ActividadesRepository actividadesRepository,
+      UsuarioRepository usuarioRepository,
+      ActividadesMapper actividadesMapper,
+      ProveedorClima proveedorClima,
+      ClimaMapper climaMapper,
+      ServicioNotificaciones servicioNotificaciones,
+      NotificacionInboxService notificacionInboxService,
+      VotacionesRepository votacionesRepository,
+      OptimisticLockingRetry optimisticLockingRetry)
+  {
+    this(
+        actividadesRepository,
+        usuarioRepository,
+        actividadesMapper,
+        proveedorClima,
+        climaMapper,
+        servicioNotificaciones,
+        notificacionInboxService,
+        votacionesRepository,
+        optimisticLockingRetry,
+        new ObservabilidadBusquedas(OpenTelemetry.noop())
+    );
+  }
 
   /**
    * Crea una nueva actividad propuesta por el usuario especificado.
@@ -146,13 +201,24 @@ public class ActividadesServiceImplem implements ActividadesService
       Boolean cupoDisponible,
       Pageable pageable)
   {
-    if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin))
-      throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
+    return observabilidadBusquedas.instrumentarBusqueda(
+        tipo,
+        busqueda,
+        fechaInicio,
+        fechaFin,
+        estado,
+        cupoDisponible,
+        pageable,
+        () ->
+        {
+          if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin))
+            throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
 
-    Page<Actividad> actividades = actividadesRepository.buscarActividades(
-        tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
+          Page<Actividad> actividades = actividadesRepository.buscarActividades(
+              tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
 
-    return actividades.map(actividadesMapper::actividadToActividadDto);
+          return actividades.map(actividadesMapper::actividadToActividadDto);
+        });
   }
 
   /**

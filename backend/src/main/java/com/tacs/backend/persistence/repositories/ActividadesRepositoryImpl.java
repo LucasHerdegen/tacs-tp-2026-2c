@@ -3,10 +3,14 @@ package com.tacs.backend.persistence.repositories;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
+import com.tacs.backend.observabilidad.ObservabilidadBusquedas;
 import com.tacs.backend.persistence.mappers.ActividadMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.persistence.entities.ActividadEntity;
+import io.opentelemetry.api.OpenTelemetry;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -26,18 +30,52 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@RequiredArgsConstructor
 public class ActividadesRepositoryImpl implements ActividadesRepository
 {
   private final ActividadesMongoRepository mongoRepository;
   private final VotacionesMongoRepository votacionesMongoRepository;
   private final ActividadMapper mapper;
-
   private final MongoTemplate mongoTemplate;
+  private final ObservabilidadBusquedas observabilidadBusquedas;
+
+  @Value("${observabilidad.busqueda.demora-simulada-ms:0}")
+  private long demoraSimuladaMs;
+
+  @Autowired(required = false)
+  public ActividadesRepositoryImpl(
+      ActividadesMongoRepository mongoRepository,
+      VotacionesMongoRepository votacionesMongoRepository,
+      ActividadMapper mapper,
+      MongoTemplate mongoTemplate,
+      ObservabilidadBusquedas observabilidadBusquedas)
+  {
+    this.mongoRepository = mongoRepository;
+    this.votacionesMongoRepository = votacionesMongoRepository;
+    this.mapper = mapper;
+    this.mongoTemplate = mongoTemplate;
+    this.observabilidadBusquedas = observabilidadBusquedas != null
+        ? observabilidadBusquedas
+        : new ObservabilidadBusquedas(OpenTelemetry.noop());
+  }
+
+  @Autowired(required = false)
+  public ActividadesRepositoryImpl(
+      ActividadesMongoRepository mongoRepository,
+      VotacionesMongoRepository votacionesMongoRepository,
+      ActividadMapper mapper,
+      MongoTemplate mongoTemplate)
+  {
+    this(
+        mongoRepository,
+        votacionesMongoRepository,
+        mapper,
+        mongoTemplate,
+        new ObservabilidadBusquedas(OpenTelemetry.noop())
+    );
+  }
 
   @Override
   public Page<Actividad> buscarActividades(TipoActividad tipo, String busqueda, LocalDate fechaInicio, LocalDate fechaFin,
@@ -93,13 +131,35 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
       });
     }
 
-    long total = mongoTemplate.count(query, ActividadEntity.class);
-    Pageable pageableNormalizado = normalizarPageable(pageable);
-    query.with(pageableNormalizado);
-    List<ActividadEntity> entities = mongoTemplate.find(query, ActividadEntity.class);
-    List<Actividad> domainList = entities.stream().map(mapper::toDomain).toList();
+    return observabilidadBusquedas.medirConsultaDb(() ->
+    {
+      if (demoraSimuladaMs > 0)
+      {
+        observabilidadBusquedas.registrarDemoraSimulada(demoraSimuladaMs);
+        dormirDemoraControlada(demoraSimuladaMs);
+      }
 
-    return PageableExecutionUtils.getPage(domainList, pageable, () -> total);
+      long total = mongoTemplate.count(query, ActividadEntity.class);
+      Pageable pageableNormalizado = normalizarPageable(pageable);
+      query.with(pageableNormalizado);
+      List<ActividadEntity> entities = mongoTemplate.find(query, ActividadEntity.class);
+      List<Actividad> domainList = entities.stream().map(mapper::toDomain).toList();
+
+      return PageableExecutionUtils.getPage(domainList, pageable, () -> total);
+    });
+  }
+
+  private void dormirDemoraControlada(long milisegundos)
+  {
+    try
+    {
+      Thread.sleep(milisegundos);
+    }
+    catch (InterruptedException ex)
+    {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Se interrumpió la demora controlada en la búsqueda", ex);
+    }
   }
 
   private String armarPatronInsensibleATildes(String texto)
