@@ -18,6 +18,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -263,5 +267,34 @@ class ActividadesControllerTest
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.errores.fecha").value("La fecha debe ser futura"))
         .andExpect(jsonPath("$.detail").value("La fecha debe ser futura"));
+  }
+
+  @Test
+  void buscarActividadesConTokenValidoDevuelvePagina() throws Exception
+  {
+    Page<ActividadDto> pagina = new PageImpl<>(List.of(mockActividadDto), PageRequest.of(0, 20), 1);
+    when(actividadesService.buscarActividades(
+        any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        .thenReturn(pagina);
+
+    mockMvc.perform(get("/api/actividades?tipo=AIRE_LIBRE&busqueda=asado")
+            .header("Authorization", "Bearer " + tokenYo)
+            .header("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].id").value("act-1"))
+        .andExpect(jsonPath("$.totalElements").value(1));
+  }
+
+  @Test
+  void buscarActividadesConRangoFechasInvalidoDevuelveBadRequest() throws Exception
+  {
+    when(actividadesService.buscarActividades(
+        any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        .thenThrow(new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin"));
+
+    mockMvc.perform(get("/api/actividades?fechaInicio=2026-12-31&fechaFin=2026-01-01")
+            .header("Authorization", "Bearer " + tokenYo))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value("La fecha de inicio no puede ser posterior a la fecha de fin"));
   }
 }

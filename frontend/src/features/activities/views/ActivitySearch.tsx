@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/authContext';
 import { activitiesApi } from '../activitiesApi';
 import type { Actividad } from '../types';
 import { ApiError } from '../../../lib/api';
+import { ejecutarConSpanBusqueda } from '../../../telemetry';
 
 export const ActivitySearch: React.FC = () => {
   useDocumentTitle('Buscar Actividades');
@@ -37,35 +38,41 @@ export const ActivitySearch: React.FC = () => {
         return;
       }
 
-      if (filterFechaInicio && filterFechaFin && filterFechaInicio > filterFechaFin) {
-        setError('La fecha de inicio no puede ser posterior a la de fin.');
-        setActivities([]);
-        setTotalPages(0);
-        return;
-      }
-
       setIsLoading(true);
       setError(null);
 
       try {
-        const data = await activitiesApi.buscar(
-          filterType || null,
-          appliedSearchTerm || null,
-          filterFechaInicio || null,
-          filterFechaFin || null,
-          filterEstado || null,
-          page,
-          pageSize,
-          token,
-        );
+        await ejecutarConSpanBusqueda(
+          {
+            tipo: filterType || 'TODOS',
+            estado: filterEstado || 'ACTIVAS',
+            conTexto: Boolean(appliedSearchTerm),
+            conFechas: Boolean(filterFechaInicio || filterFechaFin),
+            pagina: page,
+            tamano: pageSize,
+          },
+          async (span) => {
+            const data = await activitiesApi.buscar(
+              filterType || null,
+              appliedSearchTerm || null,
+              filterFechaInicio || null,
+              filterFechaFin || null,
+              filterEstado || null,
+              page,
+              pageSize,
+              token,
+            );
 
-        setActivities(data.content || []);
-        setTotalPages(data.totalPages || 0);
-        
-        // Safety: if the current page is out of bounds due to a backend change, jump back
-        if (data.totalPages > 0 && page >= data.totalPages) {
-          setPage(data.totalPages - 1);
-        }
+            span.setAttribute('actividad.resultados.cantidad_pagina', data.content?.length ?? 0);
+            setActivities(data.content || []);
+            setTotalPages(data.totalPages || 0);
+
+            // Safety: if the current page is out of bounds due to a backend change, jump back
+            if (data.totalPages > 0 && page >= data.totalPages) {
+              setPage(data.totalPages - 1);
+            }
+          },
+        );
       } catch (err) {
         setError(
           err instanceof ApiError
