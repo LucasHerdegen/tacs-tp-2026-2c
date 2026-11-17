@@ -68,7 +68,10 @@ export const votingApi = {
 
     const candidatas = [...abiertas, ...cerradas]
       .filter((v) => v.actividad.id === actividadId)
-      .sort((a, b) => b.fechaApertura.localeCompare(a.fechaApertura));
+      .sort((a, b) => {
+        if (a.abierta !== b.abierta) return a.abierta ? -1 : 1;
+        return b.fechaApertura.localeCompare(a.fechaApertura);
+      });
 
     return candidatas[0] ?? null;
   },

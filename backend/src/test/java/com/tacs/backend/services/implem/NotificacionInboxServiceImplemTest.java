@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Optional;
@@ -107,6 +108,18 @@ class NotificacionInboxServiceImplemTest
 
     assertThat(resultado.getContent()).hasSize(1);
     assertThat(resultado.getContent().get(0).id()).isEqualTo("n1");
+  }
+
+  @Test
+  void obtenerNotificacionesConSortInexistenteLanzaIllegalArgumentException()
+  {
+    Pageable pageable = PageRequest.of(0, 20, Sort.by("noExiste"));
+
+    assertThatThrownBy(() -> service.obtenerNotificaciones("usr-1", null, pageable))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("noExiste");
+
+    verifyNoInteractions(notificacionRepository);
   }
 
   @Test

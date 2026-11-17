@@ -6,6 +6,7 @@ import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.notificaciones.NotificacionDto;
 import com.tacs.backend.exceptions.NotificacionNotFoundException;
 import com.tacs.backend.repositories.NotificacionRepository;
+import com.tacs.backend.repositories.ValidacionOrdenamiento;
 import com.tacs.backend.services.NotificacionInboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +60,7 @@ public class NotificacionInboxServiceImplem implements NotificacionInboxService
   @Override
   public Page<NotificacionDto> obtenerNotificaciones(String usuarioId, Boolean leida, Pageable pageable)
   {
+    ValidacionOrdenamiento.validarNotificaciones(pageable);
     return notificacionRepository.buscarPorUsuario(usuarioId, leida, pageable).map(this::toDto);
   }
 

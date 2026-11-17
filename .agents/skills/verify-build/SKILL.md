@@ -48,7 +48,7 @@ Ejecutar siempre **desde el directorio `backend/`** (en Windows PowerShell usar 
    ```
    - Para correr una clase puntual: `.\mvnw.cmd test -Dtest=NombreDeLaClaseTest`
    - Si los tests de contexto Spring fallan por variables de entorno faltantes (`JWT_SECRET`, `WEATHERAPI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`), exportá valores dummy válidos (con `JWT_SECRET` de al menos 32 bytes, igual que en `.github/workflows/ci.yml`).
-   - Si modificaste persistencia o concurrencia (`@DataMongoTest`), asegurate de tener MongoDB corriendo (`docker compose up -d mongodb`) para evitar que `TestMongoFallbackConfig` enmascare errores con el store en memoria.
+   - Los tests `@DataMongoTest` requieren MongoDB corriendo en `localhost:27017` (`docker compose up -d mongodb`) para validar índices únicos y colisiones reales de `@Version`.
 
 3. **Formato Spotless:**
    ```powershell

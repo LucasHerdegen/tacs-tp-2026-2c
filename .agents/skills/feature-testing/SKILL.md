@@ -31,7 +31,7 @@ Nombrá cada test siguiendo el patrón `metodo_escenario_resultadoEsperado` con 
    - `403 Forbidden` por rol (`USER` en endpoints `ADMIN`) o por autorización (ej. no organizador / no participante).
    - `400` con estructura `ProblemDetail` (RFC 7807) ante DTOs o rangos inválidos.
 4. **Observabilidad (`observabilidad/`):** Si tocás spans o métricas, usá `OpenTelemetrySdk` + `InMemorySpanExporter` + `InMemoryMetricReader` (ver `ObservabilidadBusquedasTest`), verificando nombres de spans, `StatusCode.ERROR` ante fallos y ausencia de PII/texto libre.
-5. **Persistencia / Concurrencia (`@DataMongoTest`):** Tené presente que `TestMongoFallbackConfig` cae a un store en memoria cuando MongoDB no responde en `localhost:27017`. Para validar índices únicos, queries de `MongoTemplate` o colisiones reales de `@Version`, corré con MongoDB levantado (`docker compose up -d mongodb`).
+5. **Persistencia / Concurrencia (`@DataMongoTest`):** Los tests `@DataMongoTest` requieren un MongoDB real corriendo en `localhost:27017` (o `${MONGODB_URI}`) para validar índices únicos, queries de `MongoTemplate` y colisiones reales de `@Version`. Levantalo con `docker compose up -d mongodb` antes de ejecutarlos.
 
 ### 3. Implementación y ejecución dirigida
 1. Escribí los tests del Happy Path y Failing Paths.

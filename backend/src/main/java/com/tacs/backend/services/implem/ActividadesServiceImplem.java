@@ -22,6 +22,7 @@ import com.tacs.backend.mappers.ClimaMapper;
 import com.tacs.backend.observabilidad.ObservabilidadBusquedas;
 import com.tacs.backend.repositories.ActividadesRepository;
 import com.tacs.backend.repositories.UsuarioRepository;
+import com.tacs.backend.repositories.ValidacionOrdenamiento;
 import com.tacs.backend.repositories.VotacionesRepository;
 import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.NotificacionInboxService;
@@ -214,6 +215,8 @@ public class ActividadesServiceImplem implements ActividadesService
           if (fechaInicio != null && fechaFin != null && fechaInicio.isAfter(fechaFin))
             throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
 
+          ValidacionOrdenamiento.validarActividades(pageable);
+
           Page<Actividad> actividades = actividadesRepository.buscarActividades(
               tipo, busqueda, fechaInicio, fechaFin, estado, cupoDisponible, pageable);
 
@@ -338,8 +341,7 @@ public class ActividadesServiceImplem implements ActividadesService
   @Override
   public void cambiarEstado(String actividadId, String usuarioId, TipoEstadoActividad nuevoEstado)
   {
-    var actividad = actividadesRepository.findById(actividadId)
-        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
+    var actividad = buscarActividad(actividadId);
 
     if (!actividad.getOrganizador().getId().equals(usuarioId))
       throw new AccesoDenegadoException(
@@ -351,14 +353,20 @@ public class ActividadesServiceImplem implements ActividadesService
       return;
     }
 
-    actividad.cambiarEstado(nuevoEstado);
-    actividadesRepository.save(actividad);
+    optimisticLockingRetry.ejecutarSobreInicialORecargar(
+        actividad,
+        () -> buscarActividad(actividadId),
+        objetivo ->
+        {
+          objetivo.cambiarEstado(nuevoEstado);
+          return actividadesRepository.save(objetivo);
+        });
   }
 
   /**
    * Cancela una actividad respetando el orden de escrituras:
    * 1. Cierra condicionalmente la votacion abierta (si aun no fue cerrada).
-   * 2. Cambia el estado de la actividad a CANCELADA y la persiste.
+   * 2. Cambia el estado de la actividad a CANCELADA y la persiste (con reintento ante conflicto optimista).
    * 3. Notifica a los participantes.
    *
    * @param actividad  Actividad a cancelar.
@@ -372,7 +380,7 @@ public class ActividadesServiceImplem implements ActividadesService
       throw new IllegalStateException(
           "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
 
-    actividad.validarPermiteAbrirVotacion();
+    actividad.validarCambioEstado(TipoEstadoActividad.CANCELADA);
 
     if (votacionId == null)
       votacionesRepository.findByAbiertaTrueAndActividadId(actividad.getId())
@@ -383,14 +391,27 @@ public class ActividadesServiceImplem implements ActividadesService
                 .orElseThrow(() -> new VotacionCerradaException("La votacion ya esta cerrada"));
           });
 
-    actividad.cambiarEstado(TipoEstadoActividad.CANCELADA);
-    actividadesRepository.save(actividad);
+    Actividad actividadCancelada = optimisticLockingRetry.ejecutarSobreInicialORecargar(
+        actividad,
+        () -> buscarActividad(actividad.getId()),
+        objetivo ->
+        {
+          objetivo.cambiarEstado(TipoEstadoActividad.CANCELADA);
+          Actividad guardada = actividadesRepository.save(objetivo);
+          return guardada != null ? guardada : objetivo;
+        });
 
-    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividad.getTitulo(), motivo);
+    String contenido = "La actividad '%s' fue cancelada: %s.".formatted(actividadCancelada.getTitulo(), motivo);
 
-    servicioNotificaciones.notificarATodos(contenido, actividad.getParticipantes());
+    servicioNotificaciones.notificarATodos(contenido, actividadCancelada.getParticipantes());
     notificacionInboxService.crearParaTodos(contenido, TipoNotificacion.ACTIVIDAD_CANCELADA,
-        actividad.getId(), votacionId, actividad.getParticipantes());
+        actividadCancelada.getId(), votacionId, actividadCancelada.getParticipantes());
+  }
+
+  private Actividad buscarActividad(String actividadId)
+  {
+    return actividadesRepository.findById(actividadId)
+        .orElseThrow(() -> new ActividadNotFoundException("Actividad no encontrada"));
   }
 
   /**

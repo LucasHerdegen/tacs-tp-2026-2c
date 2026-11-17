@@ -2,6 +2,7 @@ package com.tacs.backend.services.implem;
 
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.RangoReprogramacion;
+import com.tacs.backend.domain.actividad.TipoEstadoActividad;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.notificacion.TipoNotificacion;
@@ -227,10 +228,14 @@ class VotacionesServiceImplem implements VotacionesService
     if (actividad.getEstado() == null)
       throw new IllegalStateException(
           "La actividad id=" + actividad.getId() + " no tiene un estado configurado, no se puede cancelar");
-    actividad.validarPermiteAbrirVotacion();
 
     Optional<Alternativa> ganadora = votacion.alternativaMasVotada()
         .filter(alternativa -> votacion.cantidadVotos(alternativa) >= votacion.getQuorumMinimo());
+
+    TipoEstadoActividad estadoDestino = ganadora.isPresent()
+        ? TipoEstadoActividad.REPROGRAMADA
+        : TipoEstadoActividad.CANCELADA;
+    actividad.validarCambioEstado(estadoDestino);
 
     votacion.cerrar(ganadora.orElse(null));
     Votacion votacionCerrada = votacionesRepository.cerrarSiAbierta(votacion)
@@ -239,10 +244,20 @@ class VotacionesServiceImplem implements VotacionesService
     if (ganadora.isPresent())
     {
       LocalDateTime fechaAnterior = actividad.getFechaRealizacion();
-      actividad.reprogramar(ganadora.get().getFecha());
-      actividadesRepository.save(actividad);
-      notificarReprogramacion(actividad, fechaAnterior, votacion.getId());
-    } else
+      LocalDateTime fechaGanadora = ganadora.get().getFecha();
+      Actividad actividadReprogramada = optimisticLockingRetry.ejecutarSobreInicialORecargar(
+          actividad,
+          () -> buscarActividad(actividad.getId()),
+          objetivo ->
+          {
+            objetivo.reprogramar(fechaGanadora);
+            Actividad guardada = actividadesRepository.save(objetivo);
+            return guardada != null ? guardada : objetivo;
+          });
+      votacionCerrada.setActividad(actividadReprogramada);
+      notificarReprogramacion(actividadReprogramada, fechaAnterior, votacion.getId());
+    }
+    else
       actividadesService.cancelarActividad(actividad, "No me alcanzo el quorum minimo de votos", votacion.getId());
 
     return votacionMapper.votacionToVotacionDto(votacionCerrada);

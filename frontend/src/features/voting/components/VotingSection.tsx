@@ -12,6 +12,7 @@ import { VotingCreateForm } from './VotingCreateForm';
 interface VotingSectionProps {
   actividadId: string;
   organizadorId: UserId;
+  permiteAbrirVotacion?: boolean;
   onActivityChanged?: () => void;
 }
 
@@ -22,7 +23,12 @@ function badgeParaClima(cumple: boolean | null) {
     : <Badge variant="error">Clima desfavorable</Badge>;
 }
 
-export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organizadorId, onActivityChanged }) => {
+export const VotingSection: React.FC<VotingSectionProps> = ({
+  actividadId,
+  organizadorId,
+  permiteAbrirVotacion = true,
+  onActivityChanged,
+}) => {
   const { user, token } = useAuth();
   const [votacion, setVotacion] = useState<VotacionDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +149,7 @@ export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organ
     setError('');
     try {
       await votingApi.eliminar(votacion.id, token);
-      setVotacion(null);
+      await cargarVotacion();
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : 'No pudimos eliminar la votación.');
     } finally {
@@ -180,11 +186,18 @@ export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organ
         <CardBody>
           <h2 className="text-xl font-bold text-gray-900 mb-2">🗳️ Votación</h2>
           <p className="text-sm text-gray-600 mb-4">
-            No hay ninguna votación para esta actividad. Si el pronóstico empeora, la
-            aplicación puede abrir una automáticamente — o el organizador puede abrirla manualmente.
+            {permiteAbrirVotacion
+              ? 'No hay ninguna votación para esta actividad. Si el pronóstico empeora, la aplicación puede abrir una automáticamente — o el organizador puede abrirla manualmente.'
+              : 'No se registraron votaciones para esta actividad.'}
           </p>
-          {esOrganizador && (
-            <Button variant="primary" onClick={() => setShowCreateForm(true)}>
+          {esOrganizador && permiteAbrirVotacion && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setError('');
+                setShowCreateForm(true);
+              }}
+            >
               Abrir votación manualmente
             </Button>
           )}
@@ -302,7 +315,19 @@ export const VotingSection: React.FC<VotingSectionProps> = ({ actividadId, organ
         )}
 
         {!votacion.abierta && esOrganizador && (
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex flex-wrap justify-end gap-3">
+            {permiteAbrirVotacion && (
+              <Button
+                variant="primary"
+                disabled={busy}
+                onClick={() => {
+                  setError('');
+                  setShowCreateForm(true);
+                }}
+              >
+                Abrir nueva votación
+              </Button>
+            )}
             <Button variant="danger" disabled={busy} onClick={handleEliminarVotacion}>
               Eliminar votación
             </Button>
