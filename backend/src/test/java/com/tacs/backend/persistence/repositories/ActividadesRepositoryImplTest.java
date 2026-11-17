@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -188,6 +189,42 @@ class ActividadesRepositoryImplTest
     Document sortDoc = queryCaptor.getValue().getSortObject();
     assertThat(sortDoc.getInteger("fechaRealizacion")).isEqualTo(1);
     assertThat(sortDoc.containsKey("fecha")).isFalse();
+  }
+
+  @Test
+  @DisplayName("buscarActividades traduce sort=tipoActividad y estadoActividad a sus campos persistidos")
+  void buscarActividades_SortPorAliasDto_TraduceACamposPersistidos()
+  {
+    Pageable pageable = PageRequest.of(0, 10, Sort.by(
+        Sort.Order.asc("tipoActividad"),
+        Sort.Order.desc("estadoActividad")));
+    when(mongoTemplate.count(any(Query.class), eq(ActividadEntity.class))).thenReturn(0L);
+    when(mongoTemplate.find(any(Query.class), eq(ActividadEntity.class))).thenReturn(List.of());
+
+    repository.buscarActividades(null, null, null, null, null, false, pageable);
+
+    ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+    verify(mongoTemplate).find(queryCaptor.capture(), eq(ActividadEntity.class));
+
+    Document sortDoc = queryCaptor.getValue().getSortObject();
+    assertThat(sortDoc.getInteger("tipo")).isEqualTo(1);
+    assertThat(sortDoc.getInteger("estado")).isEqualTo(-1);
+    assertThat(sortDoc.containsKey("tipoActividad")).isFalse();
+    assertThat(sortDoc.containsKey("estadoActividad")).isFalse();
+  }
+
+  @Test
+  @DisplayName("buscarActividades con sort por campo inexistente lanza IllegalArgumentException sin consultar MongoDB")
+  void buscarActividades_SortConCampoInexistente_LanzaIllegalArgumentException()
+  {
+    Pageable pageable = PageRequest.of(0, 10, Sort.by("campoInexistente"));
+
+    assertThatThrownBy(() ->
+        repository.buscarActividades(null, null, null, null, null, false, pageable))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("campoInexistente");
+
+    verifyNoInteractions(mongoTemplate);
   }
 
   @Test

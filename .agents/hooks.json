@@ -1,0 +1,11 @@
+{
+  "tacs-session-context": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./hooks/session-context.mjs",
+        "timeout": 5
+      }
+    ]
+  }
+}
