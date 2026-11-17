@@ -1,6 +1,5 @@
 package com.tacs.backend.services.implem;
 
-import com.tacs.backend.config.TestMongoFallbackConfig;
 import com.tacs.backend.domain.actividad.Actividad;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
@@ -11,6 +10,7 @@ import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.domain.votacion.Alternativa;
 import com.tacs.backend.domain.votacion.Votacion;
+import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
@@ -65,7 +65,6 @@ import static org.mockito.Mockito.verify;
     "spring.data.mongodb.auto-index-creation=true"
 })
 @Import({
-    TestMongoFallbackConfig.class,
     VotacionesServiceImplem.class,
     ActividadesServiceImplem.class,
     VotacionesRepositoryImpl.class,
@@ -532,6 +531,279 @@ class VotacionesConcurrenciaIntegrationTest
     Actividad actividadFinal = actividadesRepository.findById(actividadId).orElseThrow();
 
     assertThat(votacionFinal.isAbierta()).isFalse();
+    assertThat(actividadFinal.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    verify(servicioNotificaciones, times(1)).notificarATodos(any(), any());
+  }
+
+  @Test
+  @DisplayName("Cerrar votación con quórum mientras otros se suman reintenta guardar la actividad, reprograma y notifica una sola vez")
+  void resolverVotacionConQuorum_mientrasOtrosSeSuman_cierraReprogramaConReintentoYNotificaUnaSolaVez() throws Exception
+  {
+    Usuario organizador = usuarioRepository.save(new Usuario("organizador", "pass", TipoRol.USER));
+    Usuario votanteInicial = usuarioRepository.save(new Usuario("votante-inicial", "pass", TipoRol.USER));
+
+    int cantidadNuevos = 8;
+    List<Usuario> nuevosParticipantes = new ArrayList<>();
+    for (int i = 1; i <= cantidadNuevos; i++)
+      nuevosParticipantes.add(usuarioRepository.save(new Usuario("nuevo-" + i, "pass", TipoRol.USER)));
+
+    Actividad actividad = new Actividad(
+        "Fútbol", "Picado", TipoActividad.AIRE_LIBRE,
+        new Ubicacion("Palermo", -34.58, -58.43),
+        LocalDateTime.now().plusDays(2), 2, LocalDateTime.now(), 2, 20, organizador
+    );
+    actividad.agregarParticipante(votanteInicial);
+    actividad.cambiarEstado(TipoEstadoActividad.CONFIRMADA);
+    actividad = actividadesRepository.save(actividad);
+    String actividadId = actividad.getId();
+
+    Alternativa alt1 = new Alternativa();
+    alt1.setId("alt-1");
+    alt1.setNumeroAlternativa(1);
+    alt1.setFecha(LocalDateTime.now().plusDays(4).withNano(0));
+
+    Votacion votacion = new Votacion();
+    votacion.setAbierta(true);
+    votacion.setActividad(actividad);
+    votacion.agregarAlternativa(alt1);
+    votacion.setQuorumMinimo(2);
+    votacion = votacionesRepository.save(votacion);
+    String votacionId = votacion.getId();
+
+    votacionesService.votar(votacionId, organizador.getId(), 1);
+    votacionesService.votar(votacionId, votanteInicial.getId(), 1);
+
+    int totalHilos = cantidadNuevos + 1;
+    ExecutorService executor = Executors.newFixedThreadPool(totalHilos);
+    CountDownLatch readyLatch = new CountDownLatch(totalHilos);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    final String orgId = organizador.getId();
+
+    futures.add(CompletableFuture.runAsync(() -> {
+      readyLatch.countDown();
+      try
+      {
+        startLatch.await();
+        votacionesService.resolverVotacion(votacionId, orgId);
+      }
+      catch (InterruptedException e)
+      {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
+    }, executor));
+
+    for (Usuario nuevo : nuevosParticipantes)
+    {
+      final String uid = nuevo.getId();
+      futures.add(CompletableFuture.runAsync(() -> {
+        readyLatch.countDown();
+        try
+        {
+          startLatch.await();
+          actividadesService.unirseActividad(actividadId, uid);
+        }
+        catch (InterruptedException e)
+        {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }, executor));
+    }
+
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
+
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(20, TimeUnit.SECONDS);
+    executor.shutdown();
+
+    Votacion votacionFinal = votacionesRepository.findById(votacionId).orElseThrow();
+    Actividad actividadFinal = actividadesRepository.findById(actividadId).orElseThrow();
+
+    assertThat(votacionFinal.isAbierta()).isFalse();
+    assertThat(votacionFinal.getAlternativaGanadora()).isNotNull();
+    assertThat(actividadFinal.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
+    assertThat(actividadFinal.getCambiosFecha()).hasSize(1);
+    assertThat(actividadFinal.getParticipantes()).hasSize(2 + cantidadNuevos);
+    verify(servicioNotificaciones, times(1)).notificarATodos(any(), any());
+  }
+
+  @Test
+  @DisplayName("Cancelar actividad mientras otros se suman reintenta guardar la cancelación, cierra votación y notifica una sola vez")
+  void cancelarActividad_mientrasOtrosSeSuman_cierraVotacionCancelaConReintentoYNotificaUnaSolaVez() throws Exception
+  {
+    Usuario organizador = usuarioRepository.save(new Usuario("organizador", "pass", TipoRol.USER));
+    int cantidadNuevos = 8;
+    List<Usuario> nuevosParticipantes = new ArrayList<>();
+    for (int i = 1; i <= cantidadNuevos; i++)
+      nuevosParticipantes.add(usuarioRepository.save(new Usuario("nuevo-" + i, "pass", TipoRol.USER)));
+
+    Actividad actividad = new Actividad(
+        "Remo", "Salida matinal", TipoActividad.AIRE_LIBRE,
+        new Ubicacion("Tigre", -34.42, -58.57),
+        LocalDateTime.now().plusDays(2), 2, LocalDateTime.now(), 2, 20, organizador
+    );
+    actividad.cambiarEstado(TipoEstadoActividad.PROPUESTA);
+    actividad = actividadesRepository.save(actividad);
+    String actividadId = actividad.getId();
+
+    Alternativa alt1 = new Alternativa();
+    alt1.setId("alt-1");
+    alt1.setNumeroAlternativa(1);
+    alt1.setFecha(LocalDateTime.now().plusDays(3).withNano(0));
+
+    Votacion votacion = new Votacion();
+    votacion.setAbierta(true);
+    votacion.setActividad(actividad);
+    votacion.agregarAlternativa(alt1);
+    votacion.setQuorumMinimo(2);
+    votacion = votacionesRepository.save(votacion);
+    String votacionId = votacion.getId();
+
+    int totalHilos = cantidadNuevos + 1;
+    ExecutorService executor = Executors.newFixedThreadPool(totalHilos);
+    CountDownLatch readyLatch = new CountDownLatch(totalHilos);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    final String orgId = organizador.getId();
+
+    futures.add(CompletableFuture.runAsync(() -> {
+      readyLatch.countDown();
+      try
+      {
+        startLatch.await();
+        actividadesService.cambiarEstado(actividadId, orgId, TipoEstadoActividad.CANCELADA);
+      }
+      catch (InterruptedException e)
+      {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
+    }, executor));
+
+    for (Usuario nuevo : nuevosParticipantes)
+    {
+      final String uid = nuevo.getId();
+      futures.add(CompletableFuture.runAsync(() -> {
+        readyLatch.countDown();
+        try
+        {
+          startLatch.await();
+          actividadesService.unirseActividad(actividadId, uid);
+        }
+        catch (EstadoInvalidoException ignored)
+        {
+          // Esperado si el alta llega despues de persistirse CANCELADA
+        }
+        catch (InterruptedException e)
+        {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }, executor));
+    }
+
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
+
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(20, TimeUnit.SECONDS);
+    executor.shutdown();
+
+    Votacion votacionFinal = votacionesRepository.findById(votacionId).orElseThrow();
+    Actividad actividadFinal = actividadesRepository.findById(actividadId).orElseThrow();
+
+    assertThat(votacionFinal.isAbierta()).isFalse();
+    assertThat(actividadFinal.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    verify(servicioNotificaciones, times(1)).notificarATodos(any(), any());
+  }
+
+  @Test
+  @DisplayName("Cerrar votación sin quórum mientras otros se suman reintenta guardar la cancelación y notifica una sola vez")
+  void resolverVotacionSinQuorum_mientrasOtrosSeSuman_cierraCancelaConReintentoYNotificaUnaSolaVez() throws Exception
+  {
+    Usuario organizador = usuarioRepository.save(new Usuario("organizador", "pass", TipoRol.USER));
+    int cantidadNuevos = 8;
+    List<Usuario> nuevosParticipantes = new ArrayList<>();
+    for (int i = 1; i <= cantidadNuevos; i++)
+      nuevosParticipantes.add(usuarioRepository.save(new Usuario("nuevo-" + i, "pass", TipoRol.USER)));
+
+    Actividad actividad = new Actividad(
+        "Trekking", "Sendero", TipoActividad.AIRE_LIBRE,
+        new Ubicacion("Bariloche", -41.13, -71.31),
+        LocalDateTime.now().plusDays(2), 2, LocalDateTime.now(), 2, 20, organizador
+    );
+    actividad.cambiarEstado(TipoEstadoActividad.PROPUESTA);
+    actividad = actividadesRepository.save(actividad);
+    String actividadId = actividad.getId();
+
+    Alternativa alt1 = new Alternativa();
+    alt1.setId("alt-1");
+    alt1.setNumeroAlternativa(1);
+    alt1.setFecha(LocalDateTime.now().plusDays(3).withNano(0));
+
+    Votacion votacion = new Votacion();
+    votacion.setAbierta(true);
+    votacion.setActividad(actividad);
+    votacion.agregarAlternativa(alt1);
+    votacion.setQuorumMinimo(5);
+    votacion = votacionesRepository.save(votacion);
+    String votacionId = votacion.getId();
+
+    int totalHilos = cantidadNuevos + 1;
+    ExecutorService executor = Executors.newFixedThreadPool(totalHilos);
+    CountDownLatch readyLatch = new CountDownLatch(totalHilos);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    final String orgId = organizador.getId();
+
+    futures.add(CompletableFuture.runAsync(() -> {
+      readyLatch.countDown();
+      try
+      {
+        startLatch.await();
+        votacionesService.resolverVotacion(votacionId, orgId);
+      }
+      catch (InterruptedException e)
+      {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
+    }, executor));
+
+    for (Usuario nuevo : nuevosParticipantes)
+    {
+      final String uid = nuevo.getId();
+      futures.add(CompletableFuture.runAsync(() -> {
+        readyLatch.countDown();
+        try
+        {
+          startLatch.await();
+          actividadesService.unirseActividad(actividadId, uid);
+        }
+        catch (EstadoInvalidoException ignored)
+        {
+          // Esperado si el alta llega despues de persistirse CANCELADA
+        }
+        catch (InterruptedException e)
+        {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }, executor));
+    }
+
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
+
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(20, TimeUnit.SECONDS);
+    executor.shutdown();
+
+    Votacion votacionFinal = votacionesRepository.findById(votacionId).orElseThrow();
+    Actividad actividadFinal = actividadesRepository.findById(actividadId).orElseThrow();
+
+    assertThat(votacionFinal.isAbierta()).isFalse();
+    assertThat(votacionFinal.getAlternativaGanadora()).isNull();
     assertThat(actividadFinal.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
     verify(servicioNotificaciones, times(1)).notificarATodos(any(), any());
   }

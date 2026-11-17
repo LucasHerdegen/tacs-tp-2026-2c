@@ -44,7 +44,7 @@ async function main() {
     `MongoDB local (127.0.0.1:27017): ${
       mongoUp
         ? 'accesible'
-        : 'no detectado (tests @DataMongoTest usarán TestMongoFallbackConfig en memoria tras timeout; levantar con `docker compose up -d mongodb` si probás persistencia/concurrencia real)'
+        : 'no detectado (tests @DataMongoTest requieren MongoDB activo; levantar con `docker compose up -d mongodb` antes de correr `./mvnw test`)'
     }.`,
   ];
 

@@ -9,7 +9,12 @@ import { ApiError } from '../../../lib/api';
 import { activitiesApi } from '../activitiesApi';
 import { VotingSection } from '../../voting/components/VotingSection';
 import type { Actividad, PronosticoRespuesta } from '../types';
-import { canManageActivity, isParticipant, isActivityCanceled } from '../activityPermissions';
+import {
+  canManageActivity,
+  isParticipant,
+  isActivityCanceled,
+  isActivityTerminal,
+} from '../activityPermissions';
 
 export const ActivityDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +41,7 @@ export const ActivityDetail: React.FC = () => {
   const esParticipante = isParticipant(activity, user);
   const esOrganizador = canManageActivity(activity, user);
   const estaCancelada = isActivityCanceled(activity);
+  const esEstadoTerminal = isActivityTerminal(activity);
 
   const obtenerDetalle = useCallback(async () => {
     if (!actividadId) return;
@@ -130,7 +136,7 @@ export const ActivityDetail: React.FC = () => {
   }
 
   async function handleCancelActivity() {
-    if (!token || !activity || estaCancelada) return;
+    if (!token || !activity || esEstadoTerminal) return;
     setCanceling(true);
     setError('');
     try {
@@ -370,7 +376,7 @@ export const ActivityDetail: React.FC = () => {
             <Badge variant="info" className="px-3 py-1 font-semibold">{activity.tipoActividad}</Badge>
           </div>
 
-          {esOrganizador && !estaCancelada && (
+          {esOrganizador && !esEstadoTerminal && (
             <Link to={`/activities/${activity.id}/weather-config`}>
               <Button variant="secondary" className="text-xs py-1.5 px-3">
                 ⚙️ Configurar clima
@@ -452,7 +458,7 @@ export const ActivityDetail: React.FC = () => {
                     </Badge>
                   )}
                 </div>
-                {esOrganizador && !estaCancelada && (
+                {esOrganizador && !esEstadoTerminal && (
                   <Link to={`/activities/${activity.id}/weather-config`} className="text-xs text-indigo-600 hover:underline font-medium">
                     Ajustar parámetros
                   </Link>
@@ -591,7 +597,7 @@ export const ActivityDetail: React.FC = () => {
                   <h3 className="text-xs uppercase font-bold tracking-wider text-gray-500 flex items-center gap-1.5">
                     <span>⚙️</span> Condiciones Aceptables Configuradas
                   </h3>
-                  {esOrganizador && !estaCancelada && (
+                  {esOrganizador && !esEstadoTerminal && (
                     <Link
                       to={`/activities/${activity.id}/weather-config`}
                       className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
@@ -641,7 +647,7 @@ export const ActivityDetail: React.FC = () => {
                   <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3 text-center">
                     <p className="text-xs text-gray-500">
                       Usa monitoreo estándar del sistema.
-                      {esOrganizador && !estaCancelada && (
+                      {esOrganizador && !esEstadoTerminal && (
                         <Link to={`/activities/${activity.id}/weather-config`} className="text-indigo-600 font-medium hover:underline ml-1">
                           Personalizar reglas
                         </Link>
@@ -658,6 +664,7 @@ export const ActivityDetail: React.FC = () => {
             <VotingSection
               actividadId={activity.id}
               organizadorId={activity.organizador.id}
+              permiteAbrirVotacion={!esEstadoTerminal}
               onActivityChanged={cargarTodo}
             />
           )}
@@ -793,7 +800,7 @@ export const ActivityDetail: React.FC = () => {
                 )}
               </div>
 
-              {esOrganizador && !estaCancelada && (
+              {esOrganizador && !esEstadoTerminal && (
                 <div className="mt-6 pt-4 border-t border-gray-100">
                   <Button
                     variant="danger"

@@ -6,7 +6,9 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 @Component
 public class OptimisticLockingRetry
@@ -40,6 +42,23 @@ public class OptimisticLockingRetry
       operacion.run();
       return null;
     }, this.maxIntentos);
+  }
+
+  /**
+   * Ejecuta una operacion de escritura usando la entidad ya cargada en el primer intento
+   * y recargandola desde el repositorio si se produce un conflicto de bloqueo optimista.
+   */
+  public <T> T ejecutarSobreInicialORecargar(
+      T entidadInicial,
+      Supplier<T> recargador,
+      UnaryOperator<T> actualizador)
+  {
+    AtomicBoolean primerIntento = new AtomicBoolean(true);
+    return ejecutarConReintento(() ->
+    {
+      T objetivo = primerIntento.getAndSet(false) ? entidadInicial : recargador.get();
+      return actualizador.apply(objetivo);
+    });
   }
 
   public <T> T ejecutarConReintento(Supplier<T> operacion, int maxReintentos)

@@ -14,6 +14,7 @@ import com.tacs.backend.services.JwtService;
 import com.tacs.backend.services.implem.JwtServiceImplem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -31,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -296,5 +299,23 @@ class ActividadesControllerTest
             .header("Authorization", "Bearer " + tokenYo))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.detail").value("La fecha de inicio no puede ser posterior a la fecha de fin"));
+  }
+
+  @Test
+  void buscarActividadesConSortInexistenteDevuelveBadRequest() throws Exception
+  {
+    when(actividadesService.buscarActividades(
+        any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        .thenThrow(new IllegalArgumentException("El campo de ordenamiento 'campoQueNoExiste' no existe"));
+
+    mockMvc.perform(get("/api/actividades?sort=campoQueNoExiste,asc")
+            .header("Authorization", "Bearer " + tokenYo))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value("El campo de ordenamiento 'campoQueNoExiste' no existe"));
+
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+    verify(actividadesService).buscarActividades(any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
+    assertThat(pageableCaptor.getValue().getSort().getOrderFor("campoQueNoExiste"))
+        .isEqualTo(Sort.Order.asc("campoQueNoExiste"));
   }
 }
