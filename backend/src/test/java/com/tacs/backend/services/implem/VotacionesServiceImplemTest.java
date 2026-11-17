@@ -39,6 +39,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,6 +53,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -174,6 +176,61 @@ class VotacionesServiceImplemTest
     assertThat(actividad.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
     verify(actividadesRepository, never()).save(any());
     verifyNoInteractions(servicioNotificaciones, notificacionInboxService);
+  }
+
+  @Test
+  void resolverConQuorumReintentaGuardarActividadAnteConflictoOptimistaYNotificaATodos()
+  {
+    LocalDateTime fechaOriginal = LocalDateTime.now().plusDays(1);
+    LocalDateTime fechaGanadora = LocalDateTime.now().plusDays(3);
+    Actividad actividadInicial = crearActividad(TipoEstadoActividad.PROPUESTA, fechaOriginal);
+    Actividad actividadRecargada = crearActividad(TipoEstadoActividad.CONFIRMADA, fechaOriginal);
+    Usuario nuevoParticipante = crearUsuarioConId("3");
+    actividadRecargada.agregarParticipante(nuevoParticipante);
+
+    Alternativa ganadora = crearAlternativa("1", 1, fechaGanadora);
+    Votacion votacion = crearVotacion(actividadInicial, 2, List.of(ganadora));
+    votarDosVeces(votacion, ganadora);
+
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
+    when(votacionesRepository.cerrarSiAbierta(votacion)).thenReturn(Optional.of(votacion));
+    when(actividadesRepository.findById("act-1")).thenReturn(Optional.of(actividadRecargada));
+    when(actividadesRepository.save(any(Actividad.class)))
+        .thenThrow(new OptimisticLockingFailureException("Colision con alta concurrente"))
+        .thenAnswer(inv -> inv.getArgument(0));
+    when(votacionMapper.votacionToVotacionDto(votacion)).thenReturn(mock(VotacionDto.class));
+
+    inicializarService();
+    service.resolverVotacion("10", "1");
+
+    assertThat(actividadRecargada.getEstado()).isEqualTo(TipoEstadoActividad.REPROGRAMADA);
+    assertThat(actividadRecargada.getFechaRealizacion()).isEqualTo(fechaGanadora);
+    assertThat(actividadRecargada.getCambiosFecha()).hasSize(1);
+    verify(actividadesRepository, times(2)).save(any(Actividad.class));
+    verify(servicioNotificaciones, times(1)).notificarATodos(any(), eq(actividadRecargada.getParticipantes()));
+    verify(notificacionInboxService, times(1))
+        .crearParaTodos(any(), any(), eq("act-1"), eq("10"), eq(actividadRecargada.getParticipantes()));
+  }
+
+  @Test
+  void resolverVotacionSobreActividadFinalizadaLanzaEstadoInvalidoYNoCierraVotacion()
+  {
+    Actividad actividad = crearActividad(TipoEstadoActividad.FINALIZADA);
+    Alternativa ganadora = crearAlternativa("1", 1, LocalDateTime.now().plusDays(3));
+    Votacion votacion = crearVotacion(actividad, 2, List.of(ganadora));
+    votarDosVeces(votacion, ganadora);
+
+    when(votacionesRepository.findById("10")).thenReturn(Optional.of(votacion));
+
+    inicializarService();
+
+    assertThatThrownBy(() -> service.resolverVotacion("10", "1"))
+        .isInstanceOf(EstadoInvalidoException.class)
+        .hasMessageContaining("FINALIZADA")
+        .hasMessageNotContaining("abrir una votacion");
+
+    verify(votacionesRepository, never()).cerrarSiAbierta(any());
+    verify(actividadesRepository, never()).save(any());
   }
 
   @Test

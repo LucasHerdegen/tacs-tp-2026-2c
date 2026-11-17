@@ -40,10 +40,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -54,9 +56,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -314,6 +318,60 @@ class ActividadesServiceImplemTest
     assertThat(actividadMock.getEstado()).isEqualTo(TipoEstadoActividad.PROPUESTA);
     verify(actividadesRepository, never()).save(any());
     verifyNoInteractions(servicioNotificaciones, notificacionInboxService);
+  }
+
+  @Test
+  @DisplayName("Cancelar actividad con conflicto optimista reintenta recargando la actividad y notifica a los participantes actualizados")
+  void cancelarActividad_ConflictoOptimistaAlGuardar_ReintentaYNotificaATodos()
+  {
+    String actividadId = "100";
+    String organizadorId = "1";
+    actividadMock.setId(actividadId);
+    actividadMock.setTitulo("Partido 5v5");
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setEstado(TipoEstadoActividad.PROPUESTA);
+
+    Actividad recargada = new Actividad();
+    recargada.setId(actividadId);
+    recargada.setTitulo("Partido 5v5");
+    recargada.setOrganizador(usuarioMock);
+    recargada.setEstado(TipoEstadoActividad.CONFIRMADA);
+    Usuario nuevo = new Usuario("nuevo", "pass", TipoRol.USER);
+    nuevo.setId("2");
+    recargada.setParticipantes(List.of(usuarioMock, nuevo));
+
+    when(actividadesRepository.findById(actividadId))
+        .thenReturn(Optional.of(actividadMock))
+        .thenReturn(Optional.of(recargada));
+    when(votacionesRepository.findByAbiertaTrueAndActividadId(actividadId)).thenReturn(Optional.empty());
+    when(actividadesRepository.save(any(Actividad.class)))
+        .thenThrow(new OptimisticLockingFailureException("Conflicto optimista simulado"))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    actividadesService.cambiarEstado(actividadId, organizadorId, TipoEstadoActividad.CANCELADA);
+
+    assertThat(recargada.getEstado()).isEqualTo(TipoEstadoActividad.CANCELADA);
+    verify(actividadesRepository, times(2)).save(any(Actividad.class));
+    verify(servicioNotificaciones, times(1)).notificarATodos(any(), eq(recargada.getParticipantes()));
+  }
+
+  @Test
+  @DisplayName("Cancelar actividad FINALIZADA lanza EstadoInvalidoException de transicion sin mencionar votacion")
+  void cancelarActividad_ActividadFinalizada_LanzaEstadoInvalidoDeTransicion()
+  {
+    String actividadId = "100";
+    actividadMock.setId(actividadId);
+    actividadMock.setOrganizador(usuarioMock);
+    actividadMock.setEstado(TipoEstadoActividad.FINALIZADA);
+
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+
+    assertThatThrownBy(() -> actividadesService.cambiarEstado(actividadId, "1", TipoEstadoActividad.CANCELADA))
+        .isInstanceOf(EstadoInvalidoException.class)
+        .hasMessage("No se puede pasar de FINALIZADA a CANCELADA");
+
+    verify(votacionesRepository, never()).findByAbiertaTrueAndActividadId(any());
+    verify(actividadesRepository, never()).save(any());
   }
 
   @Test
@@ -662,5 +720,35 @@ class ActividadesServiceImplemTest
         .hasMessage("La fecha de inicio no puede ser posterior a la fecha de fin");
 
     verifyNoInteractions(actividadesRepository);
+  }
+
+  @Test
+  @DisplayName("Buscar actividades con sort por campo inexistente lanza IllegalArgumentException")
+  void buscarActividades_SortConCampoInexistente_LanzaIllegalArgumentException()
+  {
+    Pageable pageable = PageRequest.of(0, 10, Sort.by("campoQueNoExiste"));
+
+    assertThatThrownBy(() -> actividadesService.buscarActividades(
+        null, null, null, null, null, null, pageable))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("campoQueNoExiste");
+
+    verifyNoInteractions(actividadesRepository);
+  }
+
+  @Test
+  @DisplayName("Buscar actividades con sort por campo valido del DTO delega al repositorio")
+  void buscarActividades_SortConCampoValidoDto_DelegaAlRepositorio()
+  {
+    Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "tipoActividad"));
+    Page<Actividad> pageMock = new PageImpl<>(List.of(), pageable, 0);
+    when(actividadesRepository.buscarActividades(null, null, null, null, null, null, pageable))
+        .thenReturn(pageMock);
+
+    Page<ActividadDto> resultado = actividadesService.buscarActividades(
+        null, null, null, null, null, null, pageable);
+
+    assertThat(resultado).isEmpty();
+    verify(actividadesRepository).buscarActividades(null, null, null, null, null, null, pageable);
   }
 }

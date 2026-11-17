@@ -4,6 +4,7 @@ import com.tacs.backend.domain.notificacion.Notificacion;
 import com.tacs.backend.persistence.entities.NotificacionEntity;
 import com.tacs.backend.persistence.mappers.NotificacionMapper;
 import com.tacs.backend.repositories.NotificacionRepository;
+import com.tacs.backend.repositories.ValidacionOrdenamiento;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,9 +23,10 @@ public class NotificacionRepositoryImpl implements NotificacionRepository
   @Override
   public Page<Notificacion> buscarPorUsuario(String usuarioId, Boolean leida, Pageable pageable)
   {
+    Pageable pageableNormalizado = ValidacionOrdenamiento.normalizarNotificaciones(pageable);
     Page<NotificacionEntity> entities = leida == null
-        ? mongoRepository.findByUsuarioIdOrderByFechaCreacionDesc(usuarioId, pageable)
-        : mongoRepository.findByUsuarioIdAndLeidaOrderByFechaCreacionDesc(usuarioId, leida, pageable);
+        ? mongoRepository.findByUsuarioIdOrderByFechaCreacionDesc(usuarioId, pageableNormalizado)
+        : mongoRepository.findByUsuarioIdAndLeidaOrderByFechaCreacionDesc(usuarioId, leida, pageableNormalizado);
     return entities.map(mapper::toDomain);
   }
 

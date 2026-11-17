@@ -135,6 +135,18 @@ public class Actividad
   }
 
   /**
+   * Valida que la actividad pueda transicionar al estado destino indicado.
+   *
+   * @param nuevoEstado Estado destino deseado.
+   * @throws EstadoInvalidoException Si la transicion desde el estado actual no es valida.
+   */
+  public void validarCambioEstado(TipoEstadoActividad nuevoEstado)
+  {
+    if (this.estado != null)
+      Estados.getEstado(this.estado).validarCambioEstado(nuevoEstado);
+  }
+
+  /**
    * Agrega un nuevo participante a la actividad, validando la capacidad maxima,
    * que la actividad no este cancelada ni finalizada,
    * y que el usuario no este previamente inscripto.

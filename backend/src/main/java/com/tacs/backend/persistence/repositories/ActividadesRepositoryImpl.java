@@ -6,15 +6,14 @@ import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.observabilidad.ObservabilidadBusquedas;
 import com.tacs.backend.persistence.mappers.ActividadMapper;
 import com.tacs.backend.repositories.ActividadesRepository;
+import com.tacs.backend.repositories.ValidacionOrdenamiento;
 import com.tacs.backend.persistence.entities.ActividadEntity;
 import io.opentelemetry.api.OpenTelemetry;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -131,6 +130,8 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
       });
     }
 
+    Pageable pageableNormalizado = ValidacionOrdenamiento.normalizarActividades(pageable);
+
     return observabilidadBusquedas.medirConsultaDb(() ->
     {
       if (demoraSimuladaMs > 0)
@@ -140,7 +141,6 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
       }
 
       long total = mongoTemplate.count(query, ActividadEntity.class);
-      Pageable pageableNormalizado = normalizarPageable(pageable);
       query.with(pageableNormalizado);
       List<ActividadEntity> entities = mongoTemplate.find(query, ActividadEntity.class);
       List<Actividad> domainList = entities.stream().map(mapper::toDomain).toList();
@@ -180,18 +180,6 @@ public class ActividadesRepositoryImpl implements ActividadesRepository
       }
     }
     return sb.toString();
-  }
-
-  private Pageable normalizarPageable(Pageable pageable)
-  {
-    if (pageable == null || pageable.isUnpaged() || pageable.getSort().isUnsorted())
-      return pageable;
-
-    List<Sort.Order> ordenes = pageable.getSort().stream()
-        .map(order -> "fecha".equals(order.getProperty()) ? order.withProperty("fechaRealizacion") : order)
-        .toList();
-
-    return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(ordenes));
   }
 
   @Override

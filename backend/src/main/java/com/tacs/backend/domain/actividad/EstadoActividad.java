@@ -20,10 +20,15 @@ public class EstadoActividad
     this.posiblesEstados = posiblesEstados;
   }
 
-  public void cambiarEstado(Actividad actividad, TipoEstadoActividad nuevoTipo)
+  public void validarCambioEstado(TipoEstadoActividad nuevoTipo)
   {
     if (!posiblesEstados.contains(nuevoTipo))
       throw new EstadoInvalidoException("No se puede pasar de " + tipo + " a " + nuevoTipo);
+  }
+
+  public void cambiarEstado(Actividad actividad, TipoEstadoActividad nuevoTipo)
+  {
+    validarCambioEstado(nuevoTipo);
 
     actividad.setEstado(nuevoTipo);
   }

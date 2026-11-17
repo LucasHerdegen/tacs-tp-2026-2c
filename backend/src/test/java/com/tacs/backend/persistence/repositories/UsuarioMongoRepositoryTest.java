@@ -1,6 +1,5 @@
 package com.tacs.backend.persistence.repositories;
 
-import com.tacs.backend.config.TestMongoFallbackConfig;
 import com.tacs.backend.domain.usuario.TipoMedioContacto;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.persistence.entities.MedioContactoEntity;
@@ -11,18 +10,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.cache.CacheManager;
-import org.springframework.context.annotation.Import;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataMongoTest(properties = {
     "spring.mongodb.uri=${MONGODB_URI:mongodb://localhost:27017/tacs_test}",
     "spring.data.mongodb.auto-index-creation=true"
 })
-@Import(TestMongoFallbackConfig.class)
 class UsuarioMongoRepositoryTest
 {
   @Autowired
@@ -67,5 +66,46 @@ class UsuarioMongoRepositoryTest
         .findByMedioContacto_ValorAndMedioContacto_Tipo("no-existe", TipoMedioContacto.TELEGRAM);
 
     assertThat(encontrado).isEmpty();
+  }
+
+  @Test
+  void guardarDosUsuariosConMismoChatDeTelegramLanzaDuplicateKeyException()
+  {
+    UsuarioEntity primero = new UsuarioEntity();
+    primero.setUsername("tg_1");
+    primero.setPassword("irrelevante");
+    primero.setRol(TipoRol.USER);
+    primero.setMedioContacto(new MedioContactoEntity(TipoMedioContacto.TELEGRAM, "chat-duplicado"));
+    UsuarioEntity guardado = usuarioMongoRepository.save(primero);
+    assertThat(guardado.getId()).isNotNull();
+
+    UsuarioEntity segundo = new UsuarioEntity();
+    segundo.setUsername("tg_2");
+    segundo.setPassword("irrelevante");
+    segundo.setRol(TipoRol.USER);
+    segundo.setMedioContacto(new MedioContactoEntity(TipoMedioContacto.TELEGRAM, "chat-duplicado"));
+
+    assertThatThrownBy(() -> usuarioMongoRepository.save(segundo))
+        .isInstanceOf(DuplicateKeyException.class);
+    assertThat(usuarioMongoRepository.count()).isEqualTo(1L);
+  }
+
+  @Test
+  void guardarDosUsuariosSinMedioContactoNoColisionaPorIndiceSparse()
+  {
+    UsuarioEntity primero = new UsuarioEntity();
+    primero.setUsername("sin_tg_1");
+    primero.setPassword("irrelevante");
+    primero.setRol(TipoRol.USER);
+
+    UsuarioEntity segundo = new UsuarioEntity();
+    segundo.setUsername("sin_tg_2");
+    segundo.setPassword("irrelevante");
+    segundo.setRol(TipoRol.USER);
+
+    usuarioMongoRepository.save(primero);
+    usuarioMongoRepository.save(segundo);
+
+    assertThat(usuarioMongoRepository.count()).isEqualTo(2L);
   }
 }

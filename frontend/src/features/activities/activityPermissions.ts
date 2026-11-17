@@ -15,3 +15,11 @@ export const isParticipant = (actividad: Actividad | null, user: User | null): b
 export function isActivityCanceled(activity: Actividad | null): boolean {
   return activity?.estadoActividad === 'CANCELADA';
 }
+
+export function isActivityFinished(activity: Actividad | null): boolean {
+  return activity?.estadoActividad === 'FINALIZADA';
+}
+
+export function isActivityTerminal(activity: Actividad | null): boolean {
+  return isActivityCanceled(activity) || isActivityFinished(activity);
+}

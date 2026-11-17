@@ -61,9 +61,10 @@ Una vez que el contenedor esté corriendo, podés acceder a la interfaz gráfica
 
 ### 4. Ejecutar los Tests Locales
 
-Para correr la suite desarrollada con JUnit y Mockito (que incluye pruebas unitarias de toda la lógica de resiliencia, validación, caché, fallback e instrumentación OpenTelemetry con `InMemorySpanExporter` e `InMemoryMetricReader` en `ObservabilidadBusquedasTest`):
+Para correr la suite completa (que incluye pruebas unitarias con JUnit/Mockito, `@WebMvcTest`, pruebas OpenTelemetry en `ObservabilidadBusquedasTest` y tests de integración/concurrencia `@DataMongoTest` contra MongoDB real):
 
 ```bash
+docker compose up -d mongodb
 cd backend
 ./mvnw test
 ```
