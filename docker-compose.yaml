@@ -22,8 +22,9 @@ services:
     mem_limit: 256m
     expose:
       - "9978"
+    volumes:
+      - "${LEGACY_CLIMA_TOKEN_DIR:-./legacy-clima/secrets}:/run/secrets/clima-legacy:ro"
     environment:
-      LEGACY_CLIMA_ACCOUNT_EMAIL: "${LEGACY_CLIMA_ACCOUNT_EMAIL:-usuario@frba.utn.edu.ar}"
       LEGACY_CLIMA_TOKEN_JSON: "${LEGACY_CLIMA_TOKEN_JSON:-}"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9978/healthz || exit 1"]
