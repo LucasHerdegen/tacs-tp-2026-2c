@@ -9,6 +9,7 @@ import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -147,5 +148,137 @@ class WeatherApiResilienceTest
         .isInstanceOf(ProveedorClimaIndisponibleException.class);
     // No esta en ignore-exceptions: se reintenta hasta max-attempts=3.
     assertThat(invocacionesTransitorias.get()).isEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("Retry corre adentro del CircuitBreaker: fallos recuperados en reintento cuentan como 1 exito y no abren el circuito")
+  void execute_fallosRecuperadosEnReintento_cuentaUnExitoEnCircuitBreakerYNoAbreCircuito()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(2)
+        .minimumNumberOfCalls(2)
+        .failureRateThreshold(50)
+        .waitDurationInOpenState(Duration.ofSeconds(30))
+        .ignoreExceptions(RequestNotPermitted.class, HttpClientErrorException.class)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.of(RateLimiterConfig.custom()
+        .limitForPeriod(100)
+        .limitRefreshPeriod(Duration.ofSeconds(1))
+        .timeoutDuration(Duration.ZERO)
+        .build());
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(1))
+        .build());
+
+    WeatherApiResilience resilience = new WeatherApiResilience(cbRegistry, rlRegistry, retryRegistry);
+
+    for (int llamada = 0; llamada < 2; llamada++)
+    {
+      AtomicInteger intentos = new AtomicInteger();
+      String resultado = resilience.execute(() ->
+      {
+        if (intentos.incrementAndGet() < 3)
+          throw new RuntimeException("Error transitorio 502 en intento " + intentos.get());
+        return "ok";
+      });
+      assertThat(resultado).isEqualTo("ok");
+      assertThat(intentos.get()).isEqualTo(3);
+    }
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("weatherApi");
+    assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    assertThat(cb.getMetrics().getNumberOfSuccessfulCalls()).isEqualTo(2);
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("Un 401 no se reintenta ni cuenta como falla en el CircuitBreaker de WeatherAPI")
+  void execute_error401ApiKeyInvalida_noReintentaYNoCuentaComoFallaEnCircuitBreaker()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(3)
+        .minimumNumberOfCalls(3)
+        .failureRateThreshold(50)
+        .ignoreExceptions(RequestNotPermitted.class, HttpClientErrorException.class)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.of(RateLimiterConfig.custom()
+        .limitForPeriod(100)
+        .limitRefreshPeriod(Duration.ofSeconds(1))
+        .timeoutDuration(Duration.ZERO)
+        .build());
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(1))
+        .ignoreExceptions(HttpClientErrorException.class)
+        .build());
+
+    WeatherApiResilience resilience = new WeatherApiResilience(cbRegistry, rlRegistry, retryRegistry);
+
+    AtomicInteger invocaciones = new AtomicInteger();
+    Supplier<String> falla401 = () ->
+    {
+      invocaciones.incrementAndGet();
+      throw HttpClientErrorException.create(
+          HttpStatus.UNAUTHORIZED,
+          "Unauthorized",
+          HttpHeaders.EMPTY,
+          new byte[0],
+          null);
+    };
+
+    for (int i = 0; i < 5; i++)
+      assertThatThrownBy(() -> resilience.execute(falla401))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class);
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("weatherApi");
+    assertThat(invocaciones.get()).isEqualTo(5);
+    assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("RateLimiter envuelve a CircuitBreaker y Retry: un rechazo no reintenta ni impacta al circuito")
+  void execute_rateLimiterRechaza_noReintentaNiAfectaCircuitBreaker()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(2)
+        .minimumNumberOfCalls(2)
+        .failureRateThreshold(50)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.of(RateLimiterConfig.custom()
+        .limitForPeriod(1)
+        .limitRefreshPeriod(Duration.ofSeconds(10))
+        .timeoutDuration(Duration.ZERO)
+        .build());
+    // Sin ignoreExceptions en Retry a proposito: como RateLimiter esta por fuera,
+    // el rechazo jamas entra al bucle de reintentos ni al CircuitBreaker.
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(1))
+        .build());
+
+    WeatherApiResilience resilience = new WeatherApiResilience(cbRegistry, rlRegistry, retryRegistry);
+    AtomicInteger invocaciones = new AtomicInteger();
+
+    assertThat(resilience.execute(() ->
+    {
+      invocaciones.incrementAndGet();
+      return "ok";
+    })).isEqualTo("ok");
+
+    assertThatThrownBy(() -> resilience.execute(() ->
+    {
+      invocaciones.incrementAndGet();
+      return "no-deberia-ejecutar";
+    }))
+        .isInstanceOf(ProveedorClimaIndisponibleException.class)
+        .hasCauseInstanceOf(RequestNotPermitted.class);
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("weatherApi");
+    assertThat(invocaciones.get()).isEqualTo(1);
+    assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
+    assertThat(cb.getMetrics().getNumberOfSuccessfulCalls()).isEqualTo(1);
   }
 }

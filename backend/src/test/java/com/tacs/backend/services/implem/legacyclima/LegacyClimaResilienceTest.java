@@ -14,6 +14,7 @@ import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -179,5 +180,138 @@ class LegacyClimaResilienceTest
     assertThatThrownBy(() -> resilience.execute("user-1", falla401))
         .isInstanceOf(ProveedorClimaIndisponibleException.class);
     assertThat(invocaciones.get()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Retry corre adentro del CircuitBreaker: fallos recuperados en reintento cuentan como 1 exito y no abren el circuito")
+  void execute_fallosRecuperadosEnReintento_cuentaUnExitoEnCircuitBreakerYNoAbreCircuito()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(2)
+        .minimumNumberOfCalls(2)
+        .failureRateThreshold(50)
+        .waitDurationInOpenState(Duration.ofSeconds(20))
+        .ignoreExceptions(RequestNotPermitted.class, HttpClientErrorException.class)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.ofDefaults();
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(1))
+        .build());
+
+    LegacyClimaResilience resilience = new LegacyClimaResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        5,
+        Duration.ofSeconds(1));
+
+    for (int llamada = 0; llamada < 2; llamada++)
+    {
+      AtomicInteger intentosEnLlamada = new AtomicInteger();
+      String resultado = resilience.execute("user-1", () ->
+      {
+        if (intentosEnLlamada.incrementAndGet() < 3)
+          throw new RespuestaClimaInvalidaException("Respuesta corrupta en intento " + intentosEnLlamada.get());
+        return "ok";
+      });
+      assertThat(resultado).isEqualTo("ok");
+      assertThat(intentosEnLlamada.get()).isEqualTo(3);
+    }
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("legacyClima");
+    assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    assertThat(cb.getMetrics().getNumberOfSuccessfulCalls()).isEqualTo(2);
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("Un 401 no se reintenta ni cuenta como falla en el CircuitBreaker aunque supere minimumNumberOfCalls")
+  void execute_error401ConTokenInvalido_noReintentaYNoAbreCircuitBreaker()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(3)
+        .minimumNumberOfCalls(3)
+        .failureRateThreshold(50)
+        .waitDurationInOpenState(Duration.ofSeconds(20))
+        .ignoreExceptions(RequestNotPermitted.class, HttpClientErrorException.class)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.ofDefaults();
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(1))
+        .ignoreExceptions(HttpClientErrorException.class)
+        .build());
+
+    LegacyClimaResilience resilience = new LegacyClimaResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        10,
+        Duration.ofSeconds(1));
+
+    AtomicInteger invocaciones = new AtomicInteger();
+    Supplier<String> falla401 = () ->
+    {
+      invocaciones.incrementAndGet();
+      throw HttpClientErrorException.create(
+          HttpStatus.UNAUTHORIZED,
+          "Unauthorized",
+          HttpHeaders.EMPTY,
+          new byte[0],
+          null);
+    };
+
+    for (int i = 0; i < 5; i++)
+      assertThatThrownBy(() -> resilience.execute("user-1", falla401))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class);
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("legacyClima");
+    assertThat(invocaciones.get()).isEqualTo(5);
+    assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
+    assertThat(cb.getMetrics().getNumberOfNotPermittedCalls()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("El rate limit por usuario se evalua antes que el global y aisla al usuario abusivo sin consumir cupo global")
+  void execute_usuarioAbusivoExcedeLimitePorUsuario_seDisparaAntesQueGlobalYNoConsumeCupoGlobal()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .ignoreExceptions(RequestNotPermitted.class, HttpClientErrorException.class)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.of(RateLimiterConfig.custom()
+        .limitForPeriod(4)
+        .limitRefreshPeriod(Duration.ofSeconds(10))
+        .timeoutDuration(Duration.ZERO)
+        .build());
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom().maxAttempts(3).build());
+    MonitorProveedoresClima monitor = new MonitorProveedoresClima(cbRegistry, null);
+
+    LegacyClimaResilience resilience = new LegacyClimaResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        monitor,
+        2,
+        Duration.ofSeconds(10));
+
+    // El usuario abusivo consume sus 2 permisos (y 2 de los 4 globales).
+    assertThat(resilience.execute("usuario-abusivo", () -> "ok-1")).isEqualTo("ok-1");
+    assertThat(resilience.execute("usuario-abusivo", () -> "ok-2")).isEqualTo("ok-2");
+
+    // 3 intentos extra del usuario abusivo son bloqueados por el limitador por usuario
+    // antes de tocar el limitador global (conservando los 2 permisos globales restantes).
+    for (int i = 0; i < 3; i++)
+      assertThatThrownBy(() -> resilience.execute("usuario-abusivo", () -> "bloqueado"))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class)
+          .hasCauseInstanceOf(RequestNotPermitted.class);
+
+    // Otro usuario puede usar integramente los 2 permisos globales que quedaron libres.
+    assertThat(resilience.execute("usuario-normal", () -> "normal-1")).isEqualTo("normal-1");
+    assertThat(resilience.execute("usuario-normal", () -> "normal-2")).isEqualTo("normal-2");
+
+    EstadisticasProveedorClimaDto stats = monitor.construirEstadisticas(TipoProveedorClima.LEGACY);
+    assertThat(stats.rechazosRateLimit()).isEqualTo(3);
   }
 }

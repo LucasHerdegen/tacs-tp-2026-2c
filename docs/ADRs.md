@@ -128,9 +128,9 @@ En este documento se registran las decisiones de arquitectura más importantes t
 3. **Pila de Resiliencia (`LegacyClimaResilience` + `LegacyForecastClient`)**:
    - **Caché Caffeine normalizada (`sync = true`, TTL 1800s)**: Normaliza coordenadas a 2 decimales (`%.2f`) y convierte la fecha/hora local (`ZoneId.systemDefault()`, configurada en `TimeConfig`) a `Instant` UTC truncado a la hora exacta (`timestamp.UTC().Truncate(1h)`), coincidiendo con la semilla FNV-1a interna del binario.
    - **Timeouts agresivos**: `connectTimeout = 1000ms` y `readTimeout = 1500ms` para abortar rápidamente el 20% de requests colgados.
-   - **Rate Limiting doble**: Por usuario (`15 req/s`) y global hacia el proveedor (`10 req/s`).
+   - **Rate Limiting doble**: Por usuario (`5 req/s`, evaluado primero para aislar usuarios abusivos sin consumir cupo global) y global hacia el proveedor (`20 req/s`).
    - **Retry con Backoff Exponencial y Jitter**: `maxAttempts = 3`, `waitDuration = 200ms`, multiplicador `2.0` y `randomizedWaitFactor = 0.5`, reduciendo la probabilidad de falla por request del 40% al `6.4%` (`0.4^3`) cuando el servicio está activo.
-   - **Circuit Breaker**: `slidingWindowSize = 10`, `minimumNumberOfCalls = 5`, `failureRateThreshold = 50%`, `waitDurationInOpenState = 20s`.
+   - **Circuit Breaker**: `slidingWindowSize = 10`, `minimumNumberOfCalls = 5`, `failureRateThreshold = 50%`, `waitDurationInOpenState = 20s`, ubicado **por fuera** del `Retry` (evalúa el resultado final tras reintentos) e ignorando `RequestNotPermitted` y `HttpClientErrorException` (`4xx`, ej. `401` por token inválido).
 4. **Fallback Automático a `WeatherAPI`**: Si tras agotar los reintentos (o con el circuito abierto) `LegacyProveedorClima` lanza `ProveedorClimaIndisponibleException`, `SelectorProveedorClima` conmuta automáticamente a `WeatherApiProveedorClima` e informa en `PronosticoRespuestaDto` (`fallbackActivo = true`, `mensajeEstado`) para que el frontend exhiba un aviso transparente sin degradar la experiencia del usuario.
 
 **Consecuencias**: La aplicación tolera todos los modos de falla del binario sin propagar errores 500/503 al usuario final, acotando la latencia máxima y registrando métricas detalladas para el panel de administración (`MonitorProveedoresClima`).

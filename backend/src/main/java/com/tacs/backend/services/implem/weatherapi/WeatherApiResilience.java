@@ -19,11 +19,14 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * Composicion funcional (no anotaciones apiladas) de Rate Limiter + Circuit
- * Breaker + Retry para las llamadas HTTP reales a WeatherAPI. Se usa un solo
- * punto de entrada, {@link #execute}, invocado desde dentro del limite de
- * {@code @Cacheable} (nunca por fuera) para que un cache-hit jamas consuma
- * cupo de rate limit ni cuente para las metricas del circuit breaker.
+ * Composicion funcional (no anotaciones apiladas) de resiliencia para las
+ * llamadas HTTP reales a WeatherAPI. Se usa un solo punto de entrada,
+ * {@link #execute}, invocado desde dentro del limite de {@code @Cacheable}
+ * (nunca por fuera) para que un cache-hit jamas consuma cupo de rate limit ni
+ * cuente para las metricas del circuit breaker.
+ * <p>
+ * Orden efectivo de ejecucion (de afuera hacia adentro):
+ * {@code Fallback -> RateLimiter -> CircuitBreaker -> Retry -> llamada HTTP}.
  */
 @Component
 class WeatherApiResilience
@@ -56,10 +59,12 @@ class WeatherApiResilience
 
   <T> T execute(Supplier<T> llamadaHttp)
   {
+    // En Resilience4j Decorators cada with...() envuelve al anterior:
+    // Retry (mas adentro) -> CircuitBreaker -> RateLimiter -> Fallback (mas afuera).
     Supplier<T> decorate = Decorators.ofSupplier(llamadaHttp)
-        .withRateLimiter(rateLimiter)
-        .withCircuitBreaker(circuitBreaker)
         .withRetry(retry)
+        .withCircuitBreaker(circuitBreaker)
+        .withRateLimiter(rateLimiter)
         .withFallback(List.of(Exception.class), throwable ->
         {
           registrarError(throwable);

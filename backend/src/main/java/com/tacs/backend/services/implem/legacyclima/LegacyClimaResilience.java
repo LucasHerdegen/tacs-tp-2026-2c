@@ -28,9 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Composicion funcional de Rate Limiter por usuario + Rate Limiter global hacia
- * el proveedor + Circuit Breaker + Retry (con backoff exponencial y jitter)
- * para las llamadas HTTP al servicio legacy de clima.
+ * Composicion funcional de resiliencia para las llamadas HTTP al servicio
+ * legacy de clima. En {@link Decorators}, cada {@code with...()} envuelve al
+ * decorador anterior, por lo que el orden efectivo de ejecucion (de afuera
+ * hacia adentro) es:
+ * {@code Fallback -> RateLimiter (usuario) -> RateLimiter (global) -> CircuitBreaker -> Retry -> llamada HTTP}.
  */
 @Component
 public class LegacyClimaResilience
@@ -64,7 +66,7 @@ public class LegacyClimaResilience
       RateLimiterRegistry rateLimiterRegistry,
       RetryRegistry retryRegistry,
       MonitorProveedoresClima monitor,
-      @Value("${legacy.clima.ratelimit.usuario.limit-for-period:15}") int limitePorUsuarioPeriodo,
+      @Value("${legacy.clima.ratelimit.usuario.limit-for-period:5}") int limitePorUsuarioPeriodo,
       @Value("${legacy.clima.ratelimit.usuario.limit-refresh-period:1s}") Duration periodoRefrescoUsuario)
   {
     this.circuitBreaker = circuitBreakerRegistry.circuitBreaker("legacyClima");
@@ -106,7 +108,13 @@ public class LegacyClimaResilience
       }
     };
 
-    var builder = Decorators.ofSupplier(llamadaConRegistroPorIntento);
+    // En Resilience4j Decorators cada with...() envuelve al anterior:
+    // Retry (mas adentro) -> CircuitBreaker -> RateLimiter global -> RateLimiter usuario -> Fallback (mas afuera).
+    var builder = Decorators.ofSupplier(llamadaConRegistroPorIntento)
+        .withRetry(retry)
+        .withCircuitBreaker(circuitBreaker)
+        .withRateLimiter(rateLimiterGlobal);
+
     if (usuarioId != null && !usuarioId.isBlank())
     {
       RateLimiter limitadorUsuario = limitadoresPorUsuario.computeIfAbsent(
@@ -116,9 +124,6 @@ public class LegacyClimaResilience
     }
 
     return builder
-        .withRateLimiter(rateLimiterGlobal)
-        .withCircuitBreaker(circuitBreaker)
-        .withRetry(retry)
         .withFallback(List.of(Exception.class), throwable ->
         {
           registrarRechazoSiCorresponde(throwable);
