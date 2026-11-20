@@ -51,6 +51,7 @@ public class ChequeoSaludClimaJob
     }
 
     monitorProveedoresClima.registrarEstadoSalud(TipoProveedorClima.LEGACY, estado, detalle);
+    monitorProveedoresClima.volcarMetricasPendientes();
   }
 
   private String describirEstado(EstadoProveedorClima estado)

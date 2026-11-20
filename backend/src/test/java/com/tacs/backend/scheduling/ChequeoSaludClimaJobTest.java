@@ -46,6 +46,7 @@ class ChequeoSaludClimaJobTest
         eq(TipoProveedorClima.LEGACY),
         eq(EstadoProveedorClima.OK),
         contains("/healthz y /readyz operativos"));
+    verify(monitorProveedoresClima).volcarMetricasPendientes();
   }
 
   @Test

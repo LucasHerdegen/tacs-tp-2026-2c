@@ -12,6 +12,7 @@ import type {
   EstadisticasDto,
   EstadisticasProveedorClimaDto,
   EstadoProveedorClima,
+  PuntoEstadoProveedorDto,
 } from '../types';
 
 const BARRA_COLOR: Record<BadgeVariant, string> = {
@@ -39,6 +40,29 @@ function badgeCircuitBreaker(estado: string): BadgeVariant {
   if (estado === 'CLOSED') return 'success';
   if (estado === 'HALF_OPEN') return 'warning';
   return 'error';
+}
+
+function historialAbarcaVariosDias(puntos: PuntoEstadoProveedorDto[]): boolean {
+  const hoy = new Date().toDateString();
+  return puntos.some((punto) => new Date(punto.timestamp).toDateString() !== hoy);
+}
+
+function formatearTimestampHistorial(timestamp: string, mostrarFecha: boolean): string {
+  const fecha = new Date(timestamp);
+  if (mostrarFecha) {
+    return fecha.toLocaleString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+  return fecha.toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 export const AdminStats: React.FC = () => {
@@ -166,7 +190,7 @@ export const AdminStats: React.FC = () => {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Proveedores de Clima</h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Estado de salud, Circuit Breaker, tasa de aciertos de caché, errores y fallbacks por proveedor.
+                  Estado de salud (sondeo periódico y Circuit Breaker), tasa de aciertos de caché, errores y fallbacks persistidos por proveedor.
                 </p>
               </div>
 
@@ -174,6 +198,7 @@ export const AdminStats: React.FC = () => {
                 {proveedores.map((prov) => {
                   const badgeSalud =
                     ESTADO_PROVEEDOR_BADGE[prov.estadoActual] ?? ESTADO_PROVEEDOR_BADGE.OK;
+                  const mostrarFechaHistorial = historialAbarcaVariosDias(prov.historialEstado);
                   return (
                     <Card key={prov.proveedor} className="border-gray-200">
                       <CardBody className="space-y-5">
@@ -249,7 +274,7 @@ export const AdminStats: React.FC = () => {
                           <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
                             Historial de estado ({prov.historialEstado.length})
                           </p>
-                          <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                          <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                             {prov.historialEstado
                               .slice()
                               .reverse()
@@ -258,7 +283,7 @@ export const AdminStats: React.FC = () => {
                                   ESTADO_PROVEEDOR_BADGE[punto.estado] ?? ESTADO_PROVEEDOR_BADGE.OK;
                                 return (
                                   <div
-                                    key={idx}
+                                    key={`${punto.timestamp}-${idx}`}
                                     className="flex items-center justify-between gap-2 text-xs bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100"
                                   >
                                     <div className="flex items-center gap-2 truncate">
@@ -269,12 +294,11 @@ export const AdminStats: React.FC = () => {
                                         {punto.detalle}
                                       </span>
                                     </div>
-                                    <span className="text-[10px] text-gray-400 shrink-0">
-                                      {new Date(punto.timestamp).toLocaleTimeString('es-AR', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                      })}
+                                    <span
+                                      className="text-[10px] text-gray-400 shrink-0 tabular-nums"
+                                      title={new Date(punto.timestamp).toLocaleString('es-AR')}
+                                    >
+                                      {formatearTimestampHistorial(punto.timestamp, mostrarFechaHistorial)}
                                     </span>
                                   </div>
                                 );

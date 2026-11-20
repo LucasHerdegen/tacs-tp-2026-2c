@@ -139,7 +139,12 @@ En este documento se registran las decisiones de arquitectura más importantes t
    - Para evitar cascadas de `503` bajo carga en fallback, `WeatherApiForecastClient` cachea tanto `forecast.json` (`TTL = 1800s`, `sync = true`) como `current.json` (`TTL = 300s`, `sync = true`) acumulando métricas en `MonitorProveedoresClima`, y el rate limiter de `weatherApi` se configura en `20 req/s` con `timeout-duration = 200ms`.
    - Ante rechazos de rate limit (`RateLimitClimaExcedidoException`), `GlobalExceptionHandler` responde `429 Too Many Requests` (`Retry-After: 1`) en lugar de `503`, y `ActividadesServiceImplem.obtenerClimaActividad` degrada explícitamente devolviendo `200 OK` con `PronosticoRespuestaDto` (`degradado = true`, `mensajeEstado`) cuando alguno o ambos proveedores no pueden responder, manteniendo usable la actividad y sus votaciones.
 
-**Consecuencias**: La aplicación tolera todos los modos de falla del binario sin propagar errores 500/503 al usuario final, acotando la latencia máxima y registrando métricas detalladas para el panel de administración (`MonitorProveedoresClima`).
+5. **Sondeo Periódico de Salud, Historial Depurado y Persistencia en MongoDB (US 4)**:
+   - `ChequeoSaludClimaJob` (`@Scheduled` configurable vía `clima.salud.intervalo-ms=15000` + `@SchedulerLock`) invoca periódicamente `LegacyProveedorClima.verificarSalud()` (`/healthz` y `/readyz`).
+   - `MonitorProveedoresClima` desacopla los contadores por intento del estado global: solo las transiciones reales del Circuit Breaker y los cambios confirmados del sondeo periódico (con histéresis configurable `clima.salud.histeresis-muestras=2` y deduplicación) se registran en `historialEstado` (acotado a `200` transiciones).
+   - La capa `persistence/` (`MetricasProveedorClimaEntity`, `MetricasProveedorClimaRepositoryImpl`, manteniendo `domain/` agnóstico de MongoDB) persiste contadores acumulados e historial en la colección `metricas_proveedores_clima` mediante operaciones atómicas (`$inc`, `$set`, `$push`/`$slice`) con volcado asíncrono coalescido en caliente, volcado sincrónico en `@PreDestroy` e hidratación automática al iniciar.
+
+**Consecuencias**: La aplicación tolera todos los modos de falla del binario sin propagar errores 500/503 al usuario final, acotando la latencia máxima y conservando entre reinicios métricas confiables e historial significativo de salud para el panel de administración (`MonitorProveedoresClima`).
 
 
 ## ADR 12: Topología de Despliegue y Supervisión del Servicio Legacy (`clima-legacy`)
