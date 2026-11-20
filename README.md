@@ -114,7 +114,7 @@ Una vez que el contenedor esté corriendo, podés acceder a la interfaz gráfica
 
 ### 5. Ejecutar los Tests Locales
 
-Para correr la suite completa (que incluye pruebas unitarias con JUnit/Mockito, `@WebMvcTest`, pruebas OpenTelemetry en `ObservabilidadBusquedasTest` y tests de integración/concurrencia `@DataMongoTest` contra MongoDB real):
+Para correr la suite completa (que incluye pruebas unitarias con JUnit/Mockito, `@WebMvcTest`, pruebas de resiliencia con stubs HTTP reales y configuración real en `LegacyClimaResilienceStubTest`, pruebas OpenTelemetry en `ObservabilidadBusquedasTest` y tests de integración/concurrencia `@DataMongoTest` contra MongoDB real):
 
 ```bash
 docker compose up -d mongodb
