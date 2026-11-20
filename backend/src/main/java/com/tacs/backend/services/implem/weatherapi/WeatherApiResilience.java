@@ -2,6 +2,7 @@ package com.tacs.backend.services.implem.weatherapi;
 
 import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.services.implem.clima.MonitorProveedoresClima;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -68,6 +69,9 @@ class WeatherApiResilience
         .withFallback(List.of(Exception.class), throwable ->
         {
           registrarError(throwable);
+          if (throwable instanceof RequestNotPermitted)
+            throw new RateLimitClimaExcedidoException(
+                "Limite de solicitudes excedido hacia WeatherAPI", throwable);
           throw new ProveedorClimaIndisponibleException(
               "Proveedor de clima no disponible temporalmente", throwable);
         })

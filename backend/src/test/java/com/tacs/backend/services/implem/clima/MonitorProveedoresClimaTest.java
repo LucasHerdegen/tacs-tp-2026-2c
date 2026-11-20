@@ -7,8 +7,10 @@ import com.tacs.backend.dtos.admin.EstadisticasProveedorClimaDto;
 import com.tacs.backend.dtos.admin.EstadoProveedorClima;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 
 import java.util.concurrent.TimeUnit;
@@ -56,5 +58,29 @@ class MonitorProveedoresClimaTest
     assertThat(statsLegacy.estadoCircuitBreaker()).isEqualTo("OPEN");
     assertThat(statsLegacy.estadoActual()).isEqualTo(EstadoProveedorClima.CAIDO);
     assertThat(statsLegacy.historialEstado()).hasSizeGreaterThanOrEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("WeatherAPI contabiliza hits y misses acumulados de cache de forecast y de clima actual (current.json)")
+  void construirEstadisticas_weatherApiConAmbasCaches_agregaHitsYMisses()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
+    CacheManager cacheManager = new CacheConfig().cacheManager(1800, 300);
+
+    Cache cacheForecast = cacheManager.getCache(CacheConfig.CACHE_FORECAST_POR_UBICACION);
+    Cache cacheActual = cacheManager.getCache(CacheConfig.CACHE_CLIMA_ACTUAL_POR_UBICACION);
+
+    cacheForecast.get("palermo-3", () -> "forecast-1");
+    cacheForecast.get("palermo-3", () -> "forecast-1");
+    cacheActual.get("-34.58,-58.43", () -> "actual-1");
+    cacheActual.get("-34.58,-58.43", () -> "actual-1");
+    cacheActual.get("-34.58,-58.43", () -> "actual-1");
+
+    MonitorProveedoresClima monitor = new MonitorProveedoresClima(cbRegistry, cacheManager);
+    EstadisticasProveedorClimaDto statsWeatherApi = monitor.construirEstadisticas(TipoProveedorClima.WEATHER_API);
+
+    assertThat(statsWeatherApi.cacheHits()).isEqualTo(3);
+    assertThat(statsWeatherApi.cacheMisses()).isEqualTo(2);
+    assertThat(statsWeatherApi.cacheHitRatio()).isEqualTo(60.0);
   }
 }

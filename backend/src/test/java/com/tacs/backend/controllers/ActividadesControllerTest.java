@@ -4,15 +4,19 @@ import com.tacs.backend.config.SecurityConfig;
 import com.tacs.backend.config.TimeConfig;
 import com.tacs.backend.domain.actividad.TipoActividad;
 import com.tacs.backend.domain.actividad.TipoEstadoActividad;
+import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.domain.usuario.TipoRol;
 import com.tacs.backend.domain.usuario.Usuario;
 import com.tacs.backend.dtos.actividades.ActividadDto;
+import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.dtos.usuario.UsuarioDto;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.repositories.UsuarioRepository;
 import com.tacs.backend.services.ActividadesService;
 import com.tacs.backend.services.JwtService;
 import com.tacs.backend.services.implem.JwtServiceImplem;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +44,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -317,5 +322,44 @@ class ActividadesControllerTest
     verify(actividadesService).buscarActividades(any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
     assertThat(pageableCaptor.getValue().getSort().getOrderFor("campoQueNoExiste"))
         .isEqualTo(Sort.Order.asc("campoQueNoExiste"));
+  }
+
+  @Test
+  @DisplayName("GET /api/actividades/{id}/clima devuelve 200 OK con payload degradado explicito cuando los proveedores no estan disponibles")
+  void obtenerClimaActividad_respuestaDegradada_devuelveOkConBanderaDegradado() throws Exception
+  {
+    PronosticoRespuestaDto degradada = new PronosticoRespuestaDto(
+        null,
+        null,
+        TipoProveedorClima.LEGACY,
+        null,
+        true,
+        true,
+        "El servicio climático está recibiendo alta demanda en este momento (modo degradado).");
+    when(actividadesService.obtenerClimaActividad("act-1", "user-id")).thenReturn(degradada);
+
+    mockMvc.perform(get("/api/actividades/act-1/clima")
+            .header("Authorization", "Bearer " + tokenYo))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.degradado").value(true))
+        .andExpect(jsonPath("$.fallbackActivo").value(true))
+        .andExpect(jsonPath("$.climaActual").doesNotExist())
+        .andExpect(jsonPath("$.pronosticoFuturo").doesNotExist())
+        .andExpect(jsonPath("$.mensajeEstado").value(
+            "El servicio climático está recibiendo alta demanda en este momento (modo degradado)."));
+  }
+
+  @Test
+  @DisplayName("GET /api/actividades/{id}/clima mapea RateLimitClimaExcedidoException a 429 Too Many Requests con Retry-After")
+  void obtenerClimaActividad_rateLimitExcedido_devuelve429EnLugarDe503() throws Exception
+  {
+    when(actividadesService.obtenerClimaActividad("act-1", "user-id"))
+        .thenThrow(new RateLimitClimaExcedidoException("Limite de solicitudes excedido hacia WeatherAPI", null));
+
+    mockMvc.perform(get("/api/actividades/act-1/clima")
+            .header("Authorization", "Bearer " + tokenYo))
+        .andExpect(status().isTooManyRequests())
+        .andExpect(header().string("Retry-After", "1"))
+        .andExpect(jsonPath("$.detail").value("Limite de solicitudes excedido hacia WeatherAPI"));
   }
 }

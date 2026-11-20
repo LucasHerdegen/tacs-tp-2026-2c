@@ -41,10 +41,10 @@ export interface Clima {
 }
 
 export interface PronosticoRespuesta {
-  climaActual: Clima;
-  pronosticoFuturo: Clima;
+  climaActual: Clima | null;
+  pronosticoFuturo: Clima | null;
   proveedorSeleccionado?: TipoProveedorClima;
-  proveedorUtilizado?: TipoProveedorClima;
+  proveedorUtilizado?: TipoProveedorClima | null;
   fallbackActivo?: boolean;
   degradado?: boolean;
   mensajeEstado?: string | null;

@@ -7,6 +7,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import static com.tacs.backend.config.CacheConfig.CACHE_CLIMA_ACTUAL_POR_UBICACION;
 import static com.tacs.backend.config.CacheConfig.CACHE_FORECAST_POR_UBICACION;
 
 /**
@@ -32,6 +33,27 @@ class WeatherApiForecastClient
     this.restClient = restClient;
     this.resilience = resilience;
     this.apiKey = apiKey;
+  }
+
+  /**
+   * Trae el clima actual ({@code current.json}) para una consulta de ubicacion
+   * normalizada. Cacheado con TTL corto y {@code sync = true} para evitar que
+   * rafagas concurrentes (por ejemplo en fallback desde el proveedor legacy)
+   * quemen el rate limit de WeatherAPI por la misma ubicacion.
+   */
+  @Cacheable(value = CACHE_CLIMA_ACTUAL_POR_UBICACION, key = "#consultaUbicacion", sync = true)
+  WeatherApiCurrentResponse climaActualCrudo(String consultaUbicacion)
+  {
+    log.info("CACHE MISS - pegando a WeatherAPI current.json (consulta={})", consultaUbicacion);
+
+    return resilience.execute(() -> restClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/current.json")
+            .queryParam("key", apiKey)
+            .queryParam("q", consultaUbicacion)
+            .queryParam("aqi", "no")
+            .build())
+        .retrieve()
+        .body(WeatherApiCurrentResponse.class));
   }
 
   /**

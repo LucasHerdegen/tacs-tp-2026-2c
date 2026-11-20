@@ -11,6 +11,7 @@ import com.tacs.backend.exceptions.NotificacionNotFoundException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.QuorumInvalidoException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.UsernameAlreadyExistsException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
@@ -133,6 +134,15 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler
   public ProblemDetail handleQuorumInvalidoException(QuorumInvalidoException ex)
   {
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
+  @ExceptionHandler(RateLimitClimaExcedidoException.class)
+  public ResponseEntity<ProblemDetail> handleRateLimitClimaExcedidoException(RateLimitClimaExcedidoException ex)
+  {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .header(HttpHeaders.RETRY_AFTER, "1")
+        .body(problemDetail);
   }
 
   @ExceptionHandler(ProveedorClimaIndisponibleException.class)

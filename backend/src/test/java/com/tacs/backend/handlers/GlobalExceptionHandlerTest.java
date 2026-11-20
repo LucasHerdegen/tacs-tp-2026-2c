@@ -3,6 +3,8 @@ package com.tacs.backend.handlers;
 import com.tacs.backend.exceptions.CapacidadMaximaException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
@@ -162,5 +164,20 @@ class GlobalExceptionHandlerTest
     Map<String, String> errores = (Map<String, String>) problemDetail.getProperties().get("errores");
     assertThat(errores).containsKey("horaFinal");
   }
-}
 
+  @Test
+  @DisplayName("RateLimitClimaExcedidoException mapea a HTTP 429 Too Many Requests con encabezado Retry-After")
+  void handleRateLimitClimaExcedidoException_rateLimitSuperado_devuelve429ConRetryAfter()
+  {
+    GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    RateLimitClimaExcedidoException ex =
+        new RateLimitClimaExcedidoException("Limite de solicitudes excedido hacia WeatherAPI", null);
+
+    ResponseEntity<ProblemDetail> response = handler.handleRateLimitClimaExcedidoException(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("1");
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getDetail()).isEqualTo("Limite de solicitudes excedido hacia WeatherAPI");
+  }
+}

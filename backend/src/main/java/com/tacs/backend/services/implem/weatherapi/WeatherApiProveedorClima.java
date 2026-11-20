@@ -4,10 +4,10 @@ import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.services.ProveedorClima;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,55 +15,39 @@ import java.time.temporal.ChronoUnit;
 
 /**
  * Implementacion real de {@link ProveedorClima} contra WeatherAPI.com.
- * Batching: {@link #obtenerPronostico} nunca genera una llamada
- * HTTP por hora candidata, siempre pide (y cachea) el forecast completo de
- * los dias necesarios para una ubicacion, y resuelve la hora especifica en
- * memoria contra el payload ya traido ({@link WeatherApiForecastResponse#climaEnHora}).
+ * Delega tanto {@code current.json} como {@code forecast.json} en el bean
+ * separado {@link WeatherApiForecastClient} para garantizar que ambas
+ * operaciones pasen por el proxy de cache Caffeine ({@code sync = true}).
  * <p>
  * Excluida bajo el profile "mock-clima": sin esto, levantar la app con ese
- * profile (ver {@link com.tacs.backend.services.implem.MockProveedorClima})
- * registra 2 beans de {@link ProveedorClima} y Spring no sabe cual inyectar
- * (falla el arranque con NoUniqueBeanDefinitionException).
+ * profile registra 2 beans de {@link ProveedorClima} y Spring no sabe cual
+ * inyectar (falla el arranque con NoUniqueBeanDefinitionException).
  */
 @Slf4j
 @Service
 @Profile("!mock-clima")
 public class WeatherApiProveedorClima implements ProveedorClima
 {
-  private final RestClient restClient;
   private final WeatherApiForecastClient forecastClient;
-  private final WeatherApiResilience resilience;
-  private final String apiKey;
   private final int maxDias;
 
+  @Autowired
   public WeatherApiProveedorClima(
-      RestClient restClient,
       WeatherApiForecastClient forecastClient,
-      WeatherApiResilience resilience,
-      @Value("${weatherapi.api-key}") String apiKey,
       @Value("${weatherapi.forecast.max-days}") int maxDias)
   {
-    this.restClient = restClient;
     this.forecastClient = forecastClient;
-    this.resilience = resilience;
-    this.apiKey = apiKey;
     this.maxDias = maxDias;
   }
 
   @Override
   public Clima obtenerClima(Ubicacion ubicacion)
   {
-    log.info("SIN CACHE - pegando a WeatherAPI current.json (ubicacion={})", ubicacion);
+    String consulta = consultaUbicacion(ubicacion);
+    log.info("Pidiendo clima actual (ubicacion={}, consulta={}) - si no aparece "
+        + "CACHE MISS a continuacion, esta sirviendo desde cache", ubicacion, consulta);
 
-    WeatherApiCurrentResponse response = resilience.execute(() -> restClient.get()
-        .uri(uriBuilder -> uriBuilder.path("/current.json")
-            .queryParam("key", apiKey)
-            .queryParam("q", consultaUbicacion(ubicacion))
-            .queryParam("aqi", "no")
-            .build())
-        .retrieve()
-        .body(WeatherApiCurrentResponse.class));
-
+    WeatherApiCurrentResponse response = forecastClient.climaActualCrudo(consulta);
     return response.aClima();
   }
 

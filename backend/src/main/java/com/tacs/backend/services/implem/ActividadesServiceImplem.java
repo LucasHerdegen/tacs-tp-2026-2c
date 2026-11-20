@@ -14,7 +14,10 @@ import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
 import com.tacs.backend.exceptions.NoParticipanteException;
+import com.tacs.backend.exceptions.PronosticoFueraDeCoberturaException;
+import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
@@ -30,6 +33,7 @@ import com.tacs.backend.services.ProveedorClima;
 import com.tacs.backend.services.ServicioNotificaciones;
 import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
 import com.tacs.backend.services.implem.clima.ContextoProveedorClima.DatosContexto;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.opentelemetry.api.OpenTelemetry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -293,16 +297,55 @@ public class ActividadesServiceImplem implements ActividadesService
     ContextoProveedorClima.iniciar(usuarioId, proveedorPreferido);
     try
     {
-      ClimaDto climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
-      ClimaDto pronostico = climaMapper.climaToClimaDto(
-          proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion()));
+      ClimaDto climaActual = null;
+      ClimaDto pronostico = null;
+      boolean climaActualDisponible = false;
+      boolean pronosticoDisponible = false;
+      boolean limiteSolicitudesExcedido = false;
+      String mensajeFueraCobertura = null;
+
+      try
+      {
+        climaActual = climaMapper.climaToClimaDto(proveedorClima.obtenerClima(actividad.getUbicacion()));
+        climaActualDisponible = true;
+      } catch (ProveedorClimaIndisponibleException ex)
+      {
+        limiteSolicitudesExcedido = esRechazoRateLimit(ex);
+      }
+
+      try
+      {
+        pronostico = climaMapper.climaToClimaDto(
+            proveedorClima.obtenerPronostico(actividad.getUbicacion(), actividad.getFechaRealizacion()));
+        pronosticoDisponible = true;
+      } catch (PronosticoFueraDeCoberturaException ex)
+      {
+        mensajeFueraCobertura = ex.getMessage();
+      } catch (ProveedorClimaIndisponibleException ex)
+      {
+        limiteSolicitudesExcedido = limiteSolicitudesExcedido || esRechazoRateLimit(ex);
+      }
+
+      if (!climaActualDisponible || !pronosticoDisponible)
+      {
+        String mensajeDegradacion = construirMensajeDegradacion(
+            climaActualDisponible,
+            pronosticoDisponible,
+            limiteSolicitudesExcedido,
+            mensajeFueraCobertura);
+        ContextoProveedorClima.registrarDegradacion(mensajeDegradacion);
+      }
 
       DatosContexto snapshot = ContextoProveedorClima.obtenerSnapshot();
+      TipoProveedorClima proveedorUtilizado = (!climaActualDisponible && !pronosticoDisponible)
+          ? null
+          : snapshot.proveedorUtilizado();
+
       return new PronosticoRespuestaDto(
           climaActual,
           pronostico,
           snapshot.proveedorSeleccionado(),
-          snapshot.proveedorUtilizado(),
+          proveedorUtilizado,
           snapshot.fallbackActivo(),
           snapshot.degradado(),
           snapshot.mensajeEstado());
@@ -310,6 +353,51 @@ public class ActividadesServiceImplem implements ActividadesService
     {
       ContextoProveedorClima.limpiar();
     }
+  }
+
+  private boolean esRechazoRateLimit(ProveedorClimaIndisponibleException ex)
+  {
+    if (ex instanceof RateLimitClimaExcedidoException)
+      return true;
+    Throwable actual = ex.getCause();
+    while (actual != null)
+    {
+      if (actual instanceof RequestNotPermitted)
+        return true;
+      actual = actual.getCause();
+    }
+    return false;
+  }
+
+  private String construirMensajeDegradacion(
+      boolean climaActualDisponible,
+      boolean pronosticoDisponible,
+      boolean limiteSolicitudesExcedido,
+      String mensajeFueraCobertura)
+  {
+    if (!climaActualDisponible && !pronosticoDisponible)
+    {
+      if (limiteSolicitudesExcedido)
+        return "El servicio climático está recibiendo alta demanda en este momento (modo degradado). "
+            + "Podés continuar gestionando la actividad con normalidad e intentar nuevamente en unos segundos.";
+      return "Los proveedores climáticos no están disponibles temporalmente (modo degradado). "
+          + "Podés continuar gestionando la actividad y sus votaciones con normalidad.";
+    }
+    if (!pronosticoDisponible)
+    {
+      if (mensajeFueraCobertura != null && !mensajeFueraCobertura.isBlank())
+        return mensajeFueraCobertura;
+      if (limiteSolicitudesExcedido)
+        return "El pronóstico futuro no pudo consultarse por alta demanda (modo degradado); "
+            + "se muestra únicamente el clima actual.";
+      return "No fue posible obtener el pronóstico futuro en este momento (modo degradado); "
+          + "se muestra únicamente el clima actual.";
+    }
+    if (limiteSolicitudesExcedido)
+      return "El clima actual no pudo consultarse por alta demanda (modo degradado); "
+          + "se muestra el pronóstico para la fecha de la actividad.";
+    return "No fue posible obtener el clima actual en este momento (modo degradado); "
+        + "se muestra el pronóstico para la fecha de la actividad.";
   }
 
   private TipoProveedorClima resolverProveedorPreferido(String usuarioId, Actividad actividad)

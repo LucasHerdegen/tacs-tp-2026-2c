@@ -58,6 +58,9 @@ public class SelectorProveedorClima implements ProveedorClima
       return operacion.apply(weatherApiProveedorClima);
     }
 
+    if (ContextoProveedorClima.obtenerSnapshot().fallbackActivo())
+      return operacion.apply(weatherApiProveedorClima);
+
     try
     {
       Clima resultado = operacion.apply(legacyProveedorClima);

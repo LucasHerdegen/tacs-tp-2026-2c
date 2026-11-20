@@ -184,7 +184,7 @@ export const ActivityDetail: React.FC = () => {
   };
 
   const checkWeatherStatus = () => {
-    if (!pronostico || !activity?.reglasClima) return null;
+    if (!pronostico?.pronosticoFuturo || !activity?.reglasClima) return null;
     const { probabilidadLluvia, viento, temperatura } = pronostico.pronosticoFuturo;
     const { maxProbabilidadLluvia, maxViento, minTemperatura, maxTemperatura } = activity.reglasClima;
 
@@ -449,12 +449,17 @@ export const ActivityDetail: React.FC = () => {
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     ⛅ Estado del Clima
                   </h2>
-                  {pronostico && (
+                  {pronostico?.proveedorUtilizado && (
                     <Badge
                       variant={pronostico.proveedorUtilizado === 'LEGACY' ? 'warning' : 'info'}
                       className="text-[11px]"
                     >
                       Fuente: {pronostico.proveedorUtilizado === 'LEGACY' ? 'Legacy (Humedad S.A.)' : 'WeatherAPI'}
+                    </Badge>
+                  )}
+                  {pronostico?.degradado && (
+                    <Badge variant="warning" className="text-[11px]">
+                      Modo degradado
                     </Badge>
                   )}
                 </div>
@@ -471,7 +476,7 @@ export const ActivityDetail: React.FC = () => {
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                   <p className="text-gray-600 mb-2">Sumate a la actividad para ver el pronóstico y participar de votaciones si el clima empeora.</p>
                 </div>
-              ) : pronostico ? (
+              ) : pronostico?.pronosticoFuturo ? (
                 <div className="space-y-4">
                   {/* Banner de Fallback si el proveedor Legacy falló */}
                   {pronostico.fallbackActivo && (
@@ -481,6 +486,18 @@ export const ActivityDetail: React.FC = () => {
                         <span className="font-bold">Respaldo automático activado:</span>{' '}
                         {pronostico.mensajeEstado ??
                           'El proveedor Legacy no respondió correctamente; se muestran datos de WeatherAPI.'}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Banner de degradación parcial cuando el pronóstico futuro existe pero falló el clima actual */}
+                  {pronostico.degradado && !pronostico.fallbackActivo && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                      <span className="text-base">⚠️</span>
+                      <div>
+                        <span className="font-bold">Servicio climático parcialmente degradado:</span>{' '}
+                        {pronostico.mensajeEstado ??
+                          'Algunos datos climáticos no estuvieron disponibles temporalmente.'}
                       </div>
                     </div>
                   )}
@@ -586,7 +603,8 @@ export const ActivityDetail: React.FC = () => {
                   <span className="text-base">⚠️</span>
                   <div>
                     <span className="font-bold">Servicio climático temporalmente degradado:</span>{' '}
-                    No fue posible obtener el pronóstico en este momento. Podés seguir gestionando la actividad y sus votaciones con normalidad.
+                    {pronostico?.mensajeEstado ??
+                      'No fue posible obtener el pronóstico en este momento. Podés seguir gestionando la actividad y sus votaciones con normalidad.'}
                   </div>
                 </div>
               )}

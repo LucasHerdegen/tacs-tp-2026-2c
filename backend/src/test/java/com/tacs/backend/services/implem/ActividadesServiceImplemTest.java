@@ -12,6 +12,8 @@ import com.tacs.backend.dtos.actividades.ActividadPostDto;
 import com.tacs.backend.dtos.actividades.ConfigurarCondicionesDto;
 import com.tacs.backend.dtos.actividades.RangoReprogramacionDto;
 import com.tacs.backend.dtos.actividades.UbicacionDto;
+import com.tacs.backend.dtos.clima.ClimaDto;
+import com.tacs.backend.dtos.clima.PronosticoRespuestaDto;
 import com.tacs.backend.dtos.clima.ReglasClimaDto;
 import com.tacs.backend.exceptions.AccesoDenegadoException;
 import com.tacs.backend.exceptions.ActividadNotFoundException;
@@ -19,6 +21,7 @@ import com.tacs.backend.exceptions.EstadoInvalidoException;
 import com.tacs.backend.exceptions.NoParticipanteException;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RangoReprogramacionInvalidoException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.exceptions.UsuarioNotFoundException;
 import com.tacs.backend.exceptions.VotacionCerradaException;
 import com.tacs.backend.mappers.ActividadesMapper;
@@ -612,8 +615,8 @@ class ActividadesServiceImplemTest
   }
 
   @Test
-  @DisplayName("Obtener clima de actividad con proveedor indisponible - Propaga ProveedorClimaIndisponibleException")
-  void obtenerClimaActividad_ProveedorIndisponible_PropagaExcepcion()
+  @DisplayName("Obtener clima de actividad con ambos proveedores indisponibles - Devuelve respuesta degradada explicita sin lanzar 503")
+  void obtenerClimaActividad_ProveedorIndisponible_DevuelveRespuestaDegradada()
   {
     // Arrange
     String actividadId = "100";
@@ -624,11 +627,67 @@ class ActividadesServiceImplemTest
     when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
     when(proveedorClima.obtenerClima(any()))
         .thenThrow(new ProveedorClimaIndisponibleException("Proveedor de clima no disponible"));
+    when(proveedorClima.obtenerPronostico(any(), any()))
+        .thenThrow(new ProveedorClimaIndisponibleException("Proveedor de clima no disponible"));
 
-    // Act & Assert: la excepcion no se atrapa en el service, se deja propagar
-    // hacia el GlobalExceptionHandler (que la mapea a 503).
-    assertThatThrownBy(() -> actividadesService.obtenerClimaActividad(actividadId, usuarioId))
-        .isInstanceOf(ProveedorClimaIndisponibleException.class);
+    // Act
+    PronosticoRespuestaDto respuesta = actividadesService.obtenerClimaActividad(actividadId, usuarioId);
+
+    // Assert: US3 degradacion explicita en lugar de propagar 503
+    assertThat(respuesta.degradado()).isTrue();
+    assertThat(respuesta.climaActual()).isNull();
+    assertThat(respuesta.pronosticoFuturo()).isNull();
+    assertThat(respuesta.proveedorUtilizado()).isNull();
+    assertThat(respuesta.mensajeEstado()).containsIgnoringCase("modo degradado");
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad con rechazo por rate limit en clima actual pero pronostico disponible - Devuelve degradacion parcial")
+  void obtenerClimaActividad_RateLimitEnClimaActualYPronosticoDisponible_DevuelveDegradacionParcial()
+  {
+    String actividadId = "100";
+    String usuarioId = "1";
+    actividadMock.setParticipantes(List.of(usuarioMock));
+    Clima pronosticoDominio = new Clima(15.0, 22.0, 10.0);
+    ClimaDto pronosticoDto = new ClimaDto(15.0, 22.0, 10.0);
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(proveedorClima.obtenerClima(any()))
+        .thenThrow(new RateLimitClimaExcedidoException("Rate limit excedido hacia WeatherAPI", null));
+    when(proveedorClima.obtenerPronostico(any(), any())).thenReturn(pronosticoDominio);
+    when(climaMapper.climaToClimaDto(pronosticoDominio)).thenReturn(pronosticoDto);
+
+    PronosticoRespuestaDto respuesta = actividadesService.obtenerClimaActividad(actividadId, usuarioId);
+
+    assertThat(respuesta.degradado()).isTrue();
+    assertThat(respuesta.climaActual()).isNull();
+    assertThat(respuesta.pronosticoFuturo()).isEqualTo(pronosticoDto);
+    assertThat(respuesta.mensajeEstado()).containsIgnoringCase("alta demanda");
+  }
+
+  @Test
+  @DisplayName("Obtener clima de actividad con rechazo por rate limit en ambas consultas - Devuelve degradacion explicita por alta demanda")
+  void obtenerClimaActividad_RateLimitEnAmbasConsultas_DevuelveDegradacionPorAltaDemanda()
+  {
+    String actividadId = "100";
+    String usuarioId = "1";
+    actividadMock.setParticipantes(List.of(usuarioMock));
+
+    when(usuarioRepository.existsById(usuarioId)).thenReturn(true);
+    when(actividadesRepository.findById(actividadId)).thenReturn(Optional.of(actividadMock));
+    when(proveedorClima.obtenerClima(any()))
+        .thenThrow(new RateLimitClimaExcedidoException("Rate limit excedido hacia WeatherAPI", null));
+    when(proveedorClima.obtenerPronostico(any(), any()))
+        .thenThrow(new RateLimitClimaExcedidoException("Rate limit excedido hacia WeatherAPI", null));
+
+    PronosticoRespuestaDto respuesta = actividadesService.obtenerClimaActividad(actividadId, usuarioId);
+
+    assertThat(respuesta.degradado()).isTrue();
+    assertThat(respuesta.climaActual()).isNull();
+    assertThat(respuesta.pronosticoFuturo()).isNull();
+    assertThat(respuesta.proveedorUtilizado()).isNull();
+    assertThat(respuesta.mensajeEstado()).containsIgnoringCase("alta demanda");
   }
 
   @Test

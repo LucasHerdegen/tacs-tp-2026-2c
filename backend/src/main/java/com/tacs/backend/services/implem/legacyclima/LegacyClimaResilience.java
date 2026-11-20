@@ -2,6 +2,7 @@ package com.tacs.backend.services.implem.legacyclima;
 
 import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.exceptions.RespuestaClimaInvalidaException;
 import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
 import com.tacs.backend.services.implem.clima.MonitorProveedoresClima;
@@ -127,6 +128,9 @@ public class LegacyClimaResilience
         .withFallback(List.of(Exception.class), throwable ->
         {
           registrarRechazoSiCorresponde(throwable);
+          if (throwable instanceof RequestNotPermitted)
+            throw new RateLimitClimaExcedidoException(
+                "Limite de solicitudes excedido hacia el proveedor de clima legacy", throwable);
           throw new ProveedorClimaIndisponibleException(
               "Proveedor de clima legacy no disponible temporalmente", throwable);
         })

@@ -4,12 +4,14 @@ import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.exceptions.RateLimitClimaExcedidoException;
 import com.tacs.backend.services.implem.clima.ContextoProveedorClima.DatosContexto;
 import com.tacs.backend.services.implem.legacyclima.LegacyProveedorClima;
 import com.tacs.backend.services.implem.weatherapi.WeatherApiProveedorClima;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -120,5 +122,43 @@ class SelectorProveedorClimaTest
 
     assertThatThrownBy(() -> selector.obtenerClima(UBICACION))
         .isInstanceOf(ProveedorClimaIndisponibleException.class);
+  }
+
+  @Test
+  @DisplayName("Si legacy rechaza por rate limit, activa fallback automatico a WeatherAPI")
+  void obtenerClima_legacyRechazaPorRateLimit_activaFallbackAWeatherApi()
+  {
+    Clima respaldo = new Clima(5.0, 23.0, 8.0);
+    when(legacyProveedorClima.obtenerClima(UBICACION))
+        .thenThrow(new RateLimitClimaExcedidoException("Rate limit excedido en legacy", null));
+    when(weatherApiProveedorClima.obtenerClima(UBICACION)).thenReturn(respaldo);
+
+    ContextoProveedorClima.iniciar("user-2", TipoProveedorClima.LEGACY);
+    Clima obtenido = selector.obtenerClima(UBICACION);
+
+    assertThat(obtenido).isEqualTo(respaldo);
+    DatosContexto snapshot = ContextoProveedorClima.obtenerSnapshot();
+    assertThat(snapshot.fallbackActivo()).isTrue();
+    assertThat(snapshot.proveedorUtilizado()).isEqualTo(TipoProveedorClima.WEATHER_API);
+  }
+
+  @Test
+  @DisplayName("Una vez activado el fallback en el mismo request, las llamadas siguientes van directo a WeatherAPI sin reintentar Legacy")
+  void obtenerPronostico_fallbackYaActivoEnContexto_vaDirectoAWeatherApi()
+  {
+    Clima climaActualRespaldo = new Clima(5.0, 21.0, 9.0);
+    Clima pronosticoRespaldo = new Clima(20.0, 22.5, 11.0);
+    when(legacyProveedorClima.obtenerClima(UBICACION))
+        .thenThrow(new ProveedorClimaIndisponibleException("Legacy caido"));
+    when(weatherApiProveedorClima.obtenerClima(UBICACION)).thenReturn(climaActualRespaldo);
+    when(weatherApiProveedorClima.obtenerPronostico(UBICACION, FECHA)).thenReturn(pronosticoRespaldo);
+
+    ContextoProveedorClima.iniciar("user-2", TipoProveedorClima.LEGACY);
+    assertThat(selector.obtenerClima(UBICACION)).isEqualTo(climaActualRespaldo);
+    assertThat(selector.obtenerPronostico(UBICACION, FECHA)).isEqualTo(pronosticoRespaldo);
+
+    verify(legacyProveedorClima, never()).obtenerPronostico(UBICACION, FECHA);
+    var statsLegacy = monitor.construirEstadisticas(TipoProveedorClima.LEGACY);
+    assertThat(statsLegacy.fallbacksActivados()).isEqualTo(1);
   }
 }

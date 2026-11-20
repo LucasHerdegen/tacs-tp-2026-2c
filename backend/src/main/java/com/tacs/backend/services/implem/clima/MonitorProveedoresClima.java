@@ -48,13 +48,18 @@ public class MonitorProveedoresClima
     this.metricasPorProveedor = new EnumMap<>(TipoProveedorClima.class);
     this.metricasPorProveedor.put(
         TipoProveedorClima.WEATHER_API,
-        new MetricasProveedor("WeatherAPI.com", "weatherApi", CacheConfig.CACHE_FORECAST_POR_UBICACION));
+        new MetricasProveedor(
+            "WeatherAPI.com",
+            "weatherApi",
+            List.of(
+                CacheConfig.CACHE_FORECAST_POR_UBICACION,
+                CacheConfig.CACHE_CLIMA_ACTUAL_POR_UBICACION)));
     this.metricasPorProveedor.put(
         TipoProveedorClima.LEGACY,
         new MetricasProveedor(
             "Humedad, Datos y Pronósticos S.A. (Legacy)",
             "legacyClima",
-            CacheConfig.CACHE_LEGACY_FORECAST));
+            List.of(CacheConfig.CACHE_LEGACY_FORECAST)));
     suscribirTransicionesCircuitBreaker();
   }
 
@@ -137,7 +142,7 @@ public class MonitorProveedoresClima
     String estadoCb = cb != null ? cb.getState().name() : "CLOSED";
     EstadoProveedorClima estadoEfectivo = resolverEstadoEfectivo(metricas, cb);
 
-    DatosCache datosCache = leerEstadisticasCache(metricas.nombreCache);
+    DatosCache datosCache = leerEstadisticasCache(metricas.nombresCache);
 
     return new EstadisticasProveedorClimaDto(
         proveedor,
@@ -226,20 +231,27 @@ public class MonitorProveedoresClima
     return circuitBreakerRegistry.circuitBreaker(nombre);
   }
 
-  private DatosCache leerEstadisticasCache(String nombreCache)
+  private DatosCache leerEstadisticasCache(List<String> nombresCache)
   {
-    if (cacheManager == null)
+    if (cacheManager == null || nombresCache == null || nombresCache.isEmpty())
       return new DatosCache(0L, 0L, 0.0);
-    Cache cache = cacheManager.getCache(nombreCache);
-    if (cache instanceof CaffeineCache caffeineCache)
+    long totalHits = 0L;
+    long totalMisses = 0L;
+    for (String nombreCache : nombresCache)
     {
-      CacheStats stats = caffeineCache.getNativeCache().stats();
-      long hits = stats.hitCount();
-      long misses = stats.missCount();
-      double ratio = Math.round(stats.hitRate() * 10000.0) / 100.0;
-      return new DatosCache(hits, misses, ratio);
+      Cache cache = cacheManager.getCache(nombreCache);
+      if (cache instanceof CaffeineCache caffeineCache)
+      {
+        CacheStats stats = caffeineCache.getNativeCache().stats();
+        totalHits += stats.hitCount();
+        totalMisses += stats.missCount();
+      }
     }
-    return new DatosCache(0L, 0L, 0.0);
+    long totalPedidos = totalHits + totalMisses;
+    double ratio = totalPedidos == 0
+        ? 0.0
+        : Math.round(((double) totalHits / totalPedidos) * 10000.0) / 100.0;
+    return new DatosCache(totalHits, totalMisses, ratio);
   }
 
   private record DatosCache(long hits, long misses, double hitRatio)
@@ -250,7 +262,7 @@ public class MonitorProveedoresClima
   {
     private final String nombreVisible;
     private final String nombreCircuitBreaker;
-    private final String nombreCache;
+    private final List<String> nombresCache;
     private final AtomicLong llamadasTotales = new AtomicLong();
     private final AtomicLong llamadasExitosas = new AtomicLong();
     private final AtomicLong erroresTotales = new AtomicLong();
@@ -263,11 +275,11 @@ public class MonitorProveedoresClima
     private final ConcurrentLinkedDeque<PuntoEstadoProveedorDto> historialEstado =
         new ConcurrentLinkedDeque<>();
 
-    private MetricasProveedor(String nombreVisible, String nombreCircuitBreaker, String nombreCache)
+    private MetricasProveedor(String nombreVisible, String nombreCircuitBreaker, List<String> nombresCache)
     {
       this.nombreVisible = nombreVisible;
       this.nombreCircuitBreaker = nombreCircuitBreaker;
-      this.nombreCache = nombreCache;
+      this.nombresCache = nombresCache;
       this.historialEstado.add(new PuntoEstadoProveedorDto(
           Instant.now(),
           EstadoProveedorClima.OK,

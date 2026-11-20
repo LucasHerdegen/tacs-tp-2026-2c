@@ -1,14 +1,13 @@
 package com.tacs.backend.services.implem.weatherapi;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.tacs.backend.config.CacheConfig;
 import com.tacs.backend.domain.actividad.Ubicacion;
 import com.tacs.backend.domain.clima.Clima;
 import com.tacs.backend.services.ProveedorClima;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,9 +45,7 @@ class WeatherApiProveedorClimaCacheTest
     @Bean
     public CacheManager cacheManager()
     {
-      CaffeineCacheManager cacheManager = new CaffeineCacheManager(CacheConfig.CACHE_FORECAST_POR_UBICACION);
-      cacheManager.setCaffeine(Caffeine.newBuilder().expireAfterWrite(60, TimeUnit.SECONDS));
-      return cacheManager;
+      return new CacheConfig().cacheManager(60, 60);
     }
 
     @Bean
@@ -58,9 +55,9 @@ class WeatherApiProveedorClimaCacheTest
     }
 
     @Bean
-    public WeatherApiProveedorClima weatherApiProveedorClima(RestClient restClient, WeatherApiForecastClient forecastClient)
+    public WeatherApiProveedorClima weatherApiProveedorClima(WeatherApiForecastClient forecastClient)
     {
-      return new WeatherApiProveedorClima(restClient, forecastClient, ResilienceDePrueba.permisiva(), "test-key", 3);
+      return new WeatherApiProveedorClima(forecastClient, 3);
     }
   }
 
@@ -193,6 +190,92 @@ class WeatherApiProveedorClimaCacheTest
     // Si sync=true no estuviera, este verify fallaria: MockRestServiceServer
     // esperaba 1 sola llamada (ExpectedCount.once() por default) y el segundo
     // thread habria disparado una 2da.
+    server.verify();
+  }
+
+  @Test
+  @DisplayName("obtenerClima cachea current.json por consulta normalizada evitando repetir llamadas HTTP")
+  void obtenerClima_mismasCoordenadasDentroDelTtl_generaUnaSolaLlamadaHttp()
+  {
+    RestClient.Builder builder = RestClient.builder().baseUrl("https://api.weatherapi.com/v1");
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RestClient restClient = builder.build();
+
+    server.expect(requestTo("https://api.weatherapi.com/v1/current.json?key=test-key&q=-34.58,-58.43&aqi=no"))
+        .andRespond(withSuccess("""
+            { "current": { "temp_c": 21.5, "chance_of_rain": 10, "wind_kph": 11.0 } }
+            """, MediaType.APPLICATION_JSON));
+
+    try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext())
+    {
+      ctx.getBeanFactory().registerSingleton("restClient", restClient);
+      ctx.register(TestConfig.class);
+      ctx.refresh();
+
+      ProveedorClima proveedor = ctx.getBean(ProveedorClima.class);
+      Ubicacion otraEtiquetaMismasCoords = new Ubicacion("CABA", -34.58, -58.43);
+
+      Clima primero = proveedor.obtenerClima(UBICACION);
+      Clima segundo = proveedor.obtenerClima(otraEtiquetaMismasCoords);
+
+      assertThat(primero.getTemperatura()).isEqualTo(21.5);
+      assertThat(segundo.getTemperatura()).isEqualTo(21.5);
+    }
+
+    server.verify();
+  }
+
+  @Test
+  @DisplayName("obtenerClima concurrente sobre la misma ubicacion dispara una sola llamada HTTP gracias a sync = true")
+  void obtenerClima_dosThreadsConcurrentesMismaUbicacion_generaUnaSolaLlamadaHttp() throws Exception
+  {
+    RestClient.Builder builder = RestClient.builder().baseUrl("https://api.weatherapi.com/v1");
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RestClient restClient = builder.build();
+
+    server.expect(requestTo("https://api.weatherapi.com/v1/current.json?key=test-key&q=-34.58,-58.43&aqi=no"))
+        .andRespond(request ->
+        {
+          try
+          {
+            Thread.sleep(250);
+          } catch (InterruptedException e)
+          {
+            Thread.currentThread().interrupt();
+          }
+          return withSuccess("""
+              { "current": { "temp_c": 19.0, "chance_of_rain": 5, "wind_kph": 9.0 } }
+              """, MediaType.APPLICATION_JSON).createResponse(request);
+        });
+
+    try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext())
+    {
+      ctx.getBeanFactory().registerSingleton("restClient", restClient);
+      ctx.register(TestConfig.class);
+      ctx.refresh();
+
+      ProveedorClima proveedor = ctx.getBean(ProveedorClima.class);
+
+      CountDownLatch arranque = new CountDownLatch(1);
+      Callable<Clima> pedirClima = () ->
+      {
+        arranque.await();
+        return proveedor.obtenerClima(UBICACION);
+      };
+
+      ExecutorService executor = Executors.newFixedThreadPool(2);
+      Future<Clima> f1 = executor.submit(pedirClima);
+      Future<Clima> f2 = executor.submit(pedirClima);
+      arranque.countDown();
+
+      Clima c1 = f1.get(5, TimeUnit.SECONDS);
+      Clima c2 = f2.get(5, TimeUnit.SECONDS);
+      executor.shutdown();
+
+      assertThat(c1.getTemperatura()).isEqualTo(19.0);
+      assertThat(c2.getTemperatura()).isEqualTo(19.0);
+    }
+
     server.verify();
   }
 }
