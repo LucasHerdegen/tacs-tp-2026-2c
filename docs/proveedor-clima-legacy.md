@@ -143,7 +143,7 @@ Ejemplo de línea de tiempo real observada durante una corrida de 10 minutos (un
 | **9** | **Campo `id` no confiable en el request RPC** | Sin `id` devuelve `"id": null`; acepta `id` numéricos o repetidos sin quejarse. | Script de sondeo (`sin id`, `id numerico`, `id repetido`) | `LegacyForecastClient` genera un `UUID` único por intento y `LegacyClimaValidador` exige que el `id` devuelto coincida exactamente con el enviado. |
 | **10** | **Listener restringido a loopback (`127.0.0.1:9977`)** | Banner de arranque y `net.Listen("tcp", "127.0.0.1:9977")`. Inaccesible desde otros contenedores. | Consola y pruebas de red en Docker | Forwarder `socat` dentro del contenedor `clima-legacy` que escucha en `0.0.0.0:9978` y reenvía a `127.0.0.1:9977`. |
 | **11** | **Login interactivo con navegador en el primer arranque** | Imprime `no session found` y abre un callback OAuth en `localhost` esperando un navegador. | Primer arranque en frío | Login interactivo real una única vez con cuenta `@frba.utn.edu.ar` e inyección del `token.json` generado fuera de Git (volumen `:ro` desde `legacy-clima/secrets/token.json` o variable `LEGACY_CLIMA_TOKEN_JSON`), validado al arrancar por `entrypoint.sh`. |
-| **12** | **Redondeo silencioso de ubicación y hora** | `-34.6037` pasa a `-34.6`, `18:25` pasa a `18:00:00Z`. | Caso feliz de `/rpc` y desensamblado de `main.forecastFor` | La clave de caché Caffeine normaliza `(round(lat, 2), round(lon, 2), truncateToHour(fecha))` para maximizar hits sin perder precisión. |
+| **12** | **Redondeo silencioso de ubicación y hora** | `-34.6037` pasa a `-34.6`, `18:25` pasa a `18:00:00Z`. | Caso feliz de `/rpc` y desensamblado de `main.forecastFor` | `LegacyForecastClient` convierte la hora local (`ZoneId.systemDefault()`, configurada en `America/Argentina/Buenos_Aires`) a `Instant` UTC truncado a la hora (`timestamp.UTC().Truncate(1h)`) y normaliza la clave de caché Caffeine como `(round(lat, 2), round(lon, 2), timestampUtcTruncado)`. |
 
 ---
 
@@ -175,11 +175,11 @@ $$\text{SelectorProveedorClima (Fallback)} \rightarrow \text{Caché Caffeine Nor
 | Decisión / Mecanismo | Valor configurado (`application.properties`) | Justificación técnica y cuantitativa |
 | :--- | :--- | :--- |
 | **Timeouts de conexión y lectura** | `connect-timeout = 1000ms`<br>`read-timeout = 1500ms` | En estado sano el binario responde en `< 1 ms` (`< 5 ms` por red Docker). Toda espera mayor a `1.5 s` corresponde al **20% de cuelgues infinitos** (`<-r.Context().Done()`) y debe abortarse rápido para liberar hilos y disparar el reintento. |
-| **Validación estricta de payload HTTP 200** | [`LegacyClimaValidador`](../backend/src/main/java/com/tacs/backend/services/implem/legacyclima/LegacyClimaValidador.java) | El 20% de las respuestas de `/rpc` llegan con `HTTP 200 OK` pero cuerpo corrupto (JSON truncado, sin comillas, con `=`, con `,}` o HTML `502`). Se valida sintaxis JSON, coincidencia exacta del `UUID` en `id`, `status == "OK"`, presencia de campos numéricos y rangos físicos (`temperatura ∈ [-90, 65] °C`, `lluvia ∈ [0, 100] %`, `viento ∈ [0, 400] km/h`). |
+| **Validación estricta de payload HTTP 200** | [`LegacyClimaValidador`](../backend/src/main/java/com/tacs/backend/services/implem/legacyclima/LegacyClimaValidador.java) | El 20% de las respuestas de `/rpc` llegan con `HTTP 200 OK` pero cuerpo corrupto (JSON truncado, sin comillas, con `=`, con `,}` o HTML `502`). Se valida sintaxis JSON, coincidencia exacta del `UUID` en `id`, `status == "OK"`, presencia/formato `Instant` y coincidencia exacta de `result.timestamp` con el timestamp UTC enviado, presencia de campos numéricos y rangos físicos (`temperatura ∈ [-90, 65] °C`, `lluvia ∈ [0, 100] %`, `viento ∈ [0, 400] km/h`). |
 | **Retry con Backoff Exponencial y Jitter** | `max-attempts = 3`<br>`wait-duration = 200ms`<br>`multiplier = 2`<br>`randomized-wait-factor = 0.5` | En fase `OK`/`NOT READY`, cada intento individual tiene $40\%$ de probabilidad de fallar ($20\%$ hang + $20\%$ corrupto). Con 3 intentos independientes, la tasa de fallo por consulta cae de $40\%$ a $0.40^3 = \mathbf{6.4\%}$ (**93.6% de éxito directo** en el primer miss de caché). El jitter de $\pm 50\%$ evita sincronizar reintentos concurrentes. |
 | **Excepciones que NO se reintentan** | `CallNotPermittedException`<br>`RequestNotPermitted`<br>`HttpClientErrorException` (`4xx`) | Si el Circuit Breaker está abierto, el Rate Limiter rechazó la llamada o hubo un error `4xx` de cliente, reintentar sólo agregaría latencia inútil. |
 | **Circuit Breaker** | `sliding-window-size = 10`<br>`minimum-number-of-calls = 5`<br>`failure-rate-threshold = 50%`<br>`wait-duration-in-open-state = 20s`<br>`half-open-calls = 3` | Ubicado **por fuera del Retry**: sólo registra una falla si los 3 intentos de una consulta fracasan ($6.4\%$ en fase `OK`, muy por debajo del umbral del $50\%$). En cambio, durante la fase `UNRESPONSIVE` (`state = 2`, donde el $100\%$ da `503`) o ante caída del contenedor, alcanza el umbral en 5 llamadas y abre el circuito, derivando al fallback en `< 1 ms`. |
-| **Caché Caffeine con normalización** | `TTL = 30 min`<br>Clave: `(round(lat, 2), round(lon, 2), truncateToHour(fecha))` | Como `main.forecastFor` cuantiza a 2 decimales y trunca a la hora en punto, normalizar la clave en el cliente garantiza respuestas idénticas a las del binario y evita golpear `/rpc` para consultas cercanas en espacio y tiempo. |
+| **Caché Caffeine con normalización** | `TTL = 30 min`<br>Clave: `(round(lat, 2), round(lon, 2), timestampUtcTruncado)` | Como `main.forecastFor` cuantiza a 2 decimales y trunca a la hora en punto en UTC (`timestamp.UTC().Truncate(1h)`), el cliente convierte `LocalDateTime` local (`ZoneId.systemDefault()`, configurada por `TimeConfig` en `America/Argentina/Buenos_Aires`) a `Instant` UTC truncado a la hora antes de indexar la caché y enviar el RPC, evitando corrimientos horarios y maximizando hits. |
 | **Rate Limiting en dos niveles** | Por usuario: `15 req/s`<br>Global: `10 req/s`<br>`timeout-duration = 0` | Evita que un usuario individual o una ráfaga global saturen al servicio legacy. Los rechazos de Rate Limiter (`RequestNotPermitted`) no abren el Circuit Breaker (`ignore-exceptions`) y activan el fallback inmediato a `WeatherAPI`. |
 | **Healthcheck de Docker + Supervisor** | `curl -fsS http://127.0.0.1:9978/healthz`<br>`interval: 15s`, `retries: 3` | Permite que Docker observe la salud real sin matar el contenedor ante un fallo aislado, mientras `entrypoint.sh` levanta el binario en `1s` cuando ocurre el crash `os.Exit(1)`. |
 
@@ -247,7 +247,7 @@ sequenceDiagram
 
     U->>C: GET /api/actividades/{id}/clima
     C->>S: obtenerPronosticoDetallado(ubicacion, fecha)
-    S->>Cache: obtenerPronostico(round(lat,2), round(lon,2), hora)
+    S->>Cache: obtenerPronostico(round(lat,2), round(lon,2), timestampUtcTruncado)
     alt Cache Hit
         Cache-->>S: Clima cacheado (registra cacheHit)
         S-->>C: PronosticoRespuestaDto(LEGACY, fallback=false)
@@ -257,7 +257,7 @@ sequenceDiagram
         loop Hasta 3 intentos (Retry con Backoff Exponencial + Jitter)
             R->>L: POST /rpc (Bearer Token, timeout 1.5s)
             L-->>R: Respuesta HTTP (200 OK / 503 / Hang / JSON o HTML corrupto)
-            R->>V: validarYMapear(rawBody, requestId)
+            R->>V: validarYMapea(rawBody, requestId, timestampEsperado)
         end
         alt Algún intento devuelve JSON válido
             V-->>Cache: Clima válido (almacena en caché)

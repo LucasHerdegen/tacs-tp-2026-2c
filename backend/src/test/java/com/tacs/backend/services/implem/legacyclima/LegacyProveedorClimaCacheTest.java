@@ -11,6 +11,9 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -25,6 +28,8 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +38,23 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class LegacyProveedorClimaCacheTest
 {
+  private static final ZoneId ZONA_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
   private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  private TimeZone timeZoneOriginal;
+
+  @BeforeEach
+  void setUp()
+  {
+    timeZoneOriginal = TimeZone.getDefault();
+    TimeZone.setDefault(TimeZone.getTimeZone(ZONA_ARGENTINA));
+  }
+
+  @AfterEach
+  void tearDown()
+  {
+    TimeZone.setDefault(timeZoneOriginal);
+  }
 
   @Configuration
   @EnableCaching
@@ -72,6 +93,7 @@ class LegacyProveedorClimaCacheTest
   }
 
   @Test
+  @DisplayName("obtenerPronostico reutiliza la cache UTC para coordenadas cercanas y minutos distintos de la misma hora")
   void coordenadasCercanasYMinutosDistintosDeLaMismaHoraReutilizanCacheYDisparanUnaSolaLlamadaHttp()
   {
     RestClient.Builder builder = RestClient.builder().baseUrl("http://clima-legacy:9978");
@@ -84,13 +106,15 @@ class LegacyProveedorClimaCacheTest
           MockClientHttpRequest mockReq = (MockClientHttpRequest) request;
           JsonNode body = MAPPER.readTree(mockReq.getBodyAsBytes());
           String reqId = body.get("id").asText();
+          assertThat(body.at("/params/timestamp").asText()).isEqualTo("2026-10-28T18:00:00Z");
+
           String respuesta = """
               {
                 "id": "%s",
                 "status": "OK",
                 "result": {
                   "location": { "lat": -34.58, "lon": -58.43 },
-                  "timestamp": "2026-10-28T15:00:00Z",
+                  "timestamp": "2026-10-28T18:00:00Z",
                   "condition": "clear",
                   "temperature_c": 23.0,
                   "feels_like_c": 23.0,
@@ -123,6 +147,61 @@ class LegacyProveedorClimaCacheTest
 
       assertThat(primero.getTemperatura()).isEqualTo(23.0);
       assertThat(segundo.getTemperatura()).isEqualTo(23.0);
+    }
+
+    server.verify();
+  }
+
+  @Test
+  @DisplayName("obtenerPronostico comparte clave de cache por hora UTC truncada incluso en zonas con desplazamiento de media hora")
+  void obtenerPronostico_zonaDeMediaHoraMismaHoraUtc_reutilizaUnaUnicaEntradaDeCache()
+  {
+    TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
+    RestClient.Builder builder = RestClient.builder().baseUrl("http://clima-legacy:9978");
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RestClient restClient = builder.build();
+
+    server.expect(requestTo("http://clima-legacy:9978/rpc"))
+        .andRespond(request ->
+        {
+          MockClientHttpRequest mockReq = (MockClientHttpRequest) request;
+          JsonNode body = MAPPER.readTree(mockReq.getBodyAsBytes());
+          String reqId = body.get("id").asText();
+          assertThat(body.at("/params/timestamp").asText()).isEqualTo("2026-10-28T04:00:00Z");
+
+          String respuesta = """
+              {
+                "id": "%s",
+                "status": "OK",
+                "result": {
+                  "location": { "lat": -34.58, "lon": -58.43 },
+                  "timestamp": "2026-10-28T04:00:00Z",
+                  "temperature_c": 21.0,
+                  "precipitation_probability_pct": 12,
+                  "wind_kph": 8.0
+                }
+              }
+              """.formatted(reqId);
+          return withSuccess(respuesta, MediaType.APPLICATION_JSON).createResponse(request);
+        });
+
+    try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext())
+    {
+      ctx.getBeanFactory().registerSingleton("legacyClimaRestClient", restClient);
+      ctx.register(TestConfig.class);
+      ctx.refresh();
+
+      ProveedorClima proveedor = ctx.getBean(ProveedorClima.class);
+
+      Ubicacion ubicacion = new Ubicacion("Palermo", -34.58, -58.43);
+      LocalDateTime hora09y40Local = LocalDateTime.of(2026, 10, 28, 9, 40);
+      LocalDateTime hora10y15Local = LocalDateTime.of(2026, 10, 28, 10, 15);
+
+      Clima primero = proveedor.obtenerPronostico(ubicacion, hora09y40Local);
+      Clima segundo = proveedor.obtenerPronostico(ubicacion, hora10y15Local);
+
+      assertThat(primero.getTemperatura()).isEqualTo(21.0);
+      assertThat(segundo.getTemperatura()).isEqualTo(21.0);
     }
 
     server.verify();

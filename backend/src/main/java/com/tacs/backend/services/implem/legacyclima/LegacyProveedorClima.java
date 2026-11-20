@@ -12,14 +12,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 /**
  * Implementacion de {@link ProveedorClima} que consume el servicio legacy
  * (Humedad, Datos y Pronosticos S.A.). Normaliza las coordenadas a 2 decimales
- * y trunca la hora antes de delegar en {@link LegacyForecastClient}.
+ * y convierte la fecha/hora local a UTC truncada a la hora antes de delegar en
+ * {@link LegacyForecastClient}.
  */
 @Slf4j
 @Service("legacyProveedorClima")
@@ -62,13 +63,13 @@ public class LegacyProveedorClima implements ProveedorClima
     double[] coords = resolverCoordenadas(ubicacion);
     double latitudRedondeada = redondearDosDecimales(coords[0]);
     double longitudRedondeada = redondearDosDecimales(coords[1]);
-    LocalDateTime fechaHoraTruncada = (fechaHorario != null ? fechaHorario : LocalDateTime.now())
-        .truncatedTo(ChronoUnit.HOURS);
+    LocalDateTime fechaHoraLocal = fechaHorario != null ? fechaHorario : LocalDateTime.now();
+    Instant timestampUtcTruncado = LegacyForecastClient.normalizarTimestampUtc(fechaHoraLocal);
 
     return forecastClient.consultarPronosticoCacheado(
         latitudRedondeada,
         longitudRedondeada,
-        fechaHoraTruncada);
+        timestampUtcTruncado);
   }
 
   public EstadoProveedorClima verificarSalud()

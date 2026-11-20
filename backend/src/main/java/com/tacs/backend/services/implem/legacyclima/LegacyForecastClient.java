@@ -10,9 +10,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static com.tacs.backend.config.CacheConfig.CACHE_LEGACY_FORECAST;
@@ -20,8 +23,8 @@ import static com.tacs.backend.config.CacheConfig.CACHE_LEGACY_FORECAST;
 /**
  * Cliente HTTP cacheado para el endpoint {@code POST /rpc} del binario legacy.
  * Normaliza la clave de cache al mismo nivel de granularidad determinista del
- * binario (latitud y longitud redondeadas a 2 decimales, fecha/hora truncada a
- * la hora).
+ * binario (latitud y longitud redondeadas a 2 decimales, timestamp UTC truncado
+ * a la hora en punto).
  */
 @Slf4j
 @Component
@@ -44,18 +47,29 @@ public class LegacyForecastClient
     this.apiToken = apiToken;
   }
 
+  /**
+   * Convierte una fecha/hora local (en la zona horaria configurada del sistema)
+   * a un {@link Instant} UTC truncado a la hora en punto, consistente con el
+   * {@code timestamp.UTC().Truncate(1h)} del binario legacy.
+   */
+  public static Instant normalizarTimestampUtc(LocalDateTime fechaHoraLocal)
+  {
+    ZonedDateTime fechaHoraConZona = fechaHoraLocal.atZone(ZoneId.systemDefault());
+    return fechaHoraConZona.toInstant().truncatedTo(ChronoUnit.HOURS);
+  }
+
   @Cacheable(
       value = CACHE_LEGACY_FORECAST,
-      key = "{#latitudRedondeada, #longitudRedondeada, #fechaHoraTruncada}",
+      key = "{#latitudRedondeada, #longitudRedondeada, #timestampUtcTruncado}",
       sync = true)
   public Clima consultarPronosticoCacheado(
       double latitudRedondeada,
       double longitudRedondeada,
-      LocalDateTime fechaHoraTruncada)
+      Instant timestampUtcTruncado)
   {
     String requestId = "req-" + UUID.randomUUID();
-    String timestampIso = fechaHoraTruncada.atOffset(ZoneOffset.UTC)
-        .format(DateTimeFormatter.ISO_INSTANT);
+    Instant timestampEsperado = timestampUtcTruncado.truncatedTo(ChronoUnit.HOURS);
+    String timestampIso = DateTimeFormatter.ISO_INSTANT.format(timestampEsperado);
     LegacyRpcRequest request = LegacyRpcRequest.crearPronostico(
         requestId,
         latitudRedondeada,
@@ -78,7 +92,7 @@ public class LegacyForecastClient
           .retrieve()
           .body(String.class);
 
-      return validador.validarYMapea(cuerpoCrudo, requestId);
+      return validador.validarYMapea(cuerpoCrudo, requestId, timestampEsperado);
     });
   }
 }

@@ -8,6 +8,9 @@ import com.tacs.backend.services.implem.legacyclima.LegacyRpcResponse.ResultadoR
 import com.tacs.backend.services.implem.legacyclima.LegacyRpcResponse.UbicacionResultadoRpc;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+
 /**
  * Valida exhaustivamente el cuerpo devuelto por el proveedor legacy antes de
  * convertirlo al modelo de dominio {@link Clima}. Nunca asume que un HTTP 200
@@ -35,7 +38,7 @@ public class LegacyClimaValidador
     this.objectMapper = new ObjectMapper();
   }
 
-  public Clima validarYMapea(String cuerpoCrudo, String idEsperado)
+  public Clima validarYMapea(String cuerpoCrudo, String idEsperado, Instant timestampEsperado)
   {
     if (cuerpoCrudo == null || cuerpoCrudo.isBlank())
       throw new RespuestaClimaInvalidaException("El proveedor legacy devolvio un cuerpo vacio");
@@ -73,12 +76,34 @@ public class LegacyClimaValidador
       throw new RespuestaClimaInvalidaException("Respuesta RPC con status OK pero sin objeto result");
 
     validarUbicacion(resultado.location());
+    validarTimestamp(resultado.timestamp(), timestampEsperado);
     validarCamposMeteorologicos(resultado);
 
     return new Clima(
         resultado.precipitationProbabilityPct().doubleValue(),
         resultado.temperatureC(),
         resultado.windKph());
+  }
+
+  private void validarTimestamp(String timestampCrudo, Instant timestampEsperado)
+  {
+    if (timestampCrudo == null || timestampCrudo.isBlank())
+      throw new RespuestaClimaInvalidaException("La respuesta RPC no contiene timestamp");
+
+    Instant timestampRecibido;
+    try
+    {
+      timestampRecibido = Instant.parse(timestampCrudo);
+    } catch (DateTimeParseException e)
+    {
+      throw new RespuestaClimaInvalidaException(
+          "Timestamp invalido en la respuesta legacy: " + timestampCrudo, e);
+    }
+
+    if (timestampEsperado != null && !timestampEsperado.equals(timestampRecibido))
+      throw new RespuestaClimaInvalidaException(
+          "El timestamp de la respuesta RPC (" + timestampRecibido
+              + ") no coincide con el solicitado (" + timestampEsperado + ")");
   }
 
   private void validarUbicacion(UbicacionResultadoRpc ubicacion)
