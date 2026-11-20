@@ -13,7 +13,7 @@ Este repositorio implementa una plataforma para organizar actividades grupales, 
 
 - `backend/` — Monolito modular **Java 21 + Spring Boot 4.1.1** (`com.tacs.backend`), Maven Wrapper (`./mvnw` / `.\mvnw.cmd`), MongoDB, ShedLock, Resilience4j, Bot de Telegram (`java-telegram-bot-api`) y OpenTelemetry API (`ObservabilidadBusquedas`).
 - `frontend/` — SPA **React 19 + TypeScript + Vite** con Tailwind CSS v4, Leaflet y `@opentelemetry/sdk-trace-web` (`src/telemetry.ts`).
-- `legacy-clima/` — Contenedor Docker para el binario `tacs-linux-amd64`: puente TCP `socat` (`0.0.0.0:9978` -> `127.0.0.1:9977`), supervisor ante crashes (`os.Exit(1)`) y bootstrap de sesión (`bootstrap_oauth.py`).
+- `legacy-clima/` — Contenedor Docker para el binario `tacs-linux-amd64`: puente TCP `socat` (`0.0.0.0:9978` -> `127.0.0.1:9977`), supervisor ante crashes (`os.Exit(1)`) e inyección de sesión real `token.json` (volumen `:ro` desde `legacy-clima/secrets/` o variable `LEGACY_CLIMA_TOKEN_JSON`).
 - `observability/` — Configuración de `otel-collector`, `prometheus` y aprovisionamiento de datasources/dashboards de `grafana` (`tp5-busqueda-actividades`).
 - `scripts/` — Scripts PowerShell reproducibles de pruebas de carga (`load-test-legacy.ps1`, `load-test-observabilidad.ps1`).
 - `docs/` — Registro de decisiones de arquitectura ([docs/ADRs.md](docs/ADRs.md)), ingeniería inversa y resiliencia del servicio legacy ([docs/proveedor-clima-legacy.md](docs/proveedor-clima-legacy.md)) e histórico de prompts ([docs/prompts.md](docs/prompts.md)).

@@ -24,27 +24,80 @@ Antes de levantar el entorno, podés configurar el archivo `.env` en la raíz de
 - `WEATHERAPI_API_KEY`: (Requerida) API key de [WeatherAPI.com](https://www.weatherapi.com/).
 - `TELEGRAM_BOT_TOKEN`: (Requerida) Token del bot, obtenido de `@BotFather`. Ver sección [Bot de Telegram](#bot-de-telegram).
 - `TELEGRAM_BOT_USERNAME`: (Requerida) Username del bot (sin la `@`), también entregado por `@BotFather`.
-- `LEGACY_CLIMA_ACCOUNT_EMAIL`: (Opcional) Cuenta institucional `@frba.utn.edu.ar` utilizada para la sesión del servicio de clima legacy.
-- `LEGACY_CLIMA_API_TOKEN`: (Requerida para usar el proveedor Legacy) Token Bearer emitido por el binario de *Humedad, Datos y Pronósticos S.A.* al autenticar la cuenta institucional.
+- `LEGACY_CLIMA_API_TOKEN`: (Requerida para usar el proveedor Legacy) Token Bearer impreso en consola por el binario de *Humedad, Datos y Pronósticos S.A.* al autenticar la cuenta institucional `@frba.utn.edu.ar`.
 - `LEGACY_CLIMA_BASE_URL`: (Opcional) URL interna del servicio legacy (por defecto `http://clima-legacy:9978` en Docker Compose).
+- `LEGACY_CLIMA_TOKEN_DIR`: (Opcional) Ruta local a la carpeta que contiene el archivo `token.json` real montado en el contenedor `clima-legacy` (por defecto `./legacy-clima/secrets`).
+- `LEGACY_CLIMA_TOKEN_JSON`: (Opcional, útil en nube) Contenido JSON completo de `token.json` inyectado como variable secreta cuando no se monta un volumen local.
 - `BACKEND_PORT`: (Opcional) Puerto del host mapeado al backend (por defecto `8080`; útil si `8080` ya está ocupado localmente, por ejemplo `BACKEND_PORT=8081`).
 - `OBSERVABILIDAD_BUSQUEDA_DEMORA_MS`: (Opcional) Demora controlada en milisegundos sobre el acceso a MongoDB en búsqueda de actividades (por defecto `0`, deshabilitada).
 - `GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD`: (Opcional) Credenciales de Grafana (por defecto `admin` / `admin`, además de acceso anónimo con rol `Viewer`).
 
-### 2. Ejecutar la Aplicación (Docker)
+### 2. Autenticación inicial del Proveedor de Clima Legacy (clone limpio)
+
+Ni la sesión OAuth (`token.json`) ni el API token (`LEGACY_CLIMA_API_TOKEN`) se versionan en Git. Antes de levantar Docker por primera vez desde un clone limpio, completá estos pasos **una única vez**:
+
+1. **Crear tu archivo `.env`** a partir de la plantilla:
+   ```bash
+   cp .env.example .env
+   ```
+   *(En PowerShell: `Copy-Item .env.example .env`)*.
+
+2. **Ejecutar el binario localmente para autenticar con una cuenta `@frba.utn.edu.ar`**:
+   - **Windows** (usando el binario provisto por la cátedra en `bin/bin/`):
+     ```powershell
+     .\bin\bin\tacs-windows-amd64.exe
+     ```
+   - **Linux / WSL** (descomprimiendo el binario Linux incluido en `legacy-clima/`):
+     ```bash
+     gzip -dc legacy-clima/tacs-linux-amd64.gz > /tmp/tacs-linux-amd64
+     chmod +x /tmp/tacs-linux-amd64
+     /tmp/tacs-linux-amd64
+     ```
+   - **macOS** (usando el binario provisto por la cátedra en `bin/bin/`):
+     ```bash
+     ./bin/bin/tacs-darwin-arm64   # o ./bin/bin/tacs-darwin-amd64 en Intel
+     ```
+
+3. **Completar el login de Google y copiar `LEGACY_CLIMA_API_TOKEN`**:
+   - El binario abrirá el navegador (o imprimirá una URL en consola) para iniciar sesión con Google usando tu cuenta institucional **`@frba.utn.edu.ar`**.
+   - Al completar el login, imprimirá en consola el **API token** (`Bearer`) y quedará escuchando en `127.0.0.1:9977`.
+   - Pegá ese valor en `LEGACY_CLIMA_API_TOKEN` dentro de tu `.env` y detené el binario local con `Ctrl+C`.
+
+4. **Proveer el archivo `token.json` al contenedor `clima-legacy` (sin versionarlo)**:
+   - El binario guarda automáticamente la sesión OAuth en `token.json` dentro del directorio de configuración del sistema operativo:
+     - **Windows:** `%APPDATA%\tacs\token.json`
+     - **Linux:** `~/.config/tacs/token.json`
+     - **macOS:** `~/Library/Application Support/tacs/token.json`
+   - Copiá ese archivo a `legacy-clima/secrets/token.json` (ignorado automáticamente por `**/token.json` en `.gitignore`):
+     - **PowerShell (Windows):**
+       ```powershell
+       Copy-Item "$env:APPDATA\tacs\token.json" ".\legacy-clima\secrets\token.json"
+       ```
+     - **Linux:**
+       ```bash
+       cp ~/.config/tacs/token.json ./legacy-clima/secrets/token.json
+       ```
+     - **macOS:**
+       ```bash
+       cp "$HOME/Library/Application Support/tacs/token.json" ./legacy-clima/secrets/token.json
+       ```
+   - *(Opcional)* Si preferís no copiar el archivo, podés definir `LEGACY_CLIMA_TOKEN_DIR` en `.env` apuntando directamente a la carpeta que contiene `token.json` (por ejemplo `LEGACY_CLIMA_TOKEN_DIR=~/.config/tacs`). En despliegues en la nube sin volúmenes locales, inyectá el contenido JSON completo en la variable secreta `LEGACY_CLIMA_TOKEN_JSON`.
+   - Si no existe una sesión real (`token.json` ni `LEGACY_CLIMA_TOKEN_JSON`), el contenedor `clima-legacy` abortará el arranque con un mensaje descriptivo.
+
+### 3. Ejecutar la Aplicación (Docker)
 
 Para iniciar todos los servicios junto con su red interna aislada, la base de datos y el stack completo de observabilidad:
 
 ```bash
 docker compose up --build -d
 ```
-*(Usamos `--build` para asegurarnos de que las imágenes se recompilen con los últimos cambios en el código, y `-d` para que corran en segundo plano).*
+*(Usamos `--build` para asegurarnos de que las imágenes se recompilen con los últimos cambios en el código, y `-d` para que corran en segundo plano. Podés verificar que la sesión real se restauró con `docker compose logs clima-legacy`, donde debe figurar `session restored`).*
 
 Esto levantará:
 - El **Frontend** (React + Vite, servido con Nginx) en el puerto `80`: **http://localhost** (también proxya `/api/` al backend y `/otel/` al Collector OTLP).
 - El **Backend** (Spring Boot con `opentelemetry-javaagent.jar` v`2.33.1`) en el puerto `${BACKEND_PORT:-8080}` (por defecto `8080`).
 - Una instancia de **MongoDB** en el puerto `27017`.
-- El servicio **Clima Legacy** (`clima-legacy`) accesible únicamente dentro de la red interna de Docker en `http://clima-legacy:9978`, con supervisión y reinicio automático ante fallos.
+- El servicio **Clima Legacy** (`clima-legacy`) accesible únicamente dentro de la red interna de Docker en `http://clima-legacy:9978`, sin puertos publicados al host, con sesión OAuth real inyectada y reinicio automático ante fallos.
 - **OpenTelemetry Collector** (`otel/opentelemetry-collector-contrib`) en puertos `4317` (OTLP gRPC), `4318` (OTLP HTTP) y `8889` (endpoint `/metrics` para Prometheus).
 - **Jaeger** (`jaegertracing/all-in-one`) en **http://localhost:16686** para visualizar trazas distribuidas (`MEMORY_MAX_TRACES=1500`).
 - **Prometheus** (`prom/prometheus`) en **http://localhost:9090** con scrapeo cada `5s` sobre `otel-collector:8889`.
@@ -54,12 +107,12 @@ Esto levantará:
 
 > **Decisiones de Arquitectura (ADRs):** El registro completo de decisiones (incluida la **ADR 13** de Observabilidad) se encuentra en [`docs/ADRs.md`](docs/ADRs.md).
 
-### 3. Documentación de la API (OpenAPI / Swagger)
+### 4. Documentación de la API (OpenAPI / Swagger)
 
 Una vez que el contenedor esté corriendo, podés acceder a la interfaz gráfica de Swagger en:
 **http://localhost:8080/swagger-ui.html** o a la especificación en JSON en **http://localhost:8080/v3/api-docs** (ajustando el puerto si definiste `BACKEND_PORT`).
 
-### 4. Ejecutar los Tests Locales
+### 5. Ejecutar los Tests Locales
 
 Para correr la suite completa (que incluye pruebas unitarias con JUnit/Mockito, `@WebMvcTest`, pruebas OpenTelemetry en `ObservabilidadBusquedasTest` y tests de integración/concurrencia `@DataMongoTest` contra MongoDB real):
 
