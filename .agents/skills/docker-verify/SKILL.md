@@ -18,8 +18,8 @@ Garantizar que los **8 servicios** definidos en `docker-compose.yaml` (`mongodb`
 
 ## Instrucciones paso a paso (desde la raíz del repositorio)
 
-1. **Verificar prerequisito `.env` (sin exponer secretos):**
-   Confirmá que exista `.env` en la raíz (sin imprimir su contenido en consola ni logs). Si falta, advertí al usuario para que lo cree a partir de `.env.example`.
+1. **Verificar prerequisitos `.env` y sesión real de `clima-legacy` (sin exponer secretos):**
+   Confirmá que exista `.env` en la raíz (sin imprimir su contenido en consola ni logs) y que exista una sesión real para `clima-legacy` (`legacy-clima/secrets/token.json`, `LEGACY_CLIMA_TOKEN_DIR` o `LEGACY_CLIMA_TOKEN_JSON`). Si falta alguno, advertí al usuario siguiendo el paso a paso del `README.md`.
 
 2. **Validación de sintaxis Compose:**
    ```powershell
@@ -42,7 +42,7 @@ Garantizar que los **8 servicios** definidos en `docker-compose.yaml` (`mongodb`
 5. **Comprobación funcional básica por servicio:**
    - **Frontend:** `http://localhost:80` responde HTTP `200`.
    - **Backend:** `http://localhost:${BACKEND_PORT:-8080}/v3/api-docs` o `/actuator/health` responde correctamente.
-   - **Clima Legacy (`clima-legacy`):** Debe permanecer **sin puertos publicados al host**; verificá vía logs (`docker compose logs --tail=30 clima-legacy`) que levantó `socat` en `:9978` y el supervisor de `/app/tacs-linux-amd64`.
+   - **Clima Legacy (`clima-legacy`):** Debe permanecer **sin puertos publicados al host**; verificá vía logs (`docker compose logs --tail=30 clima-legacy`) que restauró la sesión real (`session restored`), levantó `socat` en `:9978` y el supervisor de `/app/tacs-linux-amd64`.
    - **Observabilidad:** `jaeger` (`:16686`), `prometheus` (`:9090`), `grafana` (`:3000`).
 
 6. **Diagnóstico de fallos:**
