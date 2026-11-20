@@ -2,14 +2,18 @@ package com.tacs.backend.services.implem.clima;
 
 import com.tacs.backend.domain.clima.TipoProveedorClima;
 
+import java.time.Duration;
+
 /**
  * Contexto asociado al hilo actual que transporta el usuario solicitante,
- * su proveedor de clima preferido y el resultado de ejecucion (proveedor
- * efectivamente utilizado, activacion de fallback o degradacion).
+ * su proveedor de clima preferido, el presupuesto de tiempo disponible para
+ * la operacion y el resultado de ejecucion (proveedor efectivamente utilizado,
+ * activacion de fallback o degradacion).
  */
 public final class ContextoProveedorClima
 {
   private static final ThreadLocal<DatosContexto> ACTUAL = new ThreadLocal<>();
+  private static final ThreadLocal<Long> LIMITE_TIEMPO_NANOS = new ThreadLocal<>();
 
   private ContextoProveedorClima()
   {
@@ -17,10 +21,36 @@ public final class ContextoProveedorClima
 
   public static void iniciar(String usuarioId, TipoProveedorClima proveedorSeleccionado)
   {
+    iniciarConPresupuesto(usuarioId, proveedorSeleccionado, null);
+  }
+
+  public static void iniciarConPresupuesto(
+      String usuarioId,
+      TipoProveedorClima proveedorSeleccionado,
+      Duration presupuestoTotal)
+  {
     TipoProveedorClima efectivo = proveedorSeleccionado != null
         ? proveedorSeleccionado
         : TipoProveedorClima.WEATHER_API;
     ACTUAL.set(new DatosContexto(usuarioId, efectivo, efectivo, false, false, null));
+    if (presupuestoTotal != null && !presupuestoTotal.isNegative())
+      LIMITE_TIEMPO_NANOS.set(System.nanoTime() + presupuestoTotal.toNanos());
+    else
+      LIMITE_TIEMPO_NANOS.remove();
+  }
+
+  /**
+   * Devuelve el tiempo restante del presupuesto de la request actual, o
+   * {@code null} si no se configuro un presupuesto global para el hilo.
+   * Cuando el plazo ya vencio devuelve {@link Duration#ZERO}.
+   */
+  public static Duration obtenerTiempoRestante()
+  {
+    Long limiteNanos = LIMITE_TIEMPO_NANOS.get();
+    if (limiteNanos == null)
+      return null;
+    long restanteNanos = limiteNanos - System.nanoTime();
+    return restanteNanos <= 0L ? Duration.ZERO : Duration.ofNanos(restanteNanos);
   }
 
   public static String obtenerUsuarioId()
@@ -109,6 +139,7 @@ public final class ContextoProveedorClima
   public static void limpiar()
   {
     ACTUAL.remove();
+    LIMITE_TIEMPO_NANOS.remove();
   }
 
   public record DatosContexto(

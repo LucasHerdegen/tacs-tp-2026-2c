@@ -41,6 +41,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -60,6 +61,9 @@ public class ActividadesServiceImplem implements ActividadesService
 
   @Value("${weatherapi.forecast.max-days:3}")
   private int maxDiasForecast;
+
+  @Value("${clima.operacion.timeout-total-ms:2500}")
+  private long timeoutTotalClimaMs = 2500L;
 
   @Autowired(required = false)
   public ActividadesServiceImplem(
@@ -294,7 +298,10 @@ public class ActividadesServiceImplem implements ActividadesService
       throw new NoParticipanteException("Debes ser participante u organizador de la actividad para ver su clima");
 
     TipoProveedorClima proveedorPreferido = resolverProveedorPreferido(usuarioId, actividad);
-    ContextoProveedorClima.iniciar(usuarioId, proveedorPreferido);
+    ContextoProveedorClima.iniciarConPresupuesto(
+        usuarioId,
+        proveedorPreferido,
+        Duration.ofMillis(timeoutTotalClimaMs));
     try
     {
       ClimaDto climaActual = null;

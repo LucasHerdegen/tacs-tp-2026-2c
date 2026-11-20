@@ -4,6 +4,7 @@ import com.tacs.backend.domain.clima.TipoProveedorClima;
 import com.tacs.backend.dtos.admin.EstadisticasProveedorClimaDto;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
 import com.tacs.backend.exceptions.RespuestaClimaInvalidaException;
+import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
 import com.tacs.backend.services.implem.clima.MonitorProveedoresClima;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -14,6 +15,8 @@ import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import io.github.resilience4j.timelimiter.TimeLimiterConfig;
+import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +26,9 @@ import org.springframework.web.client.ResourceAccessException;
 
 import java.net.SocketTimeoutException;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -313,5 +319,160 @@ class LegacyClimaResilienceTest
 
     EstadisticasProveedorClimaDto stats = monitor.construirEstadisticas(TipoProveedorClima.LEGACY);
     assertThat(stats.rechazosRateLimit()).isEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("TimeLimiter corta una llamada colgada en tiempo acotado, cancela el futuro y registra timeout en monitor y CB")
+  void execute_operacionSuperaTimeLimiter_cortaEnTiempoAcotadoCancelaTareaYRegistraTimeout() throws Exception
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(4)
+        .minimumNumberOfCalls(4)
+        .failureRateThreshold(50)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.ofDefaults();
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(50))
+        .build());
+    TimeLimiterRegistry tlRegistry = TimeLimiterRegistry.of(TimeLimiterConfig.custom()
+        .timeoutDuration(Duration.ofMillis(120))
+        .cancelRunningFuture(true)
+        .build());
+    MonitorProveedoresClima monitor = new MonitorProveedoresClima(cbRegistry, null);
+
+    LegacyClimaResilience resilience = new LegacyClimaResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        tlRegistry,
+        monitor,
+        10,
+        Duration.ofSeconds(1));
+
+    CountDownLatch tareaInterrumpida = new CountDownLatch(1);
+    AtomicInteger intentosIniciados = new AtomicInteger();
+
+    long inicioNanos = System.nanoTime();
+    try
+    {
+      assertThatThrownBy(() -> resilience.execute("user-1", () ->
+      {
+        intentosIniciados.incrementAndGet();
+        try
+        {
+          Thread.sleep(2000);
+          return "tarde";
+        } catch (InterruptedException e)
+        {
+          tareaInterrumpida.countDown();
+          Thread.currentThread().interrupt();
+          throw new RuntimeException("Interrumpido por TimeLimiter", e);
+        }
+      }))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class)
+          .hasCauseInstanceOf(TimeoutException.class);
+    } finally
+    {
+      resilience.cerrarEjecutor();
+    }
+
+    long duracionMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - inicioNanos);
+    assertThat(duracionMs).isLessThan(700L);
+    assertThat(tareaInterrumpida.await(500, TimeUnit.MILLISECONDS)).isTrue();
+    assertThat(intentosIniciados.get()).isEqualTo(1);
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("legacyClima");
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(1);
+
+    EstadisticasProveedorClimaDto stats = monitor.construirEstadisticas(TipoProveedorClima.LEGACY);
+    assertThat(stats.timeouts()).isGreaterThanOrEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Si el presupuesto de tiempo total de la request ya se agoto, corta de inmediato sin invocar al proveedor ni afectar el CB")
+  void execute_presupuestoTotalAgotado_cortaDeInmediatoSinInvocarProveedor()
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.ofDefaults();
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom().maxAttempts(3).build());
+    LegacyClimaResilience resilience = new LegacyClimaResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        10,
+        Duration.ofSeconds(1));
+
+    AtomicInteger invocaciones = new AtomicInteger();
+    ContextoProveedorClima.iniciarConPresupuesto("user-1", TipoProveedorClima.LEGACY, Duration.ZERO);
+    try
+    {
+      assertThatThrownBy(() -> resilience.execute("user-1", () ->
+      {
+        invocaciones.incrementAndGet();
+        return "no-deberia-correr";
+      }))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class)
+          .hasCauseInstanceOf(TimeoutException.class);
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
+      resilience.cerrarEjecutor();
+    }
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("legacyClima");
+    assertThat(invocaciones.get()).isEqualTo(0);
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("Cuando el presupuesto restante en el contexto es menor que el TimeLimiter del proveedor, se corta al vencer el presupuesto")
+  void execute_presupuestoRestanteMenorQueTimeLimiter_cortaSegunPresupuestoRestante() throws Exception
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.ofDefaults();
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom().maxAttempts(1).build());
+    TimeLimiterRegistry tlRegistry = TimeLimiterRegistry.of(TimeLimiterConfig.custom()
+        .timeoutDuration(Duration.ofSeconds(5))
+        .cancelRunningFuture(true)
+        .build());
+    LegacyClimaResilience resilience = new LegacyClimaResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        tlRegistry,
+        null,
+        10,
+        Duration.ofSeconds(1));
+
+    CountDownLatch tareaInterrumpida = new CountDownLatch(1);
+    ContextoProveedorClima.iniciarConPresupuesto("user-1", TipoProveedorClima.LEGACY, Duration.ofMillis(120));
+    long inicioNanos = System.nanoTime();
+    try
+    {
+      assertThatThrownBy(() -> resilience.execute("user-1", () ->
+      {
+        try
+        {
+          Thread.sleep(2000);
+          return "tarde";
+        } catch (InterruptedException e)
+        {
+          tareaInterrumpida.countDown();
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class)
+          .hasCauseInstanceOf(TimeoutException.class);
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
+      resilience.cerrarEjecutor();
+    }
+
+    long duracionMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - inicioNanos);
+    assertThat(duracionMs).isLessThan(700L);
+    assertThat(tareaInterrumpida.await(500, TimeUnit.MILLISECONDS)).isTrue();
   }
 }

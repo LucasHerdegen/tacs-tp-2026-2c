@@ -20,8 +20,8 @@ public class LegacyClimaConfig
   public RestClient legacyClimaRestClient(
       RestClient.Builder builder,
       @Value("${legacy.clima.base-url:http://localhost:9977}") String baseUrl,
-      @Value("${legacy.clima.connect-timeout-ms:1000}") long connectTimeoutMs,
-      @Value("${legacy.clima.read-timeout-ms:1500}") long readTimeoutMs)
+      @Value("${legacy.clima.connect-timeout-ms:250}") long connectTimeoutMs,
+      @Value("${legacy.clima.read-timeout-ms:350}") long readTimeoutMs)
   {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));

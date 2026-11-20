@@ -1,6 +1,10 @@
 package com.tacs.backend.services.implem.weatherapi;
 
+import com.tacs.backend.domain.clima.TipoProveedorClima;
+import com.tacs.backend.dtos.admin.EstadisticasProveedorClimaDto;
 import com.tacs.backend.exceptions.ProveedorClimaIndisponibleException;
+import com.tacs.backend.services.implem.clima.ContextoProveedorClima;
+import com.tacs.backend.services.implem.clima.MonitorProveedoresClima;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -9,6 +13,8 @@ import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import io.github.resilience4j.timelimiter.TimeLimiterConfig;
+import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +22,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -280,5 +289,125 @@ class WeatherApiResilienceTest
     assertThat(cb.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
     assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(0);
     assertThat(cb.getMetrics().getNumberOfSuccessfulCalls()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("TimeLimiter corta una llamada lenta a WeatherAPI, cancela el futuro y contabiliza timeout")
+  void execute_operacionSuperaTimeLimiter_cortaEnTiempoAcotadoCancelaTareaYRegistraTimeout() throws Exception
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
+        .slidingWindowSize(4)
+        .minimumNumberOfCalls(4)
+        .failureRateThreshold(50)
+        .build());
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.of(RateLimiterConfig.custom()
+        .limitForPeriod(20)
+        .limitRefreshPeriod(Duration.ofSeconds(1))
+        .timeoutDuration(Duration.ZERO)
+        .build());
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
+        .maxAttempts(2)
+        .waitDuration(Duration.ofMillis(50))
+        .build());
+    TimeLimiterRegistry tlRegistry = TimeLimiterRegistry.of(TimeLimiterConfig.custom()
+        .timeoutDuration(Duration.ofMillis(120))
+        .cancelRunningFuture(true)
+        .build());
+    MonitorProveedoresClima monitor = new MonitorProveedoresClima(cbRegistry, null);
+
+    WeatherApiResilience resilience = new WeatherApiResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        tlRegistry,
+        monitor);
+
+    CountDownLatch tareaInterrumpida = new CountDownLatch(1);
+    long inicioNanos = System.nanoTime();
+    try
+    {
+      assertThatThrownBy(() -> resilience.execute(() ->
+      {
+        try
+        {
+          Thread.sleep(2000);
+          return "tarde";
+        } catch (InterruptedException e)
+        {
+          tareaInterrumpida.countDown();
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class)
+          .hasCauseInstanceOf(TimeoutException.class);
+    } finally
+    {
+      resilience.cerrarEjecutor();
+    }
+
+    long duracionMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - inicioNanos);
+    assertThat(duracionMs).isLessThan(700L);
+    assertThat(tareaInterrumpida.await(500, TimeUnit.MILLISECONDS)).isTrue();
+
+    CircuitBreaker cb = cbRegistry.circuitBreaker("weatherApi");
+    assertThat(cb.getMetrics().getNumberOfFailedCalls()).isEqualTo(1);
+
+    EstadisticasProveedorClimaDto stats = monitor.construirEstadisticas(TipoProveedorClima.WEATHER_API);
+    assertThat(stats.timeouts()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("El fallback a WeatherAPI respeta el presupuesto restante de la request completa tras una falla lenta previa")
+  void execute_presupuestoRestanteAcotadoTrasFallaPrevia_cortaDentroDelTiempoTotal() throws Exception
+  {
+    CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
+    RateLimiterRegistry rlRegistry = RateLimiterRegistry.of(RateLimiterConfig.custom()
+        .limitForPeriod(20)
+        .limitRefreshPeriod(Duration.ofSeconds(1))
+        .timeoutDuration(Duration.ZERO)
+        .build());
+    RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom().maxAttempts(1).build());
+    TimeLimiterRegistry tlRegistry = TimeLimiterRegistry.of(TimeLimiterConfig.custom()
+        .timeoutDuration(Duration.ofSeconds(5))
+        .cancelRunningFuture(true)
+        .build());
+
+    WeatherApiResilience resilience = new WeatherApiResilience(
+        cbRegistry,
+        rlRegistry,
+        retryRegistry,
+        tlRegistry,
+        null);
+
+    CountDownLatch tareaInterrumpida = new CountDownLatch(1);
+    ContextoProveedorClima.iniciarConPresupuesto("user-1", TipoProveedorClima.LEGACY, Duration.ofMillis(120));
+    long inicioNanos = System.nanoTime();
+    try
+    {
+      assertThatThrownBy(() -> resilience.execute(() ->
+      {
+        try
+        {
+          Thread.sleep(2000);
+          return "tarde";
+        } catch (InterruptedException e)
+        {
+          tareaInterrumpida.countDown();
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }))
+          .isInstanceOf(ProveedorClimaIndisponibleException.class)
+          .hasCauseInstanceOf(TimeoutException.class);
+    } finally
+    {
+      ContextoProveedorClima.limpiar();
+      resilience.cerrarEjecutor();
+    }
+
+    long duracionMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - inicioNanos);
+    assertThat(duracionMs).isLessThan(700L);
+    assertThat(tareaInterrumpida.await(500, TimeUnit.MILLISECONDS)).isTrue();
   }
 }
